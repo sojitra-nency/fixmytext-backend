@@ -1,0 +1,39 @@
+# ┌─────────────────────────────────────────────────────────────────────────────┐
+# │  TextUtils — backend/.gitignore (Python / FastAPI)                          │
+# └─────────────────────────────────────────────────────────────────────────────┘
+
+# ── Python bytecode ───────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# ── Virtual environments ──────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+
+# ── Environment files (never commit secrets) ──────────────────────────────────
+.env
+
+# ── Distribution / packaging ──────────────────────────────────────────────────
+*.egg-info/
+dist/
+build/
+*.egg
+
+# ── Testing & coverage ────────────────────────────────────────────────────────
+.pytest_cache/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.coveragerc
+
+# ── Type checking ─────────────────────────────────────────────────────────────
+.mypy_cache/
+.pytype/
+
+# ── Linting ───────────────────────────────────────────────────────────────────
+.ruff_cache/

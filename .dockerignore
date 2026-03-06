@@ -1,0 +1,33 @@
+# backend/.dockerignore
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+
+# Tests (not needed at runtime)
+tests/
+pytest.ini
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# Local secrets
+.env
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.md
+.git/
+.gitignore
