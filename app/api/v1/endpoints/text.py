@@ -46,6 +46,12 @@ async def sentencecase(req: TextRequest):
     return _transform(req, "sentencecase", TextService.to_sentence_case)
 
 
+@router.post("/titlecase", response_model=TextResponse)
+async def titlecase(req: TextRequest):
+    """Convert text to Title Case."""
+    return _transform(req, "titlecase", TextService.to_title_case)
+
+
 @router.post("/upper-camel-case", response_model=TextResponse)
 async def upper_camel_case(req: TextRequest):
     """Convert text to UpperCamelCase (PascalCase)."""
@@ -68,6 +74,12 @@ async def remove_extra_spaces(req: TextRequest):
 async def remove_all_spaces(req: TextRequest):
     """Strip all whitespace from text."""
     return _transform(req, "remove-all-spaces", TextService.remove_all_spaces)
+
+
+@router.post("/remove-line-breaks", response_model=TextResponse)
+async def remove_line_breaks(req: TextRequest):
+    """Replace line breaks with spaces."""
+    return _transform(req, "remove-line-breaks", TextService.remove_line_breaks)
 
 
 @router.post("/analyze", response_model=TextAnalysisResponse)

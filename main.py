@@ -5,9 +5,6 @@ Entry point — starts the ASGI application.
 
 Run locally:
     uvicorn main:app --reload --port 8000
-
-Or use the helper script:
-    python -m scripts.start
 """
 
 from app.core.config import settings

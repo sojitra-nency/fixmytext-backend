@@ -39,6 +39,10 @@ class TextService:
         return result + "."
 
     @staticmethod
+    def to_title_case(text: str) -> str:
+        return " ".join(w.capitalize() for w in text.split())
+
+    @staticmethod
     def to_upper_camel_case(text: str) -> str:
         return "".join(w.capitalize() for w in text.split())
 
@@ -56,6 +60,10 @@ class TextService:
     @staticmethod
     def remove_all_spaces(text: str) -> str:
         return re.sub(r"\s+", "", text)
+
+    @staticmethod
+    def remove_line_breaks(text: str) -> str:
+        return re.sub(r"[\r\n]+", " ", text).strip()
 
     # ── Analysis ──────────────────────────────────────────────────────────────
 
