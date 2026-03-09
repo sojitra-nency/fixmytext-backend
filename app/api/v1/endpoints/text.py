@@ -5,7 +5,7 @@ All routes live under: /api/v1/text/...
 """
 
 from fastapi import APIRouter
-from app.models.text import TextRequest, TextResponse, TextAnalysisResponse
+from app.models.text import TextRequest, TextResponse
 from app.services.text_service import TextService
 
 router = APIRouter(prefix="/text", tags=["Text"])
@@ -80,9 +80,3 @@ async def remove_all_spaces(req: TextRequest):
 async def remove_line_breaks(req: TextRequest):
     """Replace line breaks with spaces."""
     return _transform(req, "remove-line-breaks", TextService.remove_line_breaks)
-
-
-@router.post("/analyze", response_model=TextAnalysisResponse)
-async def analyze(req: TextRequest):
-    """Return word count, sentence count, character count, and reading time."""
-    return TextAnalysisResponse(**TextService.analyze(req.text))

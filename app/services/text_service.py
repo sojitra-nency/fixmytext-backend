@@ -9,7 +9,6 @@ import re
 
 
 class TextService:
-    WORDS_PER_MINUTE = 125
 
     # ── Case transformations ──────────────────────────────────────────────────
 
@@ -65,21 +64,3 @@ class TextService:
     def remove_line_breaks(text: str) -> str:
         return re.sub(r"[\r\n]+", " ", text).strip()
 
-    # ── Analysis ──────────────────────────────────────────────────────────────
-
-    @staticmethod
-    def analyze(text: str) -> dict:
-        words = [w for w in text.split() if w]
-        sentences = [
-            s for s in re.split(r"[.?]\s*(?=\S|$)|\n", text) if s.strip()
-        ]
-        return {
-            "text": text,
-            "word_count": len(words),
-            "sentence_count": len(sentences),
-            "character_count": len(text),
-            "character_count_no_spaces": len(text.replace(" ", "")),
-            "reading_time_minutes": round(
-                len(words) / TextService.WORDS_PER_MINUTE, 2
-            ),
-        }
