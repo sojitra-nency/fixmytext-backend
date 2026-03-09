@@ -120,6 +120,32 @@ async def url_decode(req: TextRequest):
         raise HTTPException(status_code=400, detail="Invalid URL-encoded input")
 
 
+# ── Text Tools ────────────────────────────────────────────────────────────────
+
+@router.post("/reverse", response_model=TextResponse)
+async def reverse(req: TextRequest):
+    """Reverse the entire text."""
+    return _transform(req, "reverse", TextService.reverse_text)
+
+
+@router.post("/sort-lines-asc", response_model=TextResponse)
+async def sort_lines_asc(req: TextRequest):
+    """Sort lines alphabetically A → Z (case-insensitive)."""
+    return _transform(req, "sort-lines-asc", TextService.sort_lines_asc)
+
+
+@router.post("/sort-lines-desc", response_model=TextResponse)
+async def sort_lines_desc(req: TextRequest):
+    """Sort lines alphabetically Z → A (case-insensitive)."""
+    return _transform(req, "sort-lines-desc", TextService.sort_lines_desc)
+
+
+@router.post("/remove-duplicate-lines", response_model=TextResponse)
+async def remove_duplicate_lines(req: TextRequest):
+    """Remove duplicate lines, preserving first occurrence."""
+    return _transform(req, "remove-duplicate-lines", TextService.remove_duplicate_lines)
+
+
 # ── Developer Tools ───────────────────────────────────────────────────────────
 
 @router.post("/format-json", response_model=TextResponse)

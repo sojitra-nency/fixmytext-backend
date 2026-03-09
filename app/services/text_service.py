@@ -91,6 +91,32 @@ class TextService:
     def url_decode(text: str) -> str:
         return unquote(text)
 
+    # ── Text Tools ────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def reverse_text(text: str) -> str:
+        return text[::-1]
+
+    @staticmethod
+    def sort_lines_asc(text: str) -> str:
+        lines = text.splitlines()
+        return "\n".join(sorted(lines, key=str.casefold))
+
+    @staticmethod
+    def sort_lines_desc(text: str) -> str:
+        lines = text.splitlines()
+        return "\n".join(sorted(lines, key=str.casefold, reverse=True))
+
+    @staticmethod
+    def remove_duplicate_lines(text: str) -> str:
+        seen: set = set()
+        result = []
+        for line in text.splitlines():
+            if line not in seen:
+                seen.add(line)
+                result.append(line)
+        return "\n".join(result)
+
     # ── Developer Tools ───────────────────────────────────────────────────────
 
     @staticmethod
