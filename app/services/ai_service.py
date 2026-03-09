@@ -190,3 +190,93 @@ class EmailRewriterService:
         subject = lines[0][:60] if lines else "Follow-up"
         body = text.strip()
         return f"Subject: {subject}\n\nDear recipient,\n\n{body}\n\nBest regards"
+
+
+class BulletPointService:
+
+    @staticmethod
+    async def generate_bullet_points(text: str) -> str:
+        """Convert text into concise bullet points. Uses Groq if API key is set, else sentence splitting."""
+        if settings.GROQ_API_KEY:
+            try:
+                return await _groq_chat(
+                    "You are a bullet point summarizer. Given the user's text, "
+                    "extract the key points and rewrite them as clear, concise bullet points. "
+                    "Each bullet should start with '•'. Keep each point to one line. "
+                    "Aim for 5-10 bullet points covering the main ideas. "
+                    "Return ONLY the bullet points, nothing else.",
+                    text,
+                    temperature=0.6,
+                    max_tokens=400,
+                )
+            except Exception:
+                pass
+        # Fallback: split into sentences and prefix with bullet
+        import re
+        sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', text.strip()) if s.strip()]
+        return "\n".join(f"• {s}" for s in sentences[:10])
+
+
+class KeywordExtractorService:
+
+    @staticmethod
+    async def extract_keywords(text: str) -> str:
+        """Extract keywords from text. Uses Groq if API key is set, else YAKE."""
+        if settings.GROQ_API_KEY:
+            try:
+                return await _groq_chat(
+                    "You are a keyword extractor. Given the user's text, "
+                    "identify 10-15 of the most important keywords and key phrases. "
+                    "Return ONLY the keywords, one per line, ordered by relevance. "
+                    "No numbering, no explanations.",
+                    text,
+                    temperature=0.3,
+                    max_tokens=200,
+                )
+            except Exception:
+                pass
+        keywords = _yake_keywords(text, top=15)
+        return "\n".join(keywords)
+
+
+class TranslatorService:
+
+    @staticmethod
+    async def translate(text: str, target_language: str) -> str:
+        """Translate text to target language. Uses Groq if API key is set, else returns error message."""
+        if settings.GROQ_API_KEY:
+            try:
+                return await _groq_chat(
+                    f"You are a translator. Translate the user's text into {target_language}. "
+                    "Preserve the original meaning, tone, and formatting as closely as possible. "
+                    "Return ONLY the translated text, nothing else. "
+                    "Do not include any notes or explanations.",
+                    text,
+                    temperature=0.3,
+                    max_tokens=1000,
+                )
+            except Exception:
+                pass
+        return f"[Translation requires Groq API key. Set GROQ_API_KEY in .env to enable translation to {target_language}.]"
+
+
+class TransliterationService:
+
+    @staticmethod
+    async def transliterate(text: str, target_language: str) -> str:
+        """Transliterate text into the script of the target language. Uses Groq if API key is set."""
+        if settings.GROQ_API_KEY:
+            try:
+                return await _groq_chat(
+                    f"You are a transliterator. Convert the user's text into {target_language} script "
+                    "(transliteration, NOT translation). Keep the original words and sounds — "
+                    "just write them using the {target_language} writing system. "
+                    "For example, English 'hello' in Hindi script becomes 'हेलो'. "
+                    "Return ONLY the transliterated text, nothing else.",
+                    text,
+                    temperature=0.2,
+                    max_tokens=1000,
+                )
+            except Exception:
+                pass
+        return f"[Transliteration requires Groq API key. Set GROQ_API_KEY in .env to enable transliteration to {target_language}.]"

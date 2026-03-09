@@ -15,6 +15,21 @@ class TextRequest(BaseModel):
     )
 
 
+class TranslateRequest(BaseModel):
+    """Payload for translation requests."""
+
+    text: str = Field(
+        ...,
+        min_length=1,
+        max_length=50_000,
+        description="The input text to be translated.",
+    )
+    target_language: str = Field(
+        default="English",
+        description="The language to translate into.",
+    )
+
+
 class TextResponse(BaseModel):
     """Transformed text returned by the API."""
 

@@ -5,9 +5,9 @@ All routes live under: /api/v1/text/...
 """
 
 from fastapi import APIRouter, HTTPException
-from app.models.text import TextRequest, TextResponse
+from app.models.text import TextRequest, TextResponse, TranslateRequest
 from app.services.text_service import TextService
-from app.services.ai_service import HashtagService, SEOTitleService, MetaDescriptionService, BlogOutlineService, TweetShortenerService, EmailRewriterService
+from app.services.ai_service import HashtagService, SEOTitleService, MetaDescriptionService, BlogOutlineService, TweetShortenerService, EmailRewriterService, BulletPointService, KeywordExtractorService, TranslatorService, TransliterationService
 
 router = APIRouter(prefix="/text", tags=["Text"])
 
@@ -251,3 +251,59 @@ async def rewrite_email(req: TextRequest):
         )
     except Exception:
         raise HTTPException(status_code=500, detail="Email rewriting failed")
+
+
+@router.post("/generate-bullet-points", response_model=TextResponse)
+async def generate_bullet_points(req: TextRequest):
+    """Convert text into concise bullet points."""
+    try:
+        result = await BulletPointService.generate_bullet_points(req.text)
+        return TextResponse(
+            original=req.text,
+            result=result,
+            operation="generate-bullet-points",
+        )
+    except Exception:
+        raise HTTPException(status_code=500, detail="Bullet point generation failed")
+
+
+@router.post("/extract-keywords", response_model=TextResponse)
+async def extract_keywords(req: TextRequest):
+    """Extract keywords from text."""
+    try:
+        result = await KeywordExtractorService.extract_keywords(req.text)
+        return TextResponse(
+            original=req.text,
+            result=result,
+            operation="extract-keywords",
+        )
+    except Exception:
+        raise HTTPException(status_code=500, detail="Keyword extraction failed")
+
+
+@router.post("/translate", response_model=TextResponse)
+async def translate(req: TranslateRequest):
+    """Translate text to the specified target language."""
+    try:
+        result = await TranslatorService.translate(req.text, req.target_language)
+        return TextResponse(
+            original=req.text,
+            result=result,
+            operation=f"translate-{req.target_language.lower()}",
+        )
+    except Exception:
+        raise HTTPException(status_code=500, detail="Translation failed")
+
+
+@router.post("/transliterate", response_model=TextResponse)
+async def transliterate(req: TranslateRequest):
+    """Transliterate text into the script of the target language."""
+    try:
+        result = await TransliterationService.transliterate(req.text, req.target_language)
+        return TextResponse(
+            original=req.text,
+            result=result,
+            operation=f"transliterate-{req.target_language.lower()}",
+        )
+    except Exception:
+        raise HTTPException(status_code=500, detail="Transliteration failed")
