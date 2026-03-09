@@ -5,7 +5,12 @@ All methods are static; no I/O or side effects.
 Keeps endpoint handlers thin and makes the logic easily testable.
 """
 
+import base64
+import json
 import re
+from urllib.parse import quote, unquote
+
+import yaml
 
 
 class TextService:
@@ -63,4 +68,36 @@ class TextService:
     @staticmethod
     def remove_line_breaks(text: str) -> str:
         return re.sub(r"[\r\n]+", " ", text).strip()
+
+    @staticmethod
+    def minify(text: str) -> str:
+        return re.sub(r"\s+", " ", text).strip()
+
+    # ── Encoding ──────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def base64_encode(text: str) -> str:
+        return base64.b64encode(text.encode("utf-8")).decode("utf-8")
+
+    @staticmethod
+    def base64_decode(text: str) -> str:
+        return base64.b64decode(text.encode("utf-8")).decode("utf-8")
+
+    @staticmethod
+    def url_encode(text: str) -> str:
+        return quote(text, safe="")
+
+    @staticmethod
+    def url_decode(text: str) -> str:
+        return unquote(text)
+
+    # ── Developer Tools ───────────────────────────────────────────────────────
+
+    @staticmethod
+    def format_json(text: str) -> str:
+        return json.dumps(json.loads(text), indent=2, ensure_ascii=False)
+
+    @staticmethod
+    def json_to_yaml(text: str) -> str:
+        return yaml.dump(json.loads(text), allow_unicode=True, default_flow_style=False)
 

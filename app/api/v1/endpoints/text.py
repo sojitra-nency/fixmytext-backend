@@ -4,7 +4,7 @@ Text endpoint router.
 All routes live under: /api/v1/text/...
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from app.models.text import TextRequest, TextResponse
 from app.services.text_service import TextService
 
@@ -80,3 +80,61 @@ async def remove_all_spaces(req: TextRequest):
 async def remove_line_breaks(req: TextRequest):
     """Replace line breaks with spaces."""
     return _transform(req, "remove-line-breaks", TextService.remove_line_breaks)
+
+
+@router.post("/minify", response_model=TextResponse)
+async def minify(req: TextRequest):
+    """Collapse all whitespace into single spaces."""
+    return _transform(req, "minify", TextService.minify)
+
+
+# ── Encoding ──────────────────────────────────────────────────────────────────
+
+@router.post("/base64-encode", response_model=TextResponse)
+async def base64_encode(req: TextRequest):
+    """Encode text to Base64."""
+    return _transform(req, "base64-encode", TextService.base64_encode)
+
+
+@router.post("/base64-decode", response_model=TextResponse)
+async def base64_decode(req: TextRequest):
+    """Decode Base64 text."""
+    try:
+        return _transform(req, "base64-decode", TextService.base64_decode)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid Base64 input")
+
+
+@router.post("/url-encode", response_model=TextResponse)
+async def url_encode(req: TextRequest):
+    """Percent-encode text for use in a URL."""
+    return _transform(req, "url-encode", TextService.url_encode)
+
+
+@router.post("/url-decode", response_model=TextResponse)
+async def url_decode(req: TextRequest):
+    """Decode a percent-encoded URL string."""
+    try:
+        return _transform(req, "url-decode", TextService.url_decode)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid URL-encoded input")
+
+
+# ── Developer Tools ───────────────────────────────────────────────────────────
+
+@router.post("/format-json", response_model=TextResponse)
+async def format_json(req: TextRequest):
+    """Pretty-print JSON with 2-space indentation."""
+    try:
+        return _transform(req, "format-json", TextService.format_json)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON input")
+
+
+@router.post("/json-to-yaml", response_model=TextResponse)
+async def json_to_yaml(req: TextRequest):
+    """Convert JSON to YAML."""
+    try:
+        return _transform(req, "json-to-yaml", TextService.json_to_yaml)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON input")
