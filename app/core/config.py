@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     # ── API ───────────────────────────────────────────────────────────────────
     API_V1_PREFIX: str = "/api/v1"
 
+    # ── AI / Hashtag generation ────────────────────────────────────────────────
+    GROQ_API_KEY: str = ""
+
     # ── CORS ──────────────────────────────────────────────────────────────────
     # Comma-separated list in .env: ALLOWED_ORIGINS=http://localhost:3000,https://myapp.com
     ALLOWED_ORIGINS: List[str] = [

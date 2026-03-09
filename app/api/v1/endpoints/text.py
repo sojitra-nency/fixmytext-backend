@@ -7,6 +7,7 @@ All routes live under: /api/v1/text/...
 from fastapi import APIRouter, HTTPException
 from app.models.text import TextRequest, TextResponse
 from app.services.text_service import TextService
+from app.services.ai_service import HashtagService, SEOTitleService, MetaDescriptionService, BlogOutlineService, TweetShortenerService, EmailRewriterService
 
 router = APIRouter(prefix="/text", tags=["Text"])
 
@@ -164,3 +165,89 @@ async def json_to_yaml(req: TextRequest):
         return _transform(req, "json-to-yaml", TextService.json_to_yaml)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON input")
+
+
+# ── AI Tools ─────────────────────────────────────────────────────────────────
+
+@router.post("/generate-hashtags", response_model=TextResponse)
+async def generate_hashtags(req: TextRequest):
+    """Generate relevant hashtags from the input text."""
+    try:
+        result = await HashtagService.generate_hashtags(req.text)
+        return TextResponse(
+            original=req.text,
+            result=result,
+            operation="generate-hashtags",
+        )
+    except Exception:
+        raise HTTPException(status_code=500, detail="Hashtag generation failed")
+
+
+@router.post("/generate-seo-titles", response_model=TextResponse)
+async def generate_seo_titles(req: TextRequest):
+    """Generate SEO-optimized title suggestions from the input text."""
+    try:
+        result = await SEOTitleService.generate_seo_titles(req.text)
+        return TextResponse(
+            original=req.text,
+            result=result,
+            operation="generate-seo-titles",
+        )
+    except Exception:
+        raise HTTPException(status_code=500, detail="SEO title generation failed")
+
+
+@router.post("/generate-meta-descriptions", response_model=TextResponse)
+async def generate_meta_descriptions(req: TextRequest):
+    """Generate SEO meta description suggestions from the input text."""
+    try:
+        result = await MetaDescriptionService.generate_meta_descriptions(req.text)
+        return TextResponse(
+            original=req.text,
+            result=result,
+            operation="generate-meta-descriptions",
+        )
+    except Exception:
+        raise HTTPException(status_code=500, detail="Meta description generation failed")
+
+
+@router.post("/generate-blog-outline", response_model=TextResponse)
+async def generate_blog_outline(req: TextRequest):
+    """Generate a structured blog post outline from the input text."""
+    try:
+        result = await BlogOutlineService.generate_blog_outline(req.text)
+        return TextResponse(
+            original=req.text,
+            result=result,
+            operation="generate-blog-outline",
+        )
+    except Exception:
+        raise HTTPException(status_code=500, detail="Blog outline generation failed")
+
+
+@router.post("/shorten-for-tweet", response_model=TextResponse)
+async def shorten_for_tweet(req: TextRequest):
+    """Shorten text to fit within a tweet (280 characters)."""
+    try:
+        result = await TweetShortenerService.shorten_for_tweet(req.text)
+        return TextResponse(
+            original=req.text,
+            result=result,
+            operation="shorten-for-tweet",
+        )
+    except Exception:
+        raise HTTPException(status_code=500, detail="Tweet shortening failed")
+
+
+@router.post("/rewrite-email", response_model=TextResponse)
+async def rewrite_email(req: TextRequest):
+    """Rewrite text as a professional email."""
+    try:
+        result = await EmailRewriterService.rewrite_email(req.text)
+        return TextResponse(
+            original=req.text,
+            result=result,
+            operation="rewrite-email",
+        )
+    except Exception:
+        raise HTTPException(status_code=500, detail="Email rewriting failed")
