@@ -5,9 +5,9 @@ All routes live under: /api/v1/text/...
 """
 
 from fastapi import APIRouter, HTTPException
-from app.models.text import TextRequest, TextResponse, TranslateRequest
+from app.models.text import TextRequest, TextResponse, TranslateRequest, ToneRequest, FormatRequest
 from app.services.text_service import TextService
-from app.services.ai_service import HashtagService, SEOTitleService, MetaDescriptionService, BlogOutlineService, TweetShortenerService, EmailRewriterService, BulletPointService, KeywordExtractorService, TranslatorService, TransliterationService
+from app.services.ai_service import HashtagService, SEOTitleService, MetaDescriptionService, BlogOutlineService, TweetShortenerService, EmailRewriterService, BulletPointService, KeywordExtractorService, TranslatorService, TransliterationService, PunctuationFixerService, SummarizerService, GrammarFixerService, ParaphraserService, ToneChangerService, SentimentAnalyzerService, TextShortenerService, TextLengthenerService, FormatChangerService
 
 router = APIRouter(prefix="/text", tags=["Text"])
 
@@ -307,3 +307,129 @@ async def transliterate(req: TranslateRequest):
         )
     except Exception:
         raise HTTPException(status_code=500, detail="Transliteration failed")
+
+
+@router.post("/fix-punctuation", response_model=TextResponse)
+async def fix_punctuation(req: TextRequest):
+    """Fix punctuation and special characters based on sentence formation."""
+    try:
+        result = await PunctuationFixerService.fix_punctuation(req.text)
+        return TextResponse(
+            original=req.text,
+            result=result,
+            operation="fix-punctuation",
+        )
+    except Exception:
+        raise HTTPException(status_code=500, detail="Punctuation fixing failed")
+
+
+@router.post("/summarize", response_model=TextResponse)
+async def summarize(req: TextRequest):
+    """Summarize the input text."""
+    try:
+        result = await SummarizerService.summarize(req.text)
+        return TextResponse(
+            original=req.text,
+            result=result,
+            operation="summarize",
+        )
+    except Exception:
+        raise HTTPException(status_code=500, detail="Summarization failed")
+
+
+@router.post("/fix-grammar", response_model=TextResponse)
+async def fix_grammar(req: TextRequest):
+    """Fix grammar in the input text."""
+    try:
+        result = await GrammarFixerService.fix_grammar(req.text)
+        return TextResponse(
+            original=req.text,
+            result=result,
+            operation="fix-grammar",
+        )
+    except Exception:
+        raise HTTPException(status_code=500, detail="Grammar fixing failed")
+
+
+@router.post("/paraphrase", response_model=TextResponse)
+async def paraphrase(req: TextRequest):
+    """Paraphrase the input text."""
+    try:
+        result = await ParaphraserService.paraphrase(req.text)
+        return TextResponse(
+            original=req.text,
+            result=result,
+            operation="paraphrase",
+        )
+    except Exception:
+        raise HTTPException(status_code=500, detail="Paraphrasing failed")
+
+
+@router.post("/change-tone", response_model=TextResponse)
+async def change_tone(req: ToneRequest):
+    """Change the tone of the input text."""
+    try:
+        result = await ToneChangerService.change_tone(req.text, req.tone)
+        return TextResponse(
+            original=req.text,
+            result=result,
+            operation=f"tone-{req.tone.lower()}",
+        )
+    except Exception:
+        raise HTTPException(status_code=500, detail="Tone changing failed")
+
+
+@router.post("/analyze-sentiment", response_model=TextResponse)
+async def analyze_sentiment(req: TextRequest):
+    """Analyze the sentiment of the input text."""
+    try:
+        result = await SentimentAnalyzerService.analyze_sentiment(req.text)
+        return TextResponse(
+            original=req.text,
+            result=result,
+            operation="analyze-sentiment",
+        )
+    except Exception:
+        raise HTTPException(status_code=500, detail="Sentiment analysis failed")
+
+
+@router.post("/shorten-text", response_model=TextResponse)
+async def shorten_text(req: TextRequest):
+    """Shorten the input text while preserving meaning."""
+    try:
+        result = await TextShortenerService.shorten(req.text)
+        return TextResponse(
+            original=req.text,
+            result=result,
+            operation="shorten-text",
+        )
+    except Exception:
+        raise HTTPException(status_code=500, detail="Text shortening failed")
+
+
+@router.post("/lengthen-text", response_model=TextResponse)
+async def lengthen_text(req: TextRequest):
+    """Lengthen the input text with more detail."""
+    try:
+        result = await TextLengthenerService.lengthen(req.text)
+        return TextResponse(
+            original=req.text,
+            result=result,
+            operation="lengthen-text",
+        )
+    except Exception:
+        raise HTTPException(status_code=500, detail="Text lengthening failed")
+
+
+@router.post("/change-format", response_model=TextResponse)
+async def change_format(req: FormatRequest):
+    """Change the format/structure of the input text."""
+    try:
+        result = await FormatChangerService.change_format(req.text, req.format)
+        return TextResponse(
+            original=req.text,
+            result=result,
+            operation=f"format-{req.format.lower()}",
+        )
+    except Exception:
+        raise HTTPException(status_code=500, detail="Format changing failed")

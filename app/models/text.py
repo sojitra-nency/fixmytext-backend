@@ -30,6 +30,36 @@ class TranslateRequest(BaseModel):
     )
 
 
+class ToneRequest(BaseModel):
+    """Payload for tone change requests."""
+
+    text: str = Field(
+        ...,
+        min_length=1,
+        max_length=50_000,
+        description="The input text to change tone of.",
+    )
+    tone: str = Field(
+        default="formal",
+        description="Target tone: formal, casual, or friendly.",
+    )
+
+
+class FormatRequest(BaseModel):
+    """Payload for format change requests."""
+
+    text: str = Field(
+        ...,
+        min_length=1,
+        max_length=50_000,
+        description="The input text to reformat.",
+    )
+    format: str = Field(
+        default="paragraph",
+        description="Target format: paragraph, bullets, paragraph-bullets, numbered, qna, table, tldr.",
+    )
+
+
 class TextResponse(BaseModel):
     """Transformed text returned by the API."""
 
