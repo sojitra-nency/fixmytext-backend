@@ -168,6 +168,19 @@ def _lengthen_fallback(text: str) -> str:
     return "[Text lengthening requires Groq API key. Set GROQ_API_KEY in .env to enable.]"
 
 
+def _eli5_fallback(text: str) -> str:
+    return "[ELI5 simplification requires Groq API key. Set GROQ_API_KEY in .env to enable.]"
+
+
+def _proofread_fallback(text: str) -> str:
+    return "[Proofreading requires Groq API key. Set GROQ_API_KEY in .env to enable.]"
+
+
+def _generate_title_fallback(text: str) -> str:
+    keywords = _yake_keywords(text, top=5)
+    return "\n".join(f"{i}. {kw.title()}" for i, kw in enumerate(keywords[:5], 1))
+
+
 _EMOTION_KEYWORDS = {
     'happy':      {'happy', 'glad', 'joy', 'joyful', 'cheerful', 'delighted', 'excited',
                    'thrilled', 'elated', 'ecstatic', 'pleased', 'wonderful', 'fantastic'},
@@ -397,6 +410,29 @@ _PROMPTS = {
         "Do not add unrelated information. "
         "Return ONLY the expanded text, nothing else."
     ),
+    "eli5": (
+        "You are an ELI5 (Explain Like I'm 5) expert. Given the user's text, "
+        "rewrite it in the simplest possible language that a 5-year-old could understand. "
+        "Use short sentences, everyday words, and fun analogies. "
+        "Avoid jargon, technical terms, and complex sentence structures. "
+        "If the text contains technical concepts, explain them with simple comparisons. "
+        "Return ONLY the simplified text, nothing else."
+    ),
+    "proofread": (
+        "You are a professional proofreader. Given the user's text, "
+        "identify and fix all errors (spelling, grammar, punctuation, style). "
+        "Return a tracked-changes style markup showing what was changed and why. "
+        "Format each change as:\n"
+        "- ~~original~~ → **corrected** (reason)\n\n"
+        "Then provide the fully corrected text at the end under a '---' separator. "
+        "If the text has no errors, say 'No issues found.' and return the original text."
+    ),
+    "generate_title": (
+        "You are a headline generator. Given the user's text, "
+        "generate 5 concise, compelling titles/headlines that capture the essence of the content. "
+        "Each title should be under 80 characters, clear, and engaging. "
+        "Return ONLY the titles, one per line, numbered 1-5. No explanations."
+    ),
 }
 
 _TONE_INSTRUCTIONS = {
@@ -518,6 +554,24 @@ class TextLengthenerService:
     @staticmethod
     async def lengthen(text: str) -> str:
         return await _ai_transform(_PROMPTS["lengthen"], text, _lengthen_fallback, max_tokens=2000)
+
+
+class ELI5Service:
+    @staticmethod
+    async def eli5(text: str) -> str:
+        return await _ai_transform(_PROMPTS["eli5"], text, _eli5_fallback, temperature=0.7, max_tokens=1500)
+
+
+class ProofreadService:
+    @staticmethod
+    async def proofread(text: str) -> str:
+        return await _ai_transform(_PROMPTS["proofread"], text, _proofread_fallback, temperature=0.3, max_tokens=2000)
+
+
+class TitleGeneratorService:
+    @staticmethod
+    async def generate_title(text: str) -> str:
+        return await _ai_transform(_PROMPTS["generate_title"], text, _generate_title_fallback, temperature=0.8, max_tokens=300)
 
 
 class FormatChangerService:

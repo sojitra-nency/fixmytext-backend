@@ -15,6 +15,7 @@ from app.services.ai_service import (
     SummarizerService, GrammarFixerService,
     ParaphraserService, ToneChangerService, SentimentAnalyzerService,
     TextLengthenerService, FormatChangerService,
+    ELI5Service, ProofreadService, TitleGeneratorService,
 )
 
 router = APIRouter(prefix="/text", tags=["Text"])
@@ -404,6 +405,24 @@ async def analyze_sentiment(request: Request, req: TextRequest):
 async def lengthen_text(request: Request, req: TextRequest):
     """Lengthen the input text with more detail."""
     return await _ai_endpoint(request, req, "lengthen-text", TextLengthenerService.lengthen, "Text lengthening failed")
+
+
+@router.post("/eli5", response_model=TextResponse)
+async def eli5(request: Request, req: TextRequest):
+    """Simplify text for easy understanding (ELI5)."""
+    return await _ai_endpoint(request, req, "eli5", ELI5Service.eli5, "ELI5 simplification failed")
+
+
+@router.post("/proofread", response_model=TextResponse)
+async def proofread(request: Request, req: TextRequest):
+    """Proofread text with tracked-changes style suggestions."""
+    return await _ai_endpoint(request, req, "proofread", ProofreadService.proofread, "Proofreading failed")
+
+
+@router.post("/generate-title", response_model=TextResponse)
+async def generate_title(request: Request, req: TextRequest):
+    """Generate concise titles/headlines for the input text."""
+    return await _ai_endpoint(request, req, "generate-title", TitleGeneratorService.generate_title, "Title generation failed")
 
 
 @router.post("/change-format", response_model=TextResponse)
