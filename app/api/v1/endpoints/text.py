@@ -15,7 +15,7 @@ from app.services.ai_service import (
     SummarizerService, GrammarFixerService,
     ParaphraserService, ToneChangerService, SentimentAnalyzerService,
     TextLengthenerService, FormatChangerService,
-    ELI5Service, ProofreadService, TitleGeneratorService,
+    ELI5Service, ProofreadService, TitleGeneratorService, PromptRefactorService,
 )
 
 router = APIRouter(prefix="/text", tags=["Text"])
@@ -423,6 +423,12 @@ async def proofread(request: Request, req: TextRequest):
 async def generate_title(request: Request, req: TextRequest):
     """Generate concise titles/headlines for the input text."""
     return await _ai_endpoint(request, req, "generate-title", TitleGeneratorService.generate_title, "Title generation failed")
+
+
+@router.post("/refactor-prompt", response_model=TextResponse)
+async def refactor_prompt(request: Request, req: TextRequest):
+    """Refactor a prompt to use minimum tokens."""
+    return await _ai_endpoint(request, req, "refactor-prompt", PromptRefactorService.refactor_prompt, "Prompt refactoring failed")
 
 
 @router.post("/change-format", response_model=TextResponse)

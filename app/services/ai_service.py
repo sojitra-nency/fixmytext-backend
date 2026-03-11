@@ -176,6 +176,10 @@ def _proofread_fallback(text: str) -> str:
     return "[Proofreading requires Groq API key. Set GROQ_API_KEY in .env to enable.]"
 
 
+def _refactor_prompt_fallback(text: str) -> str:
+    return "[Prompt refactoring requires Groq API key. Set GROQ_API_KEY in .env to enable.]"
+
+
 def _generate_title_fallback(text: str) -> str:
     keywords = _yake_keywords(text, top=5)
     return "\n".join(f"{i}. {kw.title()}" for i, kw in enumerate(keywords[:5], 1))
@@ -433,6 +437,20 @@ _PROMPTS = {
         "Each title should be under 80 characters, clear, and engaging. "
         "Return ONLY the titles, one per line, numbered 1-5. No explanations."
     ),
+    "refactor_prompt": (
+        "You are a prompt engineer specializing in token optimization. "
+        "Rewrite the user's prompt to use minimum tokens while preserving "
+        "all instructions, constraints, and intent. Techniques:\n"
+        "- Remove filler words, redundancy, and verbose phrasing\n"
+        "- Use concise directives instead of polite requests\n"
+        "- Merge overlapping instructions\n"
+        "- Use symbols/shorthand where clear (e.g. → for 'convert to')\n"
+        "- Keep all technical constraints and output format requirements\n\n"
+        "Return ONLY the optimized prompt. After the prompt, add two blank lines, "
+        "then on a separate line: "
+        "'[Original: ~N tokens → Optimized: ~N tokens, Saved: ~N%]' "
+        "(estimate token counts)."
+    ),
 }
 
 _TONE_INSTRUCTIONS = {
@@ -566,6 +584,12 @@ class ProofreadService:
     @staticmethod
     async def proofread(text: str) -> str:
         return await _ai_transform(_PROMPTS["proofread"], text, _proofread_fallback, temperature=0.3, max_tokens=2000)
+
+
+class PromptRefactorService:
+    @staticmethod
+    async def refactor_prompt(text: str) -> str:
+        return await _ai_transform(_PROMPTS["refactor_prompt"], text, _refactor_prompt_fallback, temperature=0.4, max_tokens=1500)
 
 
 class TitleGeneratorService:
