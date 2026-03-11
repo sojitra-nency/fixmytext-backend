@@ -85,6 +85,18 @@ async def lower_camel_case(req: TextRequest):
     return _transform(req, "lower-camel-case", TextService.to_lower_camel_case)
 
 
+@router.post("/snake-case", response_model=TextResponse)
+async def snake_case(req: TextRequest):
+    """Convert text to snake_case."""
+    return _transform(req, "snake-case", TextService.to_snake_case)
+
+
+@router.post("/kebab-case", response_model=TextResponse)
+async def kebab_case(req: TextRequest):
+    """Convert text to kebab-case."""
+    return _transform(req, "kebab-case", TextService.to_kebab_case)
+
+
 @router.post("/remove-extra-spaces", response_model=TextResponse)
 async def remove_extra_spaces(req: TextRequest):
     """Collapse multiple whitespace runs into a single space."""
@@ -102,6 +114,26 @@ async def remove_line_breaks(req: TextRequest):
     """Replace line breaks with spaces."""
     return _transform(req, "remove-line-breaks", TextService.remove_line_breaks)
 
+
+
+# ── Text Cleaning ────────────────────────────────────────────────────────
+
+@router.post("/strip-html", response_model=TextResponse)
+async def strip_html(req: TextRequest):
+    """Remove HTML tags and decode entities."""
+    return _transform(req, "strip-html", TextService.strip_html)
+
+
+@router.post("/remove-accents", response_model=TextResponse)
+async def remove_accents(req: TextRequest):
+    """Remove diacritics/accents from text."""
+    return _transform(req, "remove-accents", TextService.remove_accents)
+
+
+@router.post("/toggle-smart-quotes", response_model=TextResponse)
+async def toggle_smart_quotes(req: TextRequest):
+    """Toggle between smart (curly) and straight quotes."""
+    return _transform(req, "toggle-smart-quotes", TextService.toggle_smart_quotes)
 
 
 # ── Encoding ──────────────────────────────────────────────────────────────────
@@ -136,6 +168,36 @@ async def url_decode(req: TextRequest):
         raise HTTPException(status_code=400, detail="Invalid URL-encoded input")
 
 
+@router.post("/hex-encode", response_model=TextResponse)
+async def hex_encode(req: TextRequest):
+    """Encode text to hexadecimal."""
+    return _transform(req, "hex-encode", TextService.hex_encode)
+
+
+@router.post("/hex-decode", response_model=TextResponse)
+async def hex_decode(req: TextRequest):
+    """Decode hexadecimal to text."""
+    try:
+        return _transform(req, "hex-decode", TextService.hex_decode)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid hexadecimal input")
+
+
+@router.post("/morse-encode", response_model=TextResponse)
+async def morse_encode(req: TextRequest):
+    """Encode text to Morse code."""
+    return _transform(req, "morse-encode", TextService.morse_encode)
+
+
+@router.post("/morse-decode", response_model=TextResponse)
+async def morse_decode(req: TextRequest):
+    """Decode Morse code to text."""
+    try:
+        return _transform(req, "morse-decode", TextService.morse_decode)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid Morse code input")
+
+
 # ── Text Tools ────────────────────────────────────────────────────────────────
 
 @router.post("/reverse", response_model=TextResponse)
@@ -162,6 +224,24 @@ async def remove_duplicate_lines(req: TextRequest):
     return _transform(req, "remove-duplicate-lines", TextService.remove_duplicate_lines)
 
 
+@router.post("/reverse-lines", response_model=TextResponse)
+async def reverse_lines(req: TextRequest):
+    """Reverse line order."""
+    return _transform(req, "reverse-lines", TextService.reverse_lines)
+
+
+@router.post("/number-lines", response_model=TextResponse)
+async def number_lines(req: TextRequest):
+    """Prefix each line with its line number."""
+    return _transform(req, "number-lines", TextService.number_lines)
+
+
+@router.post("/rot13", response_model=TextResponse)
+async def rot13(req: TextRequest):
+    """Apply ROT13 cipher to text."""
+    return _transform(req, "rot13", TextService.rot13)
+
+
 # ── Developer Tools ───────────────────────────────────────────────────────────
 
 @router.post("/format-json", response_model=TextResponse)
@@ -180,6 +260,55 @@ async def json_to_yaml(req: TextRequest):
         return _transform(req, "json-to-yaml", TextService.json_to_yaml)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON input")
+
+
+# ── Escape / Unescape ────────────────────────────────────────────────────────
+
+@router.post("/json-escape", response_model=TextResponse)
+async def json_escape(req: TextRequest):
+    """Escape special characters for JSON strings."""
+    return _transform(req, "json-escape", TextService.json_escape)
+
+
+@router.post("/json-unescape", response_model=TextResponse)
+async def json_unescape(req: TextRequest):
+    """Unescape JSON string escape sequences."""
+    try:
+        return _transform(req, "json-unescape", TextService.json_unescape)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON escaped input")
+
+
+@router.post("/html-escape", response_model=TextResponse)
+async def html_escape(req: TextRequest):
+    """Escape HTML special characters to entities."""
+    return _transform(req, "html-escape", TextService.html_escape)
+
+
+@router.post("/html-unescape", response_model=TextResponse)
+async def html_unescape(req: TextRequest):
+    """Decode HTML entities to characters."""
+    return _transform(req, "html-unescape", TextService.html_unescape)
+
+
+# ── CSV / JSON Conversion ────────────────────────────────────────────────────
+
+@router.post("/csv-to-json", response_model=TextResponse)
+async def csv_to_json(req: TextRequest):
+    """Convert CSV text to JSON array."""
+    try:
+        return _transform(req, "csv-to-json", TextService.csv_to_json)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid CSV input")
+
+
+@router.post("/json-to-csv", response_model=TextResponse)
+async def json_to_csv(req: TextRequest):
+    """Convert JSON array of objects to CSV."""
+    try:
+        return _transform(req, "json-to-csv", TextService.json_to_csv)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON input (expected array of objects)")
 
 
 # ── AI Tools ─────────────────────────────────────────────────────────────────
