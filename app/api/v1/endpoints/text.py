@@ -4,14 +4,22 @@ Text endpoint router.
 All routes live under: /api/v1/text/...
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from app.models.text import TextRequest, TextResponse, TranslateRequest, ToneRequest, FormatRequest
+from app.core.rate_limit import ai_limiter
 from app.services.text_service import TextService
-from app.services.ai_service import HashtagService, SEOTitleService, MetaDescriptionService, BlogOutlineService, TweetShortenerService, EmailRewriterService, BulletPointService, KeywordExtractorService, TranslatorService, TransliterationService, PunctuationFixerService, SummarizerService, GrammarFixerService, ParaphraserService, ToneChangerService, SentimentAnalyzerService, TextShortenerService, TextLengthenerService, FormatChangerService
+from app.services.ai_service import (
+    HashtagService, SEOTitleService, MetaDescriptionService, BlogOutlineService,
+    TweetShortenerService, EmailRewriterService,
+    KeywordExtractorService, TranslatorService, TransliterationService,
+    SummarizerService, GrammarFixerService,
+    ParaphraserService, ToneChangerService, SentimentAnalyzerService,
+    TextLengthenerService, FormatChangerService,
+)
 
 router = APIRouter(prefix="/text", tags=["Text"])
 
-# ── Helper ────────────────────────────────────────────────────────────────────
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _transform(req: TextRequest, operation: str, fn) -> TextResponse:
     return TextResponse(
@@ -21,7 +29,19 @@ def _transform(req: TextRequest, operation: str, fn) -> TextResponse:
     )
 
 
-# ── Routes ────────────────────────────────────────────────────────────────────
+async def _ai_endpoint(request: Request, req, operation: str, service_fn, error_detail: str, *extra_args) -> TextResponse:
+    """Shared handler for all AI-powered endpoints."""
+    ai_limiter.check(request)
+    try:
+        result = await service_fn(req.text, *extra_args)
+        return TextResponse(original=req.text, result=result, operation=operation)
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=500, detail=error_detail)
+
+
+# ── Text Transformations ─────────────────────────────────────────────────────
 
 @router.post("/uppercase", response_model=TextResponse)
 async def uppercase(req: TextRequest):
@@ -82,11 +102,6 @@ async def remove_line_breaks(req: TextRequest):
     """Replace line breaks with spaces."""
     return _transform(req, "remove-line-breaks", TextService.remove_line_breaks)
 
-
-@router.post("/minify", response_model=TextResponse)
-async def minify(req: TextRequest):
-    """Collapse all whitespace into single spaces."""
-    return _transform(req, "minify", TextService.minify)
 
 
 # ── Encoding ──────────────────────────────────────────────────────────────────
@@ -170,266 +185,99 @@ async def json_to_yaml(req: TextRequest):
 # ── AI Tools ─────────────────────────────────────────────────────────────────
 
 @router.post("/generate-hashtags", response_model=TextResponse)
-async def generate_hashtags(req: TextRequest):
+async def generate_hashtags(request: Request, req: TextRequest):
     """Generate relevant hashtags from the input text."""
-    try:
-        result = await HashtagService.generate_hashtags(req.text)
-        return TextResponse(
-            original=req.text,
-            result=result,
-            operation="generate-hashtags",
-        )
-    except Exception:
-        raise HTTPException(status_code=500, detail="Hashtag generation failed")
+    return await _ai_endpoint(request, req, "generate-hashtags", HashtagService.generate_hashtags, "Hashtag generation failed")
 
 
 @router.post("/generate-seo-titles", response_model=TextResponse)
-async def generate_seo_titles(req: TextRequest):
+async def generate_seo_titles(request: Request, req: TextRequest):
     """Generate SEO-optimized title suggestions from the input text."""
-    try:
-        result = await SEOTitleService.generate_seo_titles(req.text)
-        return TextResponse(
-            original=req.text,
-            result=result,
-            operation="generate-seo-titles",
-        )
-    except Exception:
-        raise HTTPException(status_code=500, detail="SEO title generation failed")
+    return await _ai_endpoint(request, req, "generate-seo-titles", SEOTitleService.generate_seo_titles, "SEO title generation failed")
 
 
 @router.post("/generate-meta-descriptions", response_model=TextResponse)
-async def generate_meta_descriptions(req: TextRequest):
+async def generate_meta_descriptions(request: Request, req: TextRequest):
     """Generate SEO meta description suggestions from the input text."""
-    try:
-        result = await MetaDescriptionService.generate_meta_descriptions(req.text)
-        return TextResponse(
-            original=req.text,
-            result=result,
-            operation="generate-meta-descriptions",
-        )
-    except Exception:
-        raise HTTPException(status_code=500, detail="Meta description generation failed")
+    return await _ai_endpoint(request, req, "generate-meta-descriptions", MetaDescriptionService.generate_meta_descriptions, "Meta description generation failed")
 
 
 @router.post("/generate-blog-outline", response_model=TextResponse)
-async def generate_blog_outline(req: TextRequest):
+async def generate_blog_outline(request: Request, req: TextRequest):
     """Generate a structured blog post outline from the input text."""
-    try:
-        result = await BlogOutlineService.generate_blog_outline(req.text)
-        return TextResponse(
-            original=req.text,
-            result=result,
-            operation="generate-blog-outline",
-        )
-    except Exception:
-        raise HTTPException(status_code=500, detail="Blog outline generation failed")
+    return await _ai_endpoint(request, req, "generate-blog-outline", BlogOutlineService.generate_blog_outline, "Blog outline generation failed")
 
 
 @router.post("/shorten-for-tweet", response_model=TextResponse)
-async def shorten_for_tweet(req: TextRequest):
+async def shorten_for_tweet(request: Request, req: TextRequest):
     """Shorten text to fit within a tweet (280 characters)."""
-    try:
-        result = await TweetShortenerService.shorten_for_tweet(req.text)
-        return TextResponse(
-            original=req.text,
-            result=result,
-            operation="shorten-for-tweet",
-        )
-    except Exception:
-        raise HTTPException(status_code=500, detail="Tweet shortening failed")
+    return await _ai_endpoint(request, req, "shorten-for-tweet", TweetShortenerService.shorten_for_tweet, "Tweet shortening failed")
 
 
 @router.post("/rewrite-email", response_model=TextResponse)
-async def rewrite_email(req: TextRequest):
+async def rewrite_email(request: Request, req: TextRequest):
     """Rewrite text as a professional email."""
-    try:
-        result = await EmailRewriterService.rewrite_email(req.text)
-        return TextResponse(
-            original=req.text,
-            result=result,
-            operation="rewrite-email",
-        )
-    except Exception:
-        raise HTTPException(status_code=500, detail="Email rewriting failed")
+    return await _ai_endpoint(request, req, "rewrite-email", EmailRewriterService.rewrite_email, "Email rewriting failed")
 
-
-@router.post("/generate-bullet-points", response_model=TextResponse)
-async def generate_bullet_points(req: TextRequest):
-    """Convert text into concise bullet points."""
-    try:
-        result = await BulletPointService.generate_bullet_points(req.text)
-        return TextResponse(
-            original=req.text,
-            result=result,
-            operation="generate-bullet-points",
-        )
-    except Exception:
-        raise HTTPException(status_code=500, detail="Bullet point generation failed")
 
 
 @router.post("/extract-keywords", response_model=TextResponse)
-async def extract_keywords(req: TextRequest):
+async def extract_keywords(request: Request, req: TextRequest):
     """Extract keywords from text."""
-    try:
-        result = await KeywordExtractorService.extract_keywords(req.text)
-        return TextResponse(
-            original=req.text,
-            result=result,
-            operation="extract-keywords",
-        )
-    except Exception:
-        raise HTTPException(status_code=500, detail="Keyword extraction failed")
+    return await _ai_endpoint(request, req, "extract-keywords", KeywordExtractorService.extract_keywords, "Keyword extraction failed")
 
 
 @router.post("/translate", response_model=TextResponse)
-async def translate(req: TranslateRequest):
+async def translate(request: Request, req: TranslateRequest):
     """Translate text to the specified target language."""
-    try:
-        result = await TranslatorService.translate(req.text, req.target_language)
-        return TextResponse(
-            original=req.text,
-            result=result,
-            operation=f"translate-{req.target_language.lower()}",
-        )
-    except Exception:
-        raise HTTPException(status_code=500, detail="Translation failed")
+    return await _ai_endpoint(request, req, f"translate-{req.target_language.lower()}", TranslatorService.translate, "Translation failed", req.target_language)
 
 
 @router.post("/transliterate", response_model=TextResponse)
-async def transliterate(req: TranslateRequest):
+async def transliterate(request: Request, req: TranslateRequest):
     """Transliterate text into the script of the target language."""
-    try:
-        result = await TransliterationService.transliterate(req.text, req.target_language)
-        return TextResponse(
-            original=req.text,
-            result=result,
-            operation=f"transliterate-{req.target_language.lower()}",
-        )
-    except Exception:
-        raise HTTPException(status_code=500, detail="Transliteration failed")
+    return await _ai_endpoint(request, req, f"transliterate-{req.target_language.lower()}", TransliterationService.transliterate, "Transliteration failed", req.target_language)
 
-
-@router.post("/fix-punctuation", response_model=TextResponse)
-async def fix_punctuation(req: TextRequest):
-    """Fix punctuation and special characters based on sentence formation."""
-    try:
-        result = await PunctuationFixerService.fix_punctuation(req.text)
-        return TextResponse(
-            original=req.text,
-            result=result,
-            operation="fix-punctuation",
-        )
-    except Exception:
-        raise HTTPException(status_code=500, detail="Punctuation fixing failed")
 
 
 @router.post("/summarize", response_model=TextResponse)
-async def summarize(req: TextRequest):
+async def summarize(request: Request, req: TextRequest):
     """Summarize the input text."""
-    try:
-        result = await SummarizerService.summarize(req.text)
-        return TextResponse(
-            original=req.text,
-            result=result,
-            operation="summarize",
-        )
-    except Exception:
-        raise HTTPException(status_code=500, detail="Summarization failed")
+    return await _ai_endpoint(request, req, "summarize", SummarizerService.summarize, "Summarization failed")
 
 
 @router.post("/fix-grammar", response_model=TextResponse)
-async def fix_grammar(req: TextRequest):
+async def fix_grammar(request: Request, req: TextRequest):
     """Fix grammar in the input text."""
-    try:
-        result = await GrammarFixerService.fix_grammar(req.text)
-        return TextResponse(
-            original=req.text,
-            result=result,
-            operation="fix-grammar",
-        )
-    except Exception:
-        raise HTTPException(status_code=500, detail="Grammar fixing failed")
+    return await _ai_endpoint(request, req, "fix-grammar", GrammarFixerService.fix_grammar, "Grammar fixing failed")
 
 
 @router.post("/paraphrase", response_model=TextResponse)
-async def paraphrase(req: TextRequest):
+async def paraphrase(request: Request, req: TextRequest):
     """Paraphrase the input text."""
-    try:
-        result = await ParaphraserService.paraphrase(req.text)
-        return TextResponse(
-            original=req.text,
-            result=result,
-            operation="paraphrase",
-        )
-    except Exception:
-        raise HTTPException(status_code=500, detail="Paraphrasing failed")
+    return await _ai_endpoint(request, req, "paraphrase", ParaphraserService.paraphrase, "Paraphrasing failed")
 
 
 @router.post("/change-tone", response_model=TextResponse)
-async def change_tone(req: ToneRequest):
+async def change_tone(request: Request, req: ToneRequest):
     """Change the tone of the input text."""
-    try:
-        result = await ToneChangerService.change_tone(req.text, req.tone)
-        return TextResponse(
-            original=req.text,
-            result=result,
-            operation=f"tone-{req.tone.lower()}",
-        )
-    except Exception:
-        raise HTTPException(status_code=500, detail="Tone changing failed")
+    return await _ai_endpoint(request, req, f"tone-{req.tone.lower()}", ToneChangerService.change_tone, "Tone changing failed", req.tone)
 
 
 @router.post("/analyze-sentiment", response_model=TextResponse)
-async def analyze_sentiment(req: TextRequest):
+async def analyze_sentiment(request: Request, req: TextRequest):
     """Analyze the sentiment of the input text."""
-    try:
-        result = await SentimentAnalyzerService.analyze_sentiment(req.text)
-        return TextResponse(
-            original=req.text,
-            result=result,
-            operation="analyze-sentiment",
-        )
-    except Exception:
-        raise HTTPException(status_code=500, detail="Sentiment analysis failed")
+    return await _ai_endpoint(request, req, "analyze-sentiment", SentimentAnalyzerService.analyze_sentiment, "Sentiment analysis failed")
 
-
-@router.post("/shorten-text", response_model=TextResponse)
-async def shorten_text(req: TextRequest):
-    """Shorten the input text while preserving meaning."""
-    try:
-        result = await TextShortenerService.shorten(req.text)
-        return TextResponse(
-            original=req.text,
-            result=result,
-            operation="shorten-text",
-        )
-    except Exception:
-        raise HTTPException(status_code=500, detail="Text shortening failed")
 
 
 @router.post("/lengthen-text", response_model=TextResponse)
-async def lengthen_text(req: TextRequest):
+async def lengthen_text(request: Request, req: TextRequest):
     """Lengthen the input text with more detail."""
-    try:
-        result = await TextLengthenerService.lengthen(req.text)
-        return TextResponse(
-            original=req.text,
-            result=result,
-            operation="lengthen-text",
-        )
-    except Exception:
-        raise HTTPException(status_code=500, detail="Text lengthening failed")
+    return await _ai_endpoint(request, req, "lengthen-text", TextLengthenerService.lengthen, "Text lengthening failed")
 
 
 @router.post("/change-format", response_model=TextResponse)
-async def change_format(req: FormatRequest):
+async def change_format(request: Request, req: FormatRequest):
     """Change the format/structure of the input text."""
-    try:
-        result = await FormatChangerService.change_format(req.text, req.format)
-        return TextResponse(
-            original=req.text,
-            result=result,
-            operation=f"format-{req.format.lower()}",
-        )
-    except Exception:
-        raise HTTPException(status_code=500, detail="Format changing failed")
+    return await _ai_endpoint(request, req, f"format-{req.format.lower()}", FormatChangerService.change_format, "Format changing failed", req.format)

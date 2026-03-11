@@ -26,11 +26,17 @@ def test_remove_all_spaces():
     assert TextService.remove_all_spaces("hello world") == "helloworld"
 
 
-def test_analyze_word_count():
-    result = TextService.analyze("Hello world. How are you?")
-    assert result["word_count"] == 5
+def test_reverse_text():
+    assert TextService.reverse_text("hello") == "olleh"
 
 
-def test_analyze_character_count():
-    result = TextService.analyze("Hi")
-    assert result["character_count"] == 2
+def test_sort_lines_asc():
+    assert TextService.sort_lines_asc("banana\napple\ncherry") == "apple\nbanana\ncherry"
+
+
+def test_base64_encode():
+    assert TextService.base64_encode("hello") == "aGVsbG8="
+
+
+def test_base64_decode():
+    assert TextService.base64_decode("aGVsbG8=") == "hello"

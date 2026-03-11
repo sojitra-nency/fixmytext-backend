@@ -69,10 +69,6 @@ class TextService:
     def remove_line_breaks(text: str) -> str:
         return re.sub(r"[\r\n]+", " ", text).strip()
 
-    @staticmethod
-    def minify(text: str) -> str:
-        return re.sub(r"\s+", " ", text).strip()
-
     # ── Encoding ──────────────────────────────────────────────────────────────
 
     @staticmethod

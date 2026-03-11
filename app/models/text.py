@@ -1,5 +1,7 @@
 """Pydantic models (schemas) for text-processing requests and responses."""
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -39,7 +41,7 @@ class ToneRequest(BaseModel):
         max_length=50_000,
         description="The input text to change tone of.",
     )
-    tone: str = Field(
+    tone: Literal["formal", "casual", "friendly"] = Field(
         default="formal",
         description="Target tone: formal, casual, or friendly.",
     )
@@ -54,9 +56,9 @@ class FormatRequest(BaseModel):
         max_length=50_000,
         description="The input text to reformat.",
     )
-    format: str = Field(
+    format: Literal["paragraph", "bullets", "paragraph-bullets", "numbered", "qna", "table", "tldr", "headings"] = Field(
         default="paragraph",
-        description="Target format: paragraph, bullets, paragraph-bullets, numbered, qna, table, tldr.",
+        description="Target format: paragraph, bullets, paragraph-bullets, numbered, qna, table, tldr, headings.",
     )
 
 
