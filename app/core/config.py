@@ -10,9 +10,9 @@ from typing import List
 
 class Settings(BaseSettings):
     # ── Project metadata ──────────────────────────────────────────────────────
-    PROJECT_NAME: str = "TextUtils API"
+    PROJECT_NAME: str = "FixMyText API"
     PROJECT_DESCRIPTION: str = (
-        "RESTful backend for the TextUtils text-manipulation application."
+        "RESTful backend for the FixMyText text-manipulation application."
     )
     VERSION: str = "0.1.0"
 

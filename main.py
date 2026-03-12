@@ -1,5 +1,5 @@
 """
-TextUtils FastAPI Backend
+FixMyText FastAPI Backend
 =========================
 Entry point — starts the ASGI application.
 
