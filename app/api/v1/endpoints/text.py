@@ -4,9 +4,11 @@ Text endpoint router.
 All routes live under: /api/v1/text/...
 """
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from app.models.text import TextRequest, TextResponse, TranslateRequest, ToneRequest, FormatRequest
 from app.core.rate_limit import ai_limiter
+from app.core.deps import get_current_user
+from app.db.models import User
 from app.services.text_service import TextService
 from app.services.ai_service import (
     HashtagService, SEOTitleService, MetaDescriptionService, BlogOutlineService,
@@ -315,123 +317,123 @@ async def json_to_csv(req: TextRequest):
 # ── AI Tools ─────────────────────────────────────────────────────────────────
 
 @router.post("/generate-hashtags", response_model=TextResponse)
-async def generate_hashtags(request: Request, req: TextRequest):
+async def generate_hashtags(request: Request, req: TextRequest, user: User = Depends(get_current_user)):
     """Generate relevant hashtags from the input text."""
     return await _ai_endpoint(request, req, "generate-hashtags", HashtagService.generate_hashtags, "Hashtag generation failed")
 
 
 @router.post("/generate-seo-titles", response_model=TextResponse)
-async def generate_seo_titles(request: Request, req: TextRequest):
+async def generate_seo_titles(request: Request, req: TextRequest, user: User = Depends(get_current_user)):
     """Generate SEO-optimized title suggestions from the input text."""
     return await _ai_endpoint(request, req, "generate-seo-titles", SEOTitleService.generate_seo_titles, "SEO title generation failed")
 
 
 @router.post("/generate-meta-descriptions", response_model=TextResponse)
-async def generate_meta_descriptions(request: Request, req: TextRequest):
+async def generate_meta_descriptions(request: Request, req: TextRequest, user: User = Depends(get_current_user)):
     """Generate SEO meta description suggestions from the input text."""
     return await _ai_endpoint(request, req, "generate-meta-descriptions", MetaDescriptionService.generate_meta_descriptions, "Meta description generation failed")
 
 
 @router.post("/generate-blog-outline", response_model=TextResponse)
-async def generate_blog_outline(request: Request, req: TextRequest):
+async def generate_blog_outline(request: Request, req: TextRequest, user: User = Depends(get_current_user)):
     """Generate a structured blog post outline from the input text."""
     return await _ai_endpoint(request, req, "generate-blog-outline", BlogOutlineService.generate_blog_outline, "Blog outline generation failed")
 
 
 @router.post("/shorten-for-tweet", response_model=TextResponse)
-async def shorten_for_tweet(request: Request, req: TextRequest):
+async def shorten_for_tweet(request: Request, req: TextRequest, user: User = Depends(get_current_user)):
     """Shorten text to fit within a tweet (280 characters)."""
     return await _ai_endpoint(request, req, "shorten-for-tweet", TweetShortenerService.shorten_for_tweet, "Tweet shortening failed")
 
 
 @router.post("/rewrite-email", response_model=TextResponse)
-async def rewrite_email(request: Request, req: TextRequest):
+async def rewrite_email(request: Request, req: TextRequest, user: User = Depends(get_current_user)):
     """Rewrite text as a professional email."""
     return await _ai_endpoint(request, req, "rewrite-email", EmailRewriterService.rewrite_email, "Email rewriting failed")
 
 
 
 @router.post("/extract-keywords", response_model=TextResponse)
-async def extract_keywords(request: Request, req: TextRequest):
+async def extract_keywords(request: Request, req: TextRequest, user: User = Depends(get_current_user)):
     """Extract keywords from text."""
     return await _ai_endpoint(request, req, "extract-keywords", KeywordExtractorService.extract_keywords, "Keyword extraction failed")
 
 
 @router.post("/translate", response_model=TextResponse)
-async def translate(request: Request, req: TranslateRequest):
+async def translate(request: Request, req: TranslateRequest, user: User = Depends(get_current_user)):
     """Translate text to the specified target language."""
     return await _ai_endpoint(request, req, f"translate-{req.target_language.lower()}", TranslatorService.translate, "Translation failed", req.target_language)
 
 
 @router.post("/transliterate", response_model=TextResponse)
-async def transliterate(request: Request, req: TranslateRequest):
+async def transliterate(request: Request, req: TranslateRequest, user: User = Depends(get_current_user)):
     """Transliterate text into the script of the target language."""
     return await _ai_endpoint(request, req, f"transliterate-{req.target_language.lower()}", TransliterationService.transliterate, "Transliteration failed", req.target_language)
 
 
 
 @router.post("/summarize", response_model=TextResponse)
-async def summarize(request: Request, req: TextRequest):
+async def summarize(request: Request, req: TextRequest, user: User = Depends(get_current_user)):
     """Summarize the input text."""
     return await _ai_endpoint(request, req, "summarize", SummarizerService.summarize, "Summarization failed")
 
 
 @router.post("/fix-grammar", response_model=TextResponse)
-async def fix_grammar(request: Request, req: TextRequest):
+async def fix_grammar(request: Request, req: TextRequest, user: User = Depends(get_current_user)):
     """Fix grammar in the input text."""
     return await _ai_endpoint(request, req, "fix-grammar", GrammarFixerService.fix_grammar, "Grammar fixing failed")
 
 
 @router.post("/paraphrase", response_model=TextResponse)
-async def paraphrase(request: Request, req: TextRequest):
+async def paraphrase(request: Request, req: TextRequest, user: User = Depends(get_current_user)):
     """Paraphrase the input text."""
     return await _ai_endpoint(request, req, "paraphrase", ParaphraserService.paraphrase, "Paraphrasing failed")
 
 
 @router.post("/change-tone", response_model=TextResponse)
-async def change_tone(request: Request, req: ToneRequest):
+async def change_tone(request: Request, req: ToneRequest, user: User = Depends(get_current_user)):
     """Change the tone of the input text."""
     return await _ai_endpoint(request, req, f"tone-{req.tone.lower()}", ToneChangerService.change_tone, "Tone changing failed", req.tone)
 
 
 @router.post("/analyze-sentiment", response_model=TextResponse)
-async def analyze_sentiment(request: Request, req: TextRequest):
+async def analyze_sentiment(request: Request, req: TextRequest, user: User = Depends(get_current_user)):
     """Analyze the sentiment of the input text."""
     return await _ai_endpoint(request, req, "analyze-sentiment", SentimentAnalyzerService.analyze_sentiment, "Sentiment analysis failed")
 
 
 
 @router.post("/lengthen-text", response_model=TextResponse)
-async def lengthen_text(request: Request, req: TextRequest):
+async def lengthen_text(request: Request, req: TextRequest, user: User = Depends(get_current_user)):
     """Lengthen the input text with more detail."""
     return await _ai_endpoint(request, req, "lengthen-text", TextLengthenerService.lengthen, "Text lengthening failed")
 
 
 @router.post("/eli5", response_model=TextResponse)
-async def eli5(request: Request, req: TextRequest):
+async def eli5(request: Request, req: TextRequest, user: User = Depends(get_current_user)):
     """Simplify text for easy understanding (ELI5)."""
     return await _ai_endpoint(request, req, "eli5", ELI5Service.eli5, "ELI5 simplification failed")
 
 
 @router.post("/proofread", response_model=TextResponse)
-async def proofread(request: Request, req: TextRequest):
+async def proofread(request: Request, req: TextRequest, user: User = Depends(get_current_user)):
     """Proofread text with tracked-changes style suggestions."""
     return await _ai_endpoint(request, req, "proofread", ProofreadService.proofread, "Proofreading failed")
 
 
 @router.post("/generate-title", response_model=TextResponse)
-async def generate_title(request: Request, req: TextRequest):
+async def generate_title(request: Request, req: TextRequest, user: User = Depends(get_current_user)):
     """Generate concise titles/headlines for the input text."""
     return await _ai_endpoint(request, req, "generate-title", TitleGeneratorService.generate_title, "Title generation failed")
 
 
 @router.post("/refactor-prompt", response_model=TextResponse)
-async def refactor_prompt(request: Request, req: TextRequest):
+async def refactor_prompt(request: Request, req: TextRequest, user: User = Depends(get_current_user)):
     """Refactor a prompt to use minimum tokens."""
     return await _ai_endpoint(request, req, "refactor-prompt", PromptRefactorService.refactor_prompt, "Prompt refactoring failed")
 
 
 @router.post("/change-format", response_model=TextResponse)
-async def change_format(request: Request, req: FormatRequest):
+async def change_format(request: Request, req: FormatRequest, user: User = Depends(get_current_user)):
     """Change the format/structure of the input text."""
     return await _ai_endpoint(request, req, f"format-{req.format.lower()}", FormatChangerService.change_format, "Format changing failed", req.format)

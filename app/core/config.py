@@ -27,6 +27,19 @@ class Settings(BaseSettings):
     # ── AI / Hashtag generation ────────────────────────────────────────────────
     GROQ_API_KEY: str = ""
 
+    # ── Auth / JWT ────────────────────────────────────────────────────────────
+    SECRET_KEY: str = "change-me-in-production"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
+    # ── Database ─────────────────────────────────────────────────────────────
+    DATABASE_URL: str = "sqlite+aiosqlite:///./fixmytext.db"
+
+    # ── Google OAuth ─────────────────────────────────────────────────────────
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+    GOOGLE_REDIRECT_URI: str = "http://localhost:3000/auth/google/callback"
+
     # ── CORS ──────────────────────────────────────────────────────────────────
     # Comma-separated list in .env: ALLOWED_ORIGINS=http://localhost:3000,https://myapp.com
     ALLOWED_ORIGINS: List[str] = [

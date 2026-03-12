@@ -7,11 +7,25 @@ Run locally:
     uvicorn main:app --reload --port 8000
 """
 
+from contextlib import asynccontextmanager
+
 from app.core.config import settings
 from app.api.v1.router import api_router
+from app.db.engine import engine
+from app.db.base import Base
+from app.db.models import User  # noqa: F401 — ensure model is registered
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Create database tables on startup."""
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield
+
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -20,6 +34,7 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
+    lifespan=lifespan,
 )
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
@@ -28,7 +43,7 @@ app.add_middleware(
     allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 # ── Routers ───────────────────────────────────────────────────────────────────
