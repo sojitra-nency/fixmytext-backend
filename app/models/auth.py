@@ -24,8 +24,3 @@ class UserResponse(BaseModel):
     id: str
     email: str
     display_name: str
-    auth_provider: str
-
-
-class GoogleAuthRequest(BaseModel):
-    code: str = Field(..., description="Authorization code from Google OAuth redirect")

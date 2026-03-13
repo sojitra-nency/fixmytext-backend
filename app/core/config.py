@@ -35,11 +35,6 @@ class Settings(BaseSettings):
     # ── Database ─────────────────────────────────────────────────────────────
     DATABASE_URL: str = "sqlite+aiosqlite:///./fixmytext.db"
 
-    # ── Google OAuth ─────────────────────────────────────────────────────────
-    GOOGLE_CLIENT_ID: str = ""
-    GOOGLE_CLIENT_SECRET: str = ""
-    GOOGLE_REDIRECT_URI: str = "http://localhost:3000/auth/google/callback"
-
     # ── CORS ──────────────────────────────────────────────────────────────────
     # Comma-separated list in .env: ALLOWED_ORIGINS=http://localhost:3000,https://myapp.com
     ALLOWED_ORIGINS: List[str] = [

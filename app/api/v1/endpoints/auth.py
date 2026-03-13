@@ -1,4 +1,4 @@
-"""Authentication endpoints: register, login, refresh, logout, me, Google OAuth."""
+"""Authentication endpoints: register, login, refresh, logout, me."""
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,7 +9,7 @@ from app.core.deps import get_current_user
 from app.db.engine import get_db
 from app.db.models import User
 from app.models.auth import (
-    RegisterRequest, LoginRequest, TokenResponse, UserResponse, GoogleAuthRequest,
+    RegisterRequest, LoginRequest, TokenResponse, UserResponse,
 )
 from app.services.auth_service import AuthService
 
@@ -109,17 +109,4 @@ async def me(user: User = Depends(get_current_user)):
         id=user.id,
         email=user.email,
         display_name=user.display_name,
-        auth_provider=user.auth_provider,
     )
-
-
-# ── Google OAuth ─────────────────────────────────────────────────────────────
-
-@router.post("/google", response_model=TokenResponse)
-async def google_auth(req: GoogleAuthRequest, response: Response, db: AsyncSession = Depends(get_db)):
-    """Exchange a Google authorization code for tokens."""
-    user = await AuthService.google_auth(db, req.code)
-    access = create_access_token(user.id)
-    refresh = create_refresh_token(user.id)
-    _set_refresh_cookie(response, refresh)
-    return TokenResponse(access_token=access)
