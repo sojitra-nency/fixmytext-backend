@@ -14,6 +14,7 @@ from app.api.v1.router import api_router
 from app.db.engine import engine
 from app.db.base import Base
 from app.db.models import User  # noqa: F401 — ensure model is registered
+from app.services.ai_service import init_groq_client, close_groq_client
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
@@ -21,10 +22,12 @@ import uvicorn
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Create database tables on startup."""
+    """Create database tables on startup; initialize/cleanup shared clients."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    init_groq_client()
     yield
+    await close_groq_client()
 
 
 app = FastAPI(

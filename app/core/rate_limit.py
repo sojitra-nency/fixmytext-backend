@@ -23,9 +23,6 @@ class InMemoryRateLimiter:
         now = time.time()
         # Purge expired entries
         self._hits[key] = [t for t in self._hits[key] if now - t < self.window]
-        if not self._hits[key]:
-            del self._hits[key]
-            return
         if len(self._hits[key]) >= self.max_requests:
             raise HTTPException(
                 status_code=429,

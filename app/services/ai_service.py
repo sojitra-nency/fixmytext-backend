@@ -5,12 +5,13 @@ Primary: Groq API (Llama 3.3 70B) for context-aware generation.
 Fallback: YAKE keyword extraction for offline / no-key usage.
 """
 
+import asyncio
 import logging
 import re
 from typing import Callable
 
 import yake
-from groq import AsyncGroq
+from groq import AsyncGroq, APIError, APITimeoutError
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -20,19 +21,27 @@ _MODEL = "llama-3.3-70b-versatile"
 
 # ── Groq helpers ──────────────────────────────────────────────────────────────
 
-def _get_groq_client() -> AsyncGroq:
-    """Return a cached AsyncGroq client (created once, reused across requests)."""
-    if not hasattr(_get_groq_client, "_client") or _get_groq_client._client is None:
-        _get_groq_client._client = AsyncGroq(
-            api_key=settings.GROQ_API_KEY,
-            timeout=30.0,
-        )
-    return _get_groq_client._client
+_groq_client: AsyncGroq | None = None
+
+
+def init_groq_client() -> None:
+    """Initialize the Groq client (called from FastAPI lifespan)."""
+    global _groq_client
+    if settings.GROQ_API_KEY:
+        _groq_client = AsyncGroq(api_key=settings.GROQ_API_KEY, timeout=30.0)
+
+
+async def close_groq_client() -> None:
+    """Close the Groq client (called from FastAPI lifespan)."""
+    global _groq_client
+    if _groq_client is not None:
+        await _groq_client.close()
+        _groq_client = None
 
 
 async def _groq_chat(system_prompt: str, user_text: str, temperature: float = 0.7, max_tokens: int = 200) -> str:
     """Shared Groq chat helper."""
-    client = _get_groq_client()
+    client = _groq_client
     response = await client.chat.completions.create(
         model=_MODEL,
         messages=[
@@ -56,10 +65,11 @@ async def _ai_transform(
     """Unified AI transform: try Groq, fall back to local function."""
     if settings.GROQ_API_KEY:
         try:
-            return await _groq_chat(system_prompt, text, temperature, max_tokens)
-        except Exception:
+            async with asyncio.timeout(35):
+                return await _groq_chat(system_prompt, text, temperature, max_tokens)
+        except (APIError, APITimeoutError, asyncio.TimeoutError):
             logger.exception("Groq API call failed, using fallback")
-    return fallback_fn(text, *fallback_args)
+    return await asyncio.to_thread(fallback_fn, text, *fallback_args)
 
 
 # ── YAKE helper ───────────────────────────────────────────────────────────────
@@ -75,25 +85,25 @@ def _get_yake():
     return _yake_extractor
 
 
-def _yake_keywords(text: str, top: int = 10) -> list[str]:
-    """Extract top keywords via YAKE."""
+def _yake_keywords_sync(text: str, top: int = 10) -> list[str]:
+    """Extract top keywords via YAKE (synchronous)."""
     return [kw for kw, _score in _get_yake().extract_keywords(text)][:top]
 
 
 # ── Fallback functions ────────────────────────────────────────────────────────
 
 def _hashtag_fallback(text: str) -> str:
-    keywords = _yake_keywords(text)
+    keywords = _yake_keywords_sync(text)
     return " ".join(f"#{kw.replace(' ', '').capitalize()}" for kw in keywords[:10])
 
 
 def _seo_title_fallback(text: str) -> str:
-    keywords = _yake_keywords(text, top=5)
+    keywords = _yake_keywords_sync(text, top=5)
     return "\n".join(f"{i}. {kw.title()} — A Complete Guide" for i, kw in enumerate(keywords[:5], 1))
 
 
 def _meta_description_fallback(text: str) -> str:
-    keywords = _yake_keywords(text, top=3)
+    keywords = _yake_keywords_sync(text, top=3)
     return "\n".join(
         f"{i}. Discover everything about {kw}. Read our comprehensive guide and learn key insights today."
         for i, kw in enumerate(keywords[:3], 1)
@@ -101,7 +111,7 @@ def _meta_description_fallback(text: str) -> str:
 
 
 def _blog_outline_fallback(text: str) -> str:
-    keywords = _yake_keywords(text, top=5)
+    keywords = _yake_keywords_sync(text, top=5)
     topic = keywords[0].title() if keywords else "Your Topic"
     sections = [f"# Blog Post: {topic}", "", "## Introduction", f"- Hook: Why {topic} matters", "- Brief overview of key points", ""]
     for i, kw in enumerate(keywords[1:5], 1):
@@ -130,7 +140,7 @@ def _email_fallback(text: str) -> str:
 
 
 def _keyword_fallback(text: str) -> str:
-    keywords = _yake_keywords(text, top=15)
+    keywords = _yake_keywords_sync(text, top=15)
     return "\n".join(keywords)
 
 
@@ -181,7 +191,7 @@ def _refactor_prompt_fallback(text: str) -> str:
 
 
 def _generate_title_fallback(text: str) -> str:
-    keywords = _yake_keywords(text, top=5)
+    keywords = _yake_keywords_sync(text, top=5)
     return "\n".join(f"{i}. {kw.title()}" for i, kw in enumerate(keywords[:5], 1))
 
 

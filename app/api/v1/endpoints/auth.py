@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from jose import JWTError
 from app.core.security import create_access_token, create_refresh_token, decode_token
 from app.core.deps import get_current_user
 from app.db.engine import get_db
@@ -11,7 +12,7 @@ from app.db.models import User
 from app.models.auth import (
     RegisterRequest, LoginRequest, TokenResponse, UserResponse,
 )
-from app.services.auth_service import AuthService
+from app.services.auth_service import register as do_register, authenticate
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -24,7 +25,7 @@ def _set_refresh_cookie(response: Response, token: str, *, persistent: bool = Tr
         key=REFRESH_COOKIE,
         value=token,
         httponly=True,
-        secure=False,  # set True in production (HTTPS)
+        secure=not settings.DEBUG,
         samesite="lax",
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400 if persistent else None,
         path=REFRESH_COOKIE_PATH,
@@ -40,7 +41,7 @@ def _clear_refresh_cookie(response: Response) -> None:
 @router.post("/register", response_model=TokenResponse)
 async def register(req: RegisterRequest, response: Response, db: AsyncSession = Depends(get_db)):
     """Create a new account and return tokens."""
-    user = await AuthService.register(db, req.email, req.password, req.display_name)
+    user = await do_register(db, req.email, req.password, req.display_name)
     access = create_access_token(user.id)
     refresh = create_refresh_token(user.id)
     _set_refresh_cookie(response, refresh)
@@ -52,7 +53,7 @@ async def register(req: RegisterRequest, response: Response, db: AsyncSession = 
 @router.post("/login", response_model=TokenResponse)
 async def login(req: LoginRequest, response: Response, db: AsyncSession = Depends(get_db)):
     """Authenticate with email + password and return tokens."""
-    user = await AuthService.authenticate(db, req.email, req.password)
+    user = await authenticate(db, req.email, req.password)
     access = create_access_token(user.id)
     refresh = create_refresh_token(user.id)
     _set_refresh_cookie(response, refresh, persistent=req.remember_me)
@@ -70,7 +71,7 @@ async def refresh(request: Request, response: Response, db: AsyncSession = Depen
 
     try:
         payload = decode_token(token)
-    except Exception:
+    except (JWTError, ValueError):
         _clear_refresh_cookie(response)
         raise HTTPException(status_code=401, detail="Refresh token expired or invalid")
 

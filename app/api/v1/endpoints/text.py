@@ -4,12 +4,16 @@ Text endpoint router.
 All routes live under: /api/v1/text/...
 """
 
+import binascii
+import json
+import csv
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from app.models.text import TextRequest, TextResponse, TranslateRequest, ToneRequest, FormatRequest
 from app.core.rate_limit import ai_limiter
 from app.core.deps import get_current_user
 from app.db.models import User
-from app.services.text_service import TextService
+from app.services import text_service as ts
 from app.services.ai_service import (
     HashtagService, SEOTitleService, MetaDescriptionService, BlogOutlineService,
     TweetShortenerService, EmailRewriterService,
@@ -22,15 +26,8 @@ from app.services.ai_service import (
 
 router = APIRouter(prefix="/text", tags=["Text"])
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _transform(req: TextRequest, operation: str, fn) -> TextResponse:
-    return TextResponse(
-        original=req.text,
-        result=fn(req.text),
-        operation=operation,
-    )
-
+# ── Helper ────────────────────────────────────────────────────────────────────
 
 async def _ai_endpoint(request: Request, req, operation: str, service_fn, error_detail: str, *extra_args) -> TextResponse:
     """Shared handler for all AI-powered endpoints."""
@@ -49,74 +46,73 @@ async def _ai_endpoint(request: Request, req, operation: str, service_fn, error_
 @router.post("/uppercase", response_model=TextResponse)
 async def uppercase(req: TextRequest):
     """Convert text to UPPERCASE."""
-    return _transform(req, "uppercase", TextService.to_uppercase)
+    return TextResponse(original=req.text, result=ts.to_uppercase(req.text), operation="uppercase")
 
 
 @router.post("/lowercase", response_model=TextResponse)
 async def lowercase(req: TextRequest):
     """Convert text to lowercase."""
-    return _transform(req, "lowercase", TextService.to_lowercase)
+    return TextResponse(original=req.text, result=ts.to_lowercase(req.text), operation="lowercase")
 
 
 @router.post("/inversecase", response_model=TextResponse)
 async def inversecase(req: TextRequest):
     """Invert case of every character."""
-    return _transform(req, "inversecase", TextService.to_inverse_case)
+    return TextResponse(original=req.text, result=ts.to_inverse_case(req.text), operation="inversecase")
 
 
 @router.post("/sentencecase", response_model=TextResponse)
 async def sentencecase(req: TextRequest):
     """Convert text to Sentence case."""
-    return _transform(req, "sentencecase", TextService.to_sentence_case)
+    return TextResponse(original=req.text, result=ts.to_sentence_case(req.text), operation="sentencecase")
 
 
 @router.post("/titlecase", response_model=TextResponse)
 async def titlecase(req: TextRequest):
     """Convert text to Title Case."""
-    return _transform(req, "titlecase", TextService.to_title_case)
+    return TextResponse(original=req.text, result=ts.to_title_case(req.text), operation="titlecase")
 
 
 @router.post("/upper-camel-case", response_model=TextResponse)
 async def upper_camel_case(req: TextRequest):
     """Convert text to UpperCamelCase (PascalCase)."""
-    return _transform(req, "upper-camel-case", TextService.to_upper_camel_case)
+    return TextResponse(original=req.text, result=ts.to_upper_camel_case(req.text), operation="upper-camel-case")
 
 
 @router.post("/lower-camel-case", response_model=TextResponse)
 async def lower_camel_case(req: TextRequest):
     """Convert text to lowerCamelCase."""
-    return _transform(req, "lower-camel-case", TextService.to_lower_camel_case)
+    return TextResponse(original=req.text, result=ts.to_lower_camel_case(req.text), operation="lower-camel-case")
 
 
 @router.post("/snake-case", response_model=TextResponse)
 async def snake_case(req: TextRequest):
     """Convert text to snake_case."""
-    return _transform(req, "snake-case", TextService.to_snake_case)
+    return TextResponse(original=req.text, result=ts.to_snake_case(req.text), operation="snake-case")
 
 
 @router.post("/kebab-case", response_model=TextResponse)
 async def kebab_case(req: TextRequest):
     """Convert text to kebab-case."""
-    return _transform(req, "kebab-case", TextService.to_kebab_case)
+    return TextResponse(original=req.text, result=ts.to_kebab_case(req.text), operation="kebab-case")
 
 
 @router.post("/remove-extra-spaces", response_model=TextResponse)
 async def remove_extra_spaces(req: TextRequest):
     """Collapse multiple whitespace runs into a single space."""
-    return _transform(req, "remove-extra-spaces", TextService.remove_extra_spaces)
+    return TextResponse(original=req.text, result=ts.remove_extra_spaces(req.text), operation="remove-extra-spaces")
 
 
 @router.post("/remove-all-spaces", response_model=TextResponse)
 async def remove_all_spaces(req: TextRequest):
     """Strip all whitespace from text."""
-    return _transform(req, "remove-all-spaces", TextService.remove_all_spaces)
+    return TextResponse(original=req.text, result=ts.remove_all_spaces(req.text), operation="remove-all-spaces")
 
 
 @router.post("/remove-line-breaks", response_model=TextResponse)
 async def remove_line_breaks(req: TextRequest):
     """Replace line breaks with spaces."""
-    return _transform(req, "remove-line-breaks", TextService.remove_line_breaks)
-
+    return TextResponse(original=req.text, result=ts.remove_line_breaks(req.text), operation="remove-line-breaks")
 
 
 # ── Text Cleaning ────────────────────────────────────────────────────────
@@ -124,19 +120,19 @@ async def remove_line_breaks(req: TextRequest):
 @router.post("/strip-html", response_model=TextResponse)
 async def strip_html(req: TextRequest):
     """Remove HTML tags and decode entities."""
-    return _transform(req, "strip-html", TextService.strip_html)
+    return TextResponse(original=req.text, result=ts.strip_html(req.text), operation="strip-html")
 
 
 @router.post("/remove-accents", response_model=TextResponse)
 async def remove_accents(req: TextRequest):
     """Remove diacritics/accents from text."""
-    return _transform(req, "remove-accents", TextService.remove_accents)
+    return TextResponse(original=req.text, result=ts.remove_accents(req.text), operation="remove-accents")
 
 
 @router.post("/toggle-smart-quotes", response_model=TextResponse)
 async def toggle_smart_quotes(req: TextRequest):
     """Toggle between smart (curly) and straight quotes."""
-    return _transform(req, "toggle-smart-quotes", TextService.toggle_smart_quotes)
+    return TextResponse(original=req.text, result=ts.toggle_smart_quotes(req.text), operation="toggle-smart-quotes")
 
 
 # ── Encoding ──────────────────────────────────────────────────────────────────
@@ -144,60 +140,60 @@ async def toggle_smart_quotes(req: TextRequest):
 @router.post("/base64-encode", response_model=TextResponse)
 async def base64_encode(req: TextRequest):
     """Encode text to Base64."""
-    return _transform(req, "base64-encode", TextService.base64_encode)
+    return TextResponse(original=req.text, result=ts.base64_encode(req.text), operation="base64-encode")
 
 
 @router.post("/base64-decode", response_model=TextResponse)
 async def base64_decode(req: TextRequest):
     """Decode Base64 text."""
     try:
-        return _transform(req, "base64-decode", TextService.base64_decode)
-    except Exception:
+        return TextResponse(original=req.text, result=ts.base64_decode(req.text), operation="base64-decode")
+    except (binascii.Error, UnicodeDecodeError, ValueError):
         raise HTTPException(status_code=400, detail="Invalid Base64 input")
 
 
 @router.post("/url-encode", response_model=TextResponse)
 async def url_encode(req: TextRequest):
     """Percent-encode text for use in a URL."""
-    return _transform(req, "url-encode", TextService.url_encode)
+    return TextResponse(original=req.text, result=ts.url_encode(req.text), operation="url-encode")
 
 
 @router.post("/url-decode", response_model=TextResponse)
 async def url_decode(req: TextRequest):
     """Decode a percent-encoded URL string."""
     try:
-        return _transform(req, "url-decode", TextService.url_decode)
-    except Exception:
+        return TextResponse(original=req.text, result=ts.url_decode(req.text), operation="url-decode")
+    except (ValueError, UnicodeDecodeError):
         raise HTTPException(status_code=400, detail="Invalid URL-encoded input")
 
 
 @router.post("/hex-encode", response_model=TextResponse)
 async def hex_encode(req: TextRequest):
     """Encode text to hexadecimal."""
-    return _transform(req, "hex-encode", TextService.hex_encode)
+    return TextResponse(original=req.text, result=ts.hex_encode(req.text), operation="hex-encode")
 
 
 @router.post("/hex-decode", response_model=TextResponse)
 async def hex_decode(req: TextRequest):
     """Decode hexadecimal to text."""
     try:
-        return _transform(req, "hex-decode", TextService.hex_decode)
-    except Exception:
+        return TextResponse(original=req.text, result=ts.hex_decode(req.text), operation="hex-decode")
+    except (ValueError, UnicodeDecodeError):
         raise HTTPException(status_code=400, detail="Invalid hexadecimal input")
 
 
 @router.post("/morse-encode", response_model=TextResponse)
 async def morse_encode(req: TextRequest):
     """Encode text to Morse code."""
-    return _transform(req, "morse-encode", TextService.morse_encode)
+    return TextResponse(original=req.text, result=ts.morse_encode(req.text), operation="morse-encode")
 
 
 @router.post("/morse-decode", response_model=TextResponse)
 async def morse_decode(req: TextRequest):
     """Decode Morse code to text."""
     try:
-        return _transform(req, "morse-decode", TextService.morse_decode)
-    except Exception:
+        return TextResponse(original=req.text, result=ts.morse_decode(req.text), operation="morse-decode")
+    except (KeyError, ValueError):
         raise HTTPException(status_code=400, detail="Invalid Morse code input")
 
 
@@ -206,43 +202,43 @@ async def morse_decode(req: TextRequest):
 @router.post("/reverse", response_model=TextResponse)
 async def reverse(req: TextRequest):
     """Reverse the entire text."""
-    return _transform(req, "reverse", TextService.reverse_text)
+    return TextResponse(original=req.text, result=ts.reverse_text(req.text), operation="reverse")
 
 
 @router.post("/sort-lines-asc", response_model=TextResponse)
 async def sort_lines_asc(req: TextRequest):
     """Sort lines alphabetically A → Z (case-insensitive)."""
-    return _transform(req, "sort-lines-asc", TextService.sort_lines_asc)
+    return TextResponse(original=req.text, result=ts.sort_lines_asc(req.text), operation="sort-lines-asc")
 
 
 @router.post("/sort-lines-desc", response_model=TextResponse)
 async def sort_lines_desc(req: TextRequest):
     """Sort lines alphabetically Z → A (case-insensitive)."""
-    return _transform(req, "sort-lines-desc", TextService.sort_lines_desc)
+    return TextResponse(original=req.text, result=ts.sort_lines_desc(req.text), operation="sort-lines-desc")
 
 
 @router.post("/remove-duplicate-lines", response_model=TextResponse)
 async def remove_duplicate_lines(req: TextRequest):
     """Remove duplicate lines, preserving first occurrence."""
-    return _transform(req, "remove-duplicate-lines", TextService.remove_duplicate_lines)
+    return TextResponse(original=req.text, result=ts.remove_duplicate_lines(req.text), operation="remove-duplicate-lines")
 
 
 @router.post("/reverse-lines", response_model=TextResponse)
 async def reverse_lines(req: TextRequest):
     """Reverse line order."""
-    return _transform(req, "reverse-lines", TextService.reverse_lines)
+    return TextResponse(original=req.text, result=ts.reverse_lines(req.text), operation="reverse-lines")
 
 
 @router.post("/number-lines", response_model=TextResponse)
 async def number_lines(req: TextRequest):
     """Prefix each line with its line number."""
-    return _transform(req, "number-lines", TextService.number_lines)
+    return TextResponse(original=req.text, result=ts.number_lines(req.text), operation="number-lines")
 
 
 @router.post("/rot13", response_model=TextResponse)
 async def rot13(req: TextRequest):
     """Apply ROT13 cipher to text."""
-    return _transform(req, "rot13", TextService.rot13)
+    return TextResponse(original=req.text, result=ts.rot13(req.text), operation="rot13")
 
 
 # ── Developer Tools ───────────────────────────────────────────────────────────
@@ -251,8 +247,8 @@ async def rot13(req: TextRequest):
 async def format_json(req: TextRequest):
     """Pretty-print JSON with 2-space indentation."""
     try:
-        return _transform(req, "format-json", TextService.format_json)
-    except Exception:
+        return TextResponse(original=req.text, result=ts.format_json(req.text), operation="format-json")
+    except (json.JSONDecodeError, ValueError):
         raise HTTPException(status_code=400, detail="Invalid JSON input")
 
 
@@ -260,8 +256,8 @@ async def format_json(req: TextRequest):
 async def json_to_yaml(req: TextRequest):
     """Convert JSON to YAML."""
     try:
-        return _transform(req, "json-to-yaml", TextService.json_to_yaml)
-    except Exception:
+        return TextResponse(original=req.text, result=ts.json_to_yaml(req.text), operation="json-to-yaml")
+    except (json.JSONDecodeError, ValueError):
         raise HTTPException(status_code=400, detail="Invalid JSON input")
 
 
@@ -270,28 +266,28 @@ async def json_to_yaml(req: TextRequest):
 @router.post("/json-escape", response_model=TextResponse)
 async def json_escape(req: TextRequest):
     """Escape special characters for JSON strings."""
-    return _transform(req, "json-escape", TextService.json_escape)
+    return TextResponse(original=req.text, result=ts.json_escape(req.text), operation="json-escape")
 
 
 @router.post("/json-unescape", response_model=TextResponse)
 async def json_unescape(req: TextRequest):
     """Unescape JSON string escape sequences."""
     try:
-        return _transform(req, "json-unescape", TextService.json_unescape)
-    except Exception:
+        return TextResponse(original=req.text, result=ts.json_unescape(req.text), operation="json-unescape")
+    except (json.JSONDecodeError, ValueError):
         raise HTTPException(status_code=400, detail="Invalid JSON escaped input")
 
 
 @router.post("/html-escape", response_model=TextResponse)
 async def html_escape(req: TextRequest):
     """Escape HTML special characters to entities."""
-    return _transform(req, "html-escape", TextService.html_escape)
+    return TextResponse(original=req.text, result=ts.html_escape_text(req.text), operation="html-escape")
 
 
 @router.post("/html-unescape", response_model=TextResponse)
 async def html_unescape(req: TextRequest):
     """Decode HTML entities to characters."""
-    return _transform(req, "html-unescape", TextService.html_unescape)
+    return TextResponse(original=req.text, result=ts.html_unescape_text(req.text), operation="html-unescape")
 
 
 # ── CSV / JSON Conversion ────────────────────────────────────────────────────
@@ -300,8 +296,8 @@ async def html_unescape(req: TextRequest):
 async def csv_to_json(req: TextRequest):
     """Convert CSV text to JSON array."""
     try:
-        return _transform(req, "csv-to-json", TextService.csv_to_json)
-    except Exception:
+        return TextResponse(original=req.text, result=ts.csv_to_json(req.text), operation="csv-to-json")
+    except (csv.Error, ValueError):
         raise HTTPException(status_code=400, detail="Invalid CSV input")
 
 
@@ -309,8 +305,8 @@ async def csv_to_json(req: TextRequest):
 async def json_to_csv(req: TextRequest):
     """Convert JSON array of objects to CSV."""
     try:
-        return _transform(req, "json-to-csv", TextService.json_to_csv)
-    except Exception:
+        return TextResponse(original=req.text, result=ts.json_to_csv(req.text), operation="json-to-csv")
+    except (json.JSONDecodeError, ValueError, KeyError):
         raise HTTPException(status_code=400, detail="Invalid JSON input (expected array of objects)")
 
 
@@ -352,7 +348,6 @@ async def rewrite_email(request: Request, req: TextRequest, user: User = Depends
     return await _ai_endpoint(request, req, "rewrite-email", EmailRewriterService.rewrite_email, "Email rewriting failed")
 
 
-
 @router.post("/extract-keywords", response_model=TextResponse)
 async def extract_keywords(request: Request, req: TextRequest, user: User = Depends(get_current_user)):
     """Extract keywords from text."""
@@ -369,7 +364,6 @@ async def translate(request: Request, req: TranslateRequest, user: User = Depend
 async def transliterate(request: Request, req: TranslateRequest, user: User = Depends(get_current_user)):
     """Transliterate text into the script of the target language."""
     return await _ai_endpoint(request, req, f"transliterate-{req.target_language.lower()}", TransliterationService.transliterate, "Transliteration failed", req.target_language)
-
 
 
 @router.post("/summarize", response_model=TextResponse)
@@ -400,7 +394,6 @@ async def change_tone(request: Request, req: ToneRequest, user: User = Depends(g
 async def analyze_sentiment(request: Request, req: TextRequest, user: User = Depends(get_current_user)):
     """Analyze the sentiment of the input text."""
     return await _ai_endpoint(request, req, "analyze-sentiment", SentimentAnalyzerService.analyze_sentiment, "Sentiment analysis failed")
-
 
 
 @router.post("/lengthen-text", response_model=TextResponse)
