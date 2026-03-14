@@ -43,21 +43,3 @@ async def get_current_user(
     return user
 
 
-async def get_current_user_optional(
-    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
-    db: AsyncSession = Depends(get_db),
-) -> User | None:
-    """Lenient auth dependency — returns None if no valid token."""
-    if not credentials:
-        return None
-    try:
-        payload = decode_token(credentials.credentials)
-        if payload.get("type") != "access":
-            return None
-        user_id = payload.get("sub")
-        if not user_id:
-            return None
-        user = await db.get(User, user_id)
-        return user if user and user.is_active else None
-    except JWTError:
-        return None
