@@ -9,7 +9,7 @@ import json
 import csv
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from app.models.text import TextRequest, TextResponse, TranslateRequest, ToneRequest, FormatRequest
+from app.schemas.text import TextRequest, TextResponse, TranslateRequest, ToneRequest, FormatRequest
 from app.core.rate_limit import ai_limiter
 from app.core.deps import get_current_user
 from app.db.models import User

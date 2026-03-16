@@ -7,9 +7,9 @@ from app.core.config import settings
 from jose import JWTError
 from app.core.security import create_access_token, create_refresh_token, decode_token
 from app.core.deps import get_current_user
-from app.db.engine import get_db
+from app.db.session import get_db
 from app.db.models import User
-from app.models.auth import (
+from app.schemas.auth import (
     RegisterRequest, LoginRequest, TokenResponse, UserResponse,
 )
 from app.services.auth_service import register as do_register, authenticate

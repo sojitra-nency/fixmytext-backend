@@ -2,9 +2,8 @@
 
 import asyncio
 import pytest
-from app.db.engine import engine
-from app.db.base import Base
-from app.db.models import User  # noqa: F401
+from app.db.session import engine, Base
+from app.db.models import User, UserPreferences, UserGamification, UserTemplate  # noqa: F401
 
 
 @pytest.fixture(scope="session", autouse=True)
