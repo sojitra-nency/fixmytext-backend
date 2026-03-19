@@ -12,9 +12,9 @@ pydantic-settings>=2.2.0
 groq>=0.9.0
 yake>=0.4.8
 
-# Database (async SQLAlchemy + SQLite)
+# Database (async SQLAlchemy + PostgreSQL)
 sqlalchemy[asyncio]>=2.0.30
-aiosqlite>=0.20.0
+asyncpg>=0.29.0
 alembic>=1.13.0
 
 # Authentication
@@ -22,6 +22,9 @@ python-jose[cryptography]>=3.3.0
 passlib[bcrypt]>=1.7.4
 bcrypt==4.0.1
 python-multipart>=0.0.9
+
+# Payments
+razorpay>=1.4.0
 
 # Testing
 pytest>=8.1.0

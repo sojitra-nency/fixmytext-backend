@@ -7,22 +7,40 @@ Run locally:
     uvicorn main:app --reload --port 8000
 """
 
+import asyncio
 from contextlib import asynccontextmanager
+from concurrent.futures import ThreadPoolExecutor
+
+from alembic import command
+from alembic.config import Config as AlembicConfig
 
 from app.core.config import settings
 from app.api.v1.router import api_router
+from app.db.session import engine
 from app.services.ai_service import init_groq_client, close_groq_client
+from app.services.razorpay_service import init_razorpay
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 
+def _run_migrations() -> None:
+    """Run Alembic migrations to head on startup."""
+    alembic_cfg = AlembicConfig("alembic.ini")
+    command.upgrade(alembic_cfg, "head")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize/cleanup shared clients on startup/shutdown."""
+    loop = asyncio.get_running_loop()
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        await loop.run_in_executor(pool, _run_migrations)
     init_groq_client()
+    init_razorpay()
     yield
     await close_groq_client()
+    await engine.dispose()
 
 
 app = FastAPI(
@@ -38,10 +56,10 @@ app = FastAPI(
 # ── CORS ──────────────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_origins=settings.allowed_origins_list,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Visitor-Id"],
 )
 
 # ── Routers ───────────────────────────────────────────────────────────────────

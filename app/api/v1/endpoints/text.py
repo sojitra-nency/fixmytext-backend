@@ -9,11 +9,14 @@ import json
 import csv
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.schemas.text import TextRequest, TextResponse, TranslateRequest, ToneRequest, FormatRequest
 from app.core.rate_limit import ai_limiter
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, get_optional_user
+from app.db.session import get_db
 from app.db.models import User
 from app.services import text_service as ts
+from app.services.pass_service import check_tool_access, check_visitor_access
 from app.services.ai_service import (
     HashtagService, SEOTitleService, MetaDescriptionService, BlogOutlineService,
     TweetShortenerService, EmailRewriterService,
@@ -29,9 +32,31 @@ router = APIRouter(prefix="/text", tags=["Text"])
 
 # ── Helper ────────────────────────────────────────────────────────────────────
 
-async def _ai_endpoint(request: Request, req, operation: str, service_fn, error_detail: str, *extra_args) -> TextResponse:
+async def _local_endpoint(request: Request, req: TextRequest, operation: str, transform_fn, success_msg: str, user: User | None = None, db: AsyncSession | None = None) -> TextResponse:
+    """Shared handler for non-AI text endpoints with optional usage tracking."""
+    if db:
+        await _enforce_tool_access(request, operation, "api", user, db)
+    return TextResponse(original=req.text, result=transform_fn(req.text), operation=operation)
+
+
+async def _enforce_tool_access(request: Request, tool_id: str, tool_type: str, user: User | None, db: AsyncSession):
+    """Unified tool access check — works for both authenticated and visitor users."""
+    if user:
+        result = await check_tool_access(user, tool_id, tool_type, db)
+    else:
+        fingerprint = request.headers.get("x-visitor-id", "")
+        ip = request.client.host if request.client else ""
+        result = await check_visitor_access(fingerprint, ip, tool_id, tool_type, db)
+
+    if not result["allowed"]:
+        raise HTTPException(status_code=429, detail=result.get("message", "Daily limit reached. Get a pass for more access!"))
+
+
+async def _ai_endpoint(request: Request, req, operation: str, service_fn, error_detail: str, *extra_args, user: User = None, db: AsyncSession = None) -> TextResponse:
     """Shared handler for all AI-powered endpoints."""
     ai_limiter.check(request)
+    if db:
+        await _enforce_tool_access(request, operation, "ai", user, db)
     try:
         result = await service_fn(req.text, *extra_args)
         return TextResponse(original=req.text, result=result, operation=operation)
@@ -44,108 +69,109 @@ async def _ai_endpoint(request: Request, req, operation: str, service_fn, error_
 # ── Text Transformations ─────────────────────────────────────────────────────
 
 @router.post("/uppercase", response_model=TextResponse)
-async def uppercase(req: TextRequest):
+async def uppercase(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Convert text to UPPERCASE."""
-    return TextResponse(original=req.text, result=ts.to_uppercase(req.text), operation="uppercase")
+    return await _local_endpoint(request, req, "uppercase", ts.to_uppercase, "Converted to uppercase", user, db)
 
 
 @router.post("/lowercase", response_model=TextResponse)
-async def lowercase(req: TextRequest):
+async def lowercase(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Convert text to lowercase."""
-    return TextResponse(original=req.text, result=ts.to_lowercase(req.text), operation="lowercase")
+    return await _local_endpoint(request, req, "lowercase", ts.to_lowercase, "Converted to lowercase", user, db)
 
 
 @router.post("/inversecase", response_model=TextResponse)
-async def inversecase(req: TextRequest):
+async def inversecase(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Invert case of every character."""
-    return TextResponse(original=req.text, result=ts.to_inverse_case(req.text), operation="inversecase")
+    return await _local_endpoint(request, req, "inversecase", ts.to_inverse_case, "Case inverted", user, db)
 
 
 @router.post("/sentencecase", response_model=TextResponse)
-async def sentencecase(req: TextRequest):
+async def sentencecase(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Convert text to Sentence case."""
-    return TextResponse(original=req.text, result=ts.to_sentence_case(req.text), operation="sentencecase")
+    return await _local_endpoint(request, req, "sentencecase", ts.to_sentence_case, "Converted to sentence case", user, db)
 
 
 @router.post("/titlecase", response_model=TextResponse)
-async def titlecase(req: TextRequest):
+async def titlecase(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Convert text to Title Case."""
-    return TextResponse(original=req.text, result=ts.to_title_case(req.text), operation="titlecase")
+    return await _local_endpoint(request, req, "titlecase", ts.to_title_case, "Converted to title case", user, db)
 
 
 @router.post("/upper-camel-case", response_model=TextResponse)
-async def upper_camel_case(req: TextRequest):
+async def upper_camel_case(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Convert text to UpperCamelCase (PascalCase)."""
-    return TextResponse(original=req.text, result=ts.to_upper_camel_case(req.text), operation="upper-camel-case")
+    return await _local_endpoint(request, req, "upper-camel-case", ts.to_upper_camel_case, "Converted to UpperCamelCase", user, db)
 
 
 @router.post("/lower-camel-case", response_model=TextResponse)
-async def lower_camel_case(req: TextRequest):
+async def lower_camel_case(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Convert text to lowerCamelCase."""
-    return TextResponse(original=req.text, result=ts.to_lower_camel_case(req.text), operation="lower-camel-case")
+    return await _local_endpoint(request, req, "lower-camel-case", ts.to_lower_camel_case, "Converted to lowerCamelCase", user, db)
 
 
 @router.post("/snake-case", response_model=TextResponse)
-async def snake_case(req: TextRequest):
+async def snake_case(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Convert text to snake_case."""
-    return TextResponse(original=req.text, result=ts.to_snake_case(req.text), operation="snake-case")
+    return await _local_endpoint(request, req, "snake-case", ts.to_snake_case, "Converted to snake_case", user, db)
 
 
 @router.post("/kebab-case", response_model=TextResponse)
-async def kebab_case(req: TextRequest):
+async def kebab_case(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Convert text to kebab-case."""
-    return TextResponse(original=req.text, result=ts.to_kebab_case(req.text), operation="kebab-case")
+    return await _local_endpoint(request, req, "kebab-case", ts.to_kebab_case, "Converted to kebab-case", user, db)
 
 
 @router.post("/remove-extra-spaces", response_model=TextResponse)
-async def remove_extra_spaces(req: TextRequest):
+async def remove_extra_spaces(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Collapse multiple whitespace runs into a single space."""
-    return TextResponse(original=req.text, result=ts.remove_extra_spaces(req.text), operation="remove-extra-spaces")
+    return await _local_endpoint(request, req, "remove-extra-spaces", ts.remove_extra_spaces, "Extra spaces removed", user, db)
 
 
 @router.post("/remove-all-spaces", response_model=TextResponse)
-async def remove_all_spaces(req: TextRequest):
+async def remove_all_spaces(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Strip all whitespace from text."""
-    return TextResponse(original=req.text, result=ts.remove_all_spaces(req.text), operation="remove-all-spaces")
+    return await _local_endpoint(request, req, "remove-all-spaces", ts.remove_all_spaces, "All spaces removed", user, db)
 
 
 @router.post("/remove-line-breaks", response_model=TextResponse)
-async def remove_line_breaks(req: TextRequest):
+async def remove_line_breaks(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Replace line breaks with spaces."""
-    return TextResponse(original=req.text, result=ts.remove_line_breaks(req.text), operation="remove-line-breaks")
+    return await _local_endpoint(request, req, "remove-line-breaks", ts.remove_line_breaks, "Line breaks removed", user, db)
 
 
 # ── Text Cleaning ────────────────────────────────────────────────────────
 
 @router.post("/strip-html", response_model=TextResponse)
-async def strip_html(req: TextRequest):
+async def strip_html(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Remove HTML tags and decode entities."""
-    return TextResponse(original=req.text, result=ts.strip_html(req.text), operation="strip-html")
+    return await _local_endpoint(request, req, "strip-html", ts.strip_html, "HTML stripped", user, db)
 
 
 @router.post("/remove-accents", response_model=TextResponse)
-async def remove_accents(req: TextRequest):
+async def remove_accents(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Remove diacritics/accents from text."""
-    return TextResponse(original=req.text, result=ts.remove_accents(req.text), operation="remove-accents")
+    return await _local_endpoint(request, req, "remove-accents", ts.remove_accents, "Accents removed", user, db)
 
 
 @router.post("/toggle-smart-quotes", response_model=TextResponse)
-async def toggle_smart_quotes(req: TextRequest):
+async def toggle_smart_quotes(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Toggle between smart (curly) and straight quotes."""
-    return TextResponse(original=req.text, result=ts.toggle_smart_quotes(req.text), operation="toggle-smart-quotes")
+    return await _local_endpoint(request, req, "toggle-smart-quotes", ts.toggle_smart_quotes, "Smart quotes toggled", user, db)
 
 
 # ── Encoding ──────────────────────────────────────────────────────────────────
 
 @router.post("/base64-encode", response_model=TextResponse)
-async def base64_encode(req: TextRequest):
+async def base64_encode(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Encode text to Base64."""
-    return TextResponse(original=req.text, result=ts.base64_encode(req.text), operation="base64-encode")
+    return await _local_endpoint(request, req, "base64-encode", ts.base64_encode, "Base64 encoded", user, db)
 
 
 @router.post("/base64-decode", response_model=TextResponse)
-async def base64_decode(req: TextRequest):
+async def base64_decode(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Decode Base64 text."""
+    await _enforce_tool_access(request, "base64-decode", "api", user, db)
     try:
         return TextResponse(original=req.text, result=ts.base64_decode(req.text), operation="base64-decode")
     except (binascii.Error, UnicodeDecodeError, ValueError):
@@ -153,14 +179,15 @@ async def base64_decode(req: TextRequest):
 
 
 @router.post("/url-encode", response_model=TextResponse)
-async def url_encode(req: TextRequest):
+async def url_encode(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Percent-encode text for use in a URL."""
-    return TextResponse(original=req.text, result=ts.url_encode(req.text), operation="url-encode")
+    return await _local_endpoint(request, req, "url-encode", ts.url_encode, "URL encoded", user, db)
 
 
 @router.post("/url-decode", response_model=TextResponse)
-async def url_decode(req: TextRequest):
+async def url_decode(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Decode a percent-encoded URL string."""
+    await _enforce_tool_access(request, "url-decode", "api", user, db)
     try:
         return TextResponse(original=req.text, result=ts.url_decode(req.text), operation="url-decode")
     except (ValueError, UnicodeDecodeError):
@@ -168,14 +195,15 @@ async def url_decode(req: TextRequest):
 
 
 @router.post("/hex-encode", response_model=TextResponse)
-async def hex_encode(req: TextRequest):
+async def hex_encode(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Encode text to hexadecimal."""
-    return TextResponse(original=req.text, result=ts.hex_encode(req.text), operation="hex-encode")
+    return await _local_endpoint(request, req, "hex-encode", ts.hex_encode, "Hex encoded", user, db)
 
 
 @router.post("/hex-decode", response_model=TextResponse)
-async def hex_decode(req: TextRequest):
+async def hex_decode(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Decode hexadecimal to text."""
+    await _enforce_tool_access(request, "hex-decode", "api", user, db)
     try:
         return TextResponse(original=req.text, result=ts.hex_decode(req.text), operation="hex-decode")
     except (ValueError, UnicodeDecodeError):
@@ -183,14 +211,15 @@ async def hex_decode(req: TextRequest):
 
 
 @router.post("/morse-encode", response_model=TextResponse)
-async def morse_encode(req: TextRequest):
+async def morse_encode(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Encode text to Morse code."""
-    return TextResponse(original=req.text, result=ts.morse_encode(req.text), operation="morse-encode")
+    return await _local_endpoint(request, req, "morse-encode", ts.morse_encode, "Morse encoded", user, db)
 
 
 @router.post("/morse-decode", response_model=TextResponse)
-async def morse_decode(req: TextRequest):
+async def morse_decode(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Decode Morse code to text."""
+    await _enforce_tool_access(request, "morse-decode", "api", user, db)
     try:
         return TextResponse(original=req.text, result=ts.morse_decode(req.text), operation="morse-decode")
     except (KeyError, ValueError):
@@ -200,52 +229,53 @@ async def morse_decode(req: TextRequest):
 # ── Text Tools ────────────────────────────────────────────────────────────────
 
 @router.post("/reverse", response_model=TextResponse)
-async def reverse(req: TextRequest):
+async def reverse(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Reverse the entire text."""
-    return TextResponse(original=req.text, result=ts.reverse_text(req.text), operation="reverse")
+    return await _local_endpoint(request, req, "reverse", ts.reverse_text, "Text reversed", user, db)
 
 
 @router.post("/sort-lines-asc", response_model=TextResponse)
-async def sort_lines_asc(req: TextRequest):
+async def sort_lines_asc(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Sort lines alphabetically A → Z (case-insensitive)."""
-    return TextResponse(original=req.text, result=ts.sort_lines_asc(req.text), operation="sort-lines-asc")
+    return await _local_endpoint(request, req, "sort-lines-asc", ts.sort_lines_asc, "Lines sorted ascending", user, db)
 
 
 @router.post("/sort-lines-desc", response_model=TextResponse)
-async def sort_lines_desc(req: TextRequest):
+async def sort_lines_desc(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Sort lines alphabetically Z → A (case-insensitive)."""
-    return TextResponse(original=req.text, result=ts.sort_lines_desc(req.text), operation="sort-lines-desc")
+    return await _local_endpoint(request, req, "sort-lines-desc", ts.sort_lines_desc, "Lines sorted descending", user, db)
 
 
 @router.post("/remove-duplicate-lines", response_model=TextResponse)
-async def remove_duplicate_lines(req: TextRequest):
+async def remove_duplicate_lines(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Remove duplicate lines, preserving first occurrence."""
-    return TextResponse(original=req.text, result=ts.remove_duplicate_lines(req.text), operation="remove-duplicate-lines")
+    return await _local_endpoint(request, req, "remove-duplicate-lines", ts.remove_duplicate_lines, "Duplicate lines removed", user, db)
 
 
 @router.post("/reverse-lines", response_model=TextResponse)
-async def reverse_lines(req: TextRequest):
+async def reverse_lines(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Reverse line order."""
-    return TextResponse(original=req.text, result=ts.reverse_lines(req.text), operation="reverse-lines")
+    return await _local_endpoint(request, req, "reverse-lines", ts.reverse_lines, "Lines reversed", user, db)
 
 
 @router.post("/number-lines", response_model=TextResponse)
-async def number_lines(req: TextRequest):
+async def number_lines(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Prefix each line with its line number."""
-    return TextResponse(original=req.text, result=ts.number_lines(req.text), operation="number-lines")
+    return await _local_endpoint(request, req, "number-lines", ts.number_lines, "Lines numbered", user, db)
 
 
 @router.post("/rot13", response_model=TextResponse)
-async def rot13(req: TextRequest):
+async def rot13(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Apply ROT13 cipher to text."""
-    return TextResponse(original=req.text, result=ts.rot13(req.text), operation="rot13")
+    return await _local_endpoint(request, req, "rot13", ts.rot13, "ROT13 applied", user, db)
 
 
 # ── Developer Tools ───────────────────────────────────────────────────────────
 
 @router.post("/format-json", response_model=TextResponse)
-async def format_json(req: TextRequest):
+async def format_json(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Pretty-print JSON with 2-space indentation."""
+    await _enforce_tool_access(request, "format-json", "api", user, db)
     try:
         return TextResponse(original=req.text, result=ts.format_json(req.text), operation="format-json")
     except (json.JSONDecodeError, ValueError):
@@ -253,8 +283,9 @@ async def format_json(req: TextRequest):
 
 
 @router.post("/json-to-yaml", response_model=TextResponse)
-async def json_to_yaml(req: TextRequest):
+async def json_to_yaml(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Convert JSON to YAML."""
+    await _enforce_tool_access(request, "json-to-yaml", "api", user, db)
     try:
         return TextResponse(original=req.text, result=ts.json_to_yaml(req.text), operation="json-to-yaml")
     except (json.JSONDecodeError, ValueError):
@@ -264,14 +295,15 @@ async def json_to_yaml(req: TextRequest):
 # ── Escape / Unescape ────────────────────────────────────────────────────────
 
 @router.post("/json-escape", response_model=TextResponse)
-async def json_escape(req: TextRequest):
+async def json_escape(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Escape special characters for JSON strings."""
-    return TextResponse(original=req.text, result=ts.json_escape(req.text), operation="json-escape")
+    return await _local_endpoint(request, req, "json-escape", ts.json_escape, "JSON escaped", user, db)
 
 
 @router.post("/json-unescape", response_model=TextResponse)
-async def json_unescape(req: TextRequest):
+async def json_unescape(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Unescape JSON string escape sequences."""
+    await _enforce_tool_access(request, "json-unescape", "api", user, db)
     try:
         return TextResponse(original=req.text, result=ts.json_unescape(req.text), operation="json-unescape")
     except (json.JSONDecodeError, ValueError):
@@ -279,22 +311,23 @@ async def json_unescape(req: TextRequest):
 
 
 @router.post("/html-escape", response_model=TextResponse)
-async def html_escape(req: TextRequest):
+async def html_escape(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Escape HTML special characters to entities."""
-    return TextResponse(original=req.text, result=ts.html_escape_text(req.text), operation="html-escape")
+    return await _local_endpoint(request, req, "html-escape", ts.html_escape_text, "HTML escaped", user, db)
 
 
 @router.post("/html-unescape", response_model=TextResponse)
-async def html_unescape(req: TextRequest):
+async def html_unescape(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Decode HTML entities to characters."""
-    return TextResponse(original=req.text, result=ts.html_unescape_text(req.text), operation="html-unescape")
+    return await _local_endpoint(request, req, "html-unescape", ts.html_unescape_text, "HTML unescaped", user, db)
 
 
 # ── CSV / JSON Conversion ────────────────────────────────────────────────────
 
 @router.post("/csv-to-json", response_model=TextResponse)
-async def csv_to_json(req: TextRequest):
+async def csv_to_json(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Convert CSV text to JSON array."""
+    await _enforce_tool_access(request, "csv-to-json", "api", user, db)
     try:
         return TextResponse(original=req.text, result=ts.csv_to_json(req.text), operation="csv-to-json")
     except (csv.Error, ValueError):
@@ -302,8 +335,9 @@ async def csv_to_json(req: TextRequest):
 
 
 @router.post("/json-to-csv", response_model=TextResponse)
-async def json_to_csv(req: TextRequest):
+async def json_to_csv(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Convert JSON array of objects to CSV."""
+    await _enforce_tool_access(request, "json-to-csv", "api", user, db)
     try:
         return TextResponse(original=req.text, result=ts.json_to_csv(req.text), operation="json-to-csv")
     except (json.JSONDecodeError, ValueError, KeyError):
@@ -313,120 +347,120 @@ async def json_to_csv(req: TextRequest):
 # ── AI Tools ─────────────────────────────────────────────────────────────────
 
 @router.post("/generate-hashtags", response_model=TextResponse)
-async def generate_hashtags(request: Request, req: TextRequest, user: User = Depends(get_current_user)):
+async def generate_hashtags(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """Generate relevant hashtags from the input text."""
-    return await _ai_endpoint(request, req, "generate-hashtags", HashtagService.generate_hashtags, "Hashtag generation failed")
+    return await _ai_endpoint(request, req, "generate-hashtags", HashtagService.generate_hashtags, "Hashtag generation failed", user=user, db=db)
 
 
 @router.post("/generate-seo-titles", response_model=TextResponse)
-async def generate_seo_titles(request: Request, req: TextRequest, user: User = Depends(get_current_user)):
+async def generate_seo_titles(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """Generate SEO-optimized title suggestions from the input text."""
-    return await _ai_endpoint(request, req, "generate-seo-titles", SEOTitleService.generate_seo_titles, "SEO title generation failed")
+    return await _ai_endpoint(request, req, "generate-seo-titles", SEOTitleService.generate_seo_titles, "SEO title generation failed", user=user, db=db)
 
 
 @router.post("/generate-meta-descriptions", response_model=TextResponse)
-async def generate_meta_descriptions(request: Request, req: TextRequest, user: User = Depends(get_current_user)):
+async def generate_meta_descriptions(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """Generate SEO meta description suggestions from the input text."""
-    return await _ai_endpoint(request, req, "generate-meta-descriptions", MetaDescriptionService.generate_meta_descriptions, "Meta description generation failed")
+    return await _ai_endpoint(request, req, "generate-meta-descriptions", MetaDescriptionService.generate_meta_descriptions, "Meta description generation failed", user=user, db=db)
 
 
 @router.post("/generate-blog-outline", response_model=TextResponse)
-async def generate_blog_outline(request: Request, req: TextRequest, user: User = Depends(get_current_user)):
+async def generate_blog_outline(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """Generate a structured blog post outline from the input text."""
-    return await _ai_endpoint(request, req, "generate-blog-outline", BlogOutlineService.generate_blog_outline, "Blog outline generation failed")
+    return await _ai_endpoint(request, req, "generate-blog-outline", BlogOutlineService.generate_blog_outline, "Blog outline generation failed", user=user, db=db)
 
 
 @router.post("/shorten-for-tweet", response_model=TextResponse)
-async def shorten_for_tweet(request: Request, req: TextRequest, user: User = Depends(get_current_user)):
+async def shorten_for_tweet(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """Shorten text to fit within a tweet (280 characters)."""
-    return await _ai_endpoint(request, req, "shorten-for-tweet", TweetShortenerService.shorten_for_tweet, "Tweet shortening failed")
+    return await _ai_endpoint(request, req, "shorten-for-tweet", TweetShortenerService.shorten_for_tweet, "Tweet shortening failed", user=user, db=db)
 
 
 @router.post("/rewrite-email", response_model=TextResponse)
-async def rewrite_email(request: Request, req: TextRequest, user: User = Depends(get_current_user)):
+async def rewrite_email(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """Rewrite text as a professional email."""
-    return await _ai_endpoint(request, req, "rewrite-email", EmailRewriterService.rewrite_email, "Email rewriting failed")
+    return await _ai_endpoint(request, req, "rewrite-email", EmailRewriterService.rewrite_email, "Email rewriting failed", user=user, db=db)
 
 
 @router.post("/extract-keywords", response_model=TextResponse)
-async def extract_keywords(request: Request, req: TextRequest, user: User = Depends(get_current_user)):
+async def extract_keywords(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """Extract keywords from text."""
-    return await _ai_endpoint(request, req, "extract-keywords", KeywordExtractorService.extract_keywords, "Keyword extraction failed")
+    return await _ai_endpoint(request, req, "extract-keywords", KeywordExtractorService.extract_keywords, "Keyword extraction failed", user=user, db=db)
 
 
 @router.post("/translate", response_model=TextResponse)
-async def translate(request: Request, req: TranslateRequest, user: User = Depends(get_current_user)):
+async def translate(request: Request, req: TranslateRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """Translate text to the specified target language."""
-    return await _ai_endpoint(request, req, f"translate-{req.target_language.lower()}", TranslatorService.translate, "Translation failed", req.target_language)
+    return await _ai_endpoint(request, req, f"translate-{req.target_language.lower()}", TranslatorService.translate, "Translation failed", req.target_language, user=user, db=db)
 
 
 @router.post("/transliterate", response_model=TextResponse)
-async def transliterate(request: Request, req: TranslateRequest, user: User = Depends(get_current_user)):
+async def transliterate(request: Request, req: TranslateRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """Transliterate text into the script of the target language."""
-    return await _ai_endpoint(request, req, f"transliterate-{req.target_language.lower()}", TransliterationService.transliterate, "Transliteration failed", req.target_language)
+    return await _ai_endpoint(request, req, f"transliterate-{req.target_language.lower()}", TransliterationService.transliterate, "Transliteration failed", req.target_language, user=user, db=db)
 
 
 @router.post("/summarize", response_model=TextResponse)
-async def summarize(request: Request, req: TextRequest, user: User = Depends(get_current_user)):
+async def summarize(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """Summarize the input text."""
-    return await _ai_endpoint(request, req, "summarize", SummarizerService.summarize, "Summarization failed")
+    return await _ai_endpoint(request, req, "summarize", SummarizerService.summarize, "Summarization failed", user=user, db=db)
 
 
 @router.post("/fix-grammar", response_model=TextResponse)
-async def fix_grammar(request: Request, req: TextRequest, user: User = Depends(get_current_user)):
+async def fix_grammar(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """Fix grammar in the input text."""
-    return await _ai_endpoint(request, req, "fix-grammar", GrammarFixerService.fix_grammar, "Grammar fixing failed")
+    return await _ai_endpoint(request, req, "fix-grammar", GrammarFixerService.fix_grammar, "Grammar fixing failed", user=user, db=db)
 
 
 @router.post("/paraphrase", response_model=TextResponse)
-async def paraphrase(request: Request, req: TextRequest, user: User = Depends(get_current_user)):
+async def paraphrase(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """Paraphrase the input text."""
-    return await _ai_endpoint(request, req, "paraphrase", ParaphraserService.paraphrase, "Paraphrasing failed")
+    return await _ai_endpoint(request, req, "paraphrase", ParaphraserService.paraphrase, "Paraphrasing failed", user=user, db=db)
 
 
 @router.post("/change-tone", response_model=TextResponse)
-async def change_tone(request: Request, req: ToneRequest, user: User = Depends(get_current_user)):
+async def change_tone(request: Request, req: ToneRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """Change the tone of the input text."""
-    return await _ai_endpoint(request, req, f"tone-{req.tone.lower()}", ToneChangerService.change_tone, "Tone changing failed", req.tone)
+    return await _ai_endpoint(request, req, f"tone-{req.tone.lower()}", ToneChangerService.change_tone, "Tone changing failed", req.tone, user=user, db=db)
 
 
 @router.post("/analyze-sentiment", response_model=TextResponse)
-async def analyze_sentiment(request: Request, req: TextRequest, user: User = Depends(get_current_user)):
+async def analyze_sentiment(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """Analyze the sentiment of the input text."""
-    return await _ai_endpoint(request, req, "analyze-sentiment", SentimentAnalyzerService.analyze_sentiment, "Sentiment analysis failed")
+    return await _ai_endpoint(request, req, "analyze-sentiment", SentimentAnalyzerService.analyze_sentiment, "Sentiment analysis failed", user=user, db=db)
 
 
 @router.post("/lengthen-text", response_model=TextResponse)
-async def lengthen_text(request: Request, req: TextRequest, user: User = Depends(get_current_user)):
+async def lengthen_text(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """Lengthen the input text with more detail."""
-    return await _ai_endpoint(request, req, "lengthen-text", TextLengthenerService.lengthen, "Text lengthening failed")
+    return await _ai_endpoint(request, req, "lengthen-text", TextLengthenerService.lengthen, "Text lengthening failed", user=user, db=db)
 
 
 @router.post("/eli5", response_model=TextResponse)
-async def eli5(request: Request, req: TextRequest, user: User = Depends(get_current_user)):
+async def eli5(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """Simplify text for easy understanding (ELI5)."""
-    return await _ai_endpoint(request, req, "eli5", ELI5Service.eli5, "ELI5 simplification failed")
+    return await _ai_endpoint(request, req, "eli5", ELI5Service.eli5, "ELI5 simplification failed", user=user, db=db)
 
 
 @router.post("/proofread", response_model=TextResponse)
-async def proofread(request: Request, req: TextRequest, user: User = Depends(get_current_user)):
+async def proofread(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """Proofread text with tracked-changes style suggestions."""
-    return await _ai_endpoint(request, req, "proofread", ProofreadService.proofread, "Proofreading failed")
+    return await _ai_endpoint(request, req, "proofread", ProofreadService.proofread, "Proofreading failed", user=user, db=db)
 
 
 @router.post("/generate-title", response_model=TextResponse)
-async def generate_title(request: Request, req: TextRequest, user: User = Depends(get_current_user)):
+async def generate_title(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """Generate concise titles/headlines for the input text."""
-    return await _ai_endpoint(request, req, "generate-title", TitleGeneratorService.generate_title, "Title generation failed")
+    return await _ai_endpoint(request, req, "generate-title", TitleGeneratorService.generate_title, "Title generation failed", user=user, db=db)
 
 
 @router.post("/refactor-prompt", response_model=TextResponse)
-async def refactor_prompt(request: Request, req: TextRequest, user: User = Depends(get_current_user)):
+async def refactor_prompt(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """Refactor a prompt to use minimum tokens."""
-    return await _ai_endpoint(request, req, "refactor-prompt", PromptRefactorService.refactor_prompt, "Prompt refactoring failed")
+    return await _ai_endpoint(request, req, "refactor-prompt", PromptRefactorService.refactor_prompt, "Prompt refactoring failed", user=user, db=db)
 
 
 @router.post("/change-format", response_model=TextResponse)
-async def change_format(request: Request, req: FormatRequest, user: User = Depends(get_current_user)):
+async def change_format(request: Request, req: FormatRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """Change the format/structure of the input text."""
-    return await _ai_endpoint(request, req, f"format-{req.format.lower()}", FormatChangerService.change_format, "Format changing failed", req.format)
+    return await _ai_endpoint(request, req, f"format-{req.format.lower()}", FormatChangerService.change_format, "Format changing failed", req.format, user=user, db=db)

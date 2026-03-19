@@ -1,6 +1,6 @@
 """User data endpoints: preferences, gamification, templates."""
 
-import json
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,12 +16,6 @@ from app.schemas.user_data import (
 )
 
 router = APIRouter(prefix="/user", tags=["User Data"])
-
-# JSON fields stored as text in the gamification table
-_JSON_FIELDS = {
-    "tools_used", "discovered_tools", "achievements",
-    "favorites", "saved_pipelines", "completed_quests",
-}
 
 
 # ── Preferences ──────────────────────────────────────────────────────────────
@@ -60,19 +54,19 @@ async def update_preferences(
 # ── Gamification ─────────────────────────────────────────────────────────────
 
 def _gam_to_response(gam: UserGamification) -> GamificationResponse:
-    """Convert ORM model (JSON text fields) to response schema."""
+    """Convert ORM model to response schema. JSONB columns are native dicts/lists."""
     return GamificationResponse(
         xp=gam.xp,
         streak_current=gam.streak_current,
         streak_last_date=gam.streak_last_date,
         total_ops=gam.total_ops,
         total_chars=gam.total_chars,
-        tools_used=json.loads(gam.tools_used),
-        discovered_tools=json.loads(gam.discovered_tools),
-        achievements=json.loads(gam.achievements),
-        favorites=json.loads(gam.favorites),
-        saved_pipelines=json.loads(gam.saved_pipelines),
-        completed_quests=json.loads(gam.completed_quests),
+        tools_used=gam.tools_used,
+        discovered_tools=gam.discovered_tools,
+        achievements=gam.achievements,
+        favorites=gam.favorites,
+        saved_pipelines=gam.saved_pipelines,
+        completed_quests=gam.completed_quests,
         daily_quest_id=gam.daily_quest_id,
         daily_quest_date=gam.daily_quest_date,
         daily_quest_completed=gam.daily_quest_completed,
@@ -103,10 +97,7 @@ async def update_gamification(
 
     updates = body.model_dump(exclude_unset=True)
     for key, value in updates.items():
-        if key in _JSON_FIELDS:
-            setattr(gam, key, json.dumps(value))
-        else:
-            setattr(gam, key, value)
+        setattr(gam, key, value)
 
     await db.commit()
     await db.refresh(gam)
@@ -126,7 +117,7 @@ async def list_templates(
     templates = result.scalars().all()
     return [
         TemplateResponse(
-            id=t.id, name=t.name, text=t.text,
+            id=str(t.id), name=t.name, text=t.text,
             created_at=t.created_at.isoformat(), updated_at=t.updated_at.isoformat(),
         )
         for t in templates
@@ -144,14 +135,14 @@ async def create_template(
     await db.commit()
     await db.refresh(template)
     return TemplateResponse(
-        id=template.id, name=template.name, text=template.text,
+        id=str(template.id), name=template.name, text=template.text,
         created_at=template.created_at.isoformat(), updated_at=template.updated_at.isoformat(),
     )
 
 
 @router.put("/templates/{template_id}", response_model=TemplateResponse)
 async def update_template(
-    template_id: str,
+    template_id: uuid.UUID,
     body: TemplateUpdate,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -167,14 +158,14 @@ async def update_template(
     await db.commit()
     await db.refresh(template)
     return TemplateResponse(
-        id=template.id, name=template.name, text=template.text,
+        id=str(template.id), name=template.name, text=template.text,
         created_at=template.created_at.isoformat(), updated_at=template.updated_at.isoformat(),
     )
 
 
 @router.delete("/templates/{template_id}", status_code=204)
 async def delete_template(
-    template_id: str,
+    template_id: uuid.UUID,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):

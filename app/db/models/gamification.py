@@ -1,12 +1,15 @@
-"""UserGamification ORM model."""
+"""UserGamification ORM model — lives in the 'activity' schema."""
 
 from datetime import datetime
 from typing import Optional, TYPE_CHECKING
+import uuid
 
-from sqlalchemy import String, Boolean, DateTime, Integer, Text, ForeignKey, func
+from sqlalchemy import String, Boolean, Integer, text, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID, JSONB, TIMESTAMP
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.session import Base
+from app.core.config import settings
 
 if TYPE_CHECKING:
     from app.db.models.user import User
@@ -14,22 +17,32 @@ if TYPE_CHECKING:
 
 class UserGamification(Base):
     __tablename__ = "user_gamification"
+    __table_args__ = {"schema": settings.DB_SCHEMA_ACTIVITY}
 
-    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
-    xp: Mapped[int] = mapped_column(Integer, default=0)
-    streak_current: Mapped[int] = mapped_column(Integer, default=0)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey(f"{settings.DB_SCHEMA_AUTH}.users.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    xp: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    streak_current: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     streak_last_date: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
-    total_ops: Mapped[int] = mapped_column(Integer, default=0)
-    total_chars: Mapped[int] = mapped_column(Integer, default=0)
-    tools_used: Mapped[str] = mapped_column(Text, default="{}")
-    discovered_tools: Mapped[str] = mapped_column(Text, default="[]")
-    achievements: Mapped[str] = mapped_column(Text, default="[]")
-    favorites: Mapped[str] = mapped_column(Text, default="[]")
-    saved_pipelines: Mapped[str] = mapped_column(Text, default="[]")
-    completed_quests: Mapped[str] = mapped_column(Text, default="[]")
+    total_ops: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    total_chars: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+
+    # ── JSONB columns (native PostgreSQL, replaces Text+JSON) ──────────────────
+    tools_used: Mapped[dict] = mapped_column(JSONB, default=dict, server_default=text("'{}'::jsonb"))
+    discovered_tools: Mapped[list] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
+    achievements: Mapped[list] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
+    favorites: Mapped[list] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
+    saved_pipelines: Mapped[list] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
+    completed_quests: Mapped[list] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
+
     daily_quest_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     daily_quest_date: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
-    daily_quest_completed: Mapped[bool] = mapped_column(Boolean, default=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+    daily_quest_completed: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=text("now()"), onupdate=datetime.now
+    )
 
     user: Mapped["User"] = relationship(back_populates="gamification")

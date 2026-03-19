@@ -1,4 +1,4 @@
-"""Alembic environment configuration for async migrations."""
+"""Alembic environment configuration for async PostgreSQL migrations."""
 
 import asyncio
 import re
@@ -19,6 +19,9 @@ from app.db.models.user import User  # noqa: F401
 from app.db.models.preferences import UserPreferences  # noqa: F401
 from app.db.models.gamification import UserGamification  # noqa: F401
 from app.db.models.template import UserTemplate  # noqa: F401
+from app.db.models.user_pass import UserPass  # noqa: F401
+from app.db.models.user_credit import UserCredit  # noqa: F401
+from app.db.models.visitor_usage import VisitorUsage  # noqa: F401
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
@@ -118,6 +121,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         process_revision_directives=process_revision_directives,
+        include_schemas=True,
     )
 
     with context.begin_transaction():
@@ -128,8 +132,9 @@ def do_run_migrations(connection: Connection) -> None:
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
-        render_as_batch=True,  # required for SQLite ALTER TABLE support
         process_revision_directives=process_revision_directives,
+        include_schemas=True,
+        version_table_schema="public",
     )
 
     with context.begin_transaction():

@@ -1,5 +1,7 @@
 """Authentication endpoints: register, login, refresh, logout, me."""
 
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,6 +20,16 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 
 REFRESH_COOKIE = "refresh_token"
 REFRESH_COOKIE_PATH = "/api/v1/auth"
+
+
+async def _set_user_region(user, request: Request, db: AsyncSession):
+    """Detect and store user region from IP address."""
+    try:
+        from app.services.region_service import resolve_user_region
+        await resolve_user_region(user, request, db)
+        await db.commit()
+    except Exception:
+        pass  # non-critical, default to US
 
 
 def _set_refresh_cookie(response: Response, token: str, *, persistent: bool = True) -> None:
@@ -39,9 +51,11 @@ def _clear_refresh_cookie(response: Response) -> None:
 # ── Register ─────────────────────────────────────────────────────────────────
 
 @router.post("/register", response_model=TokenResponse)
-async def register(req: RegisterRequest, response: Response, db: AsyncSession = Depends(get_db)):
+async def register(req: RegisterRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
     """Create a new account and return tokens."""
     user = await do_register(db, req.email, req.password, req.display_name)
+    # Detect region from IP
+    await _set_user_region(user, request, db)
     access = create_access_token(user.id)
     refresh = create_refresh_token(user.id)
     _set_refresh_cookie(response, refresh)
@@ -51,9 +65,12 @@ async def register(req: RegisterRequest, response: Response, db: AsyncSession = 
 # ── Login ────────────────────────────────────────────────────────────────────
 
 @router.post("/login", response_model=TokenResponse)
-async def login(req: LoginRequest, response: Response, db: AsyncSession = Depends(get_db)):
+async def login(req: LoginRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
     """Authenticate with email + password and return tokens."""
     user = await authenticate(db, req.email, req.password)
+    # Detect region from IP if not set yet
+    if not user.region:
+        await _set_user_region(user, request, db)
     access = create_access_token(user.id)
     refresh = create_refresh_token(user.id)
     _set_refresh_cookie(response, refresh, persistent=req.remember_me)
@@ -79,7 +96,7 @@ async def refresh(request: Request, response: Response, db: AsyncSession = Depen
         _clear_refresh_cookie(response)
         raise HTTPException(status_code=401, detail="Invalid token type")
 
-    user_id = payload.get("sub")
+    user_id = uuid.UUID(payload.get("sub"))
     user = await db.get(User, user_id)
     if not user or not user.is_active:
         _clear_refresh_cookie(response)
@@ -107,7 +124,8 @@ async def logout(response: Response, user: User = Depends(get_current_user)):
 async def me(user: User = Depends(get_current_user)):
     """Return the current authenticated user's profile."""
     return UserResponse(
-        id=user.id,
+        id=str(user.id),
         email=user.email,
         display_name=user.display_name,
+        subscription_tier=user.subscription_tier or "free",
     )

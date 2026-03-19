@@ -1,5 +1,7 @@
 """FastAPI dependencies for authentication."""
 
+import uuid
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError
@@ -27,10 +29,11 @@ async def get_current_user(
         payload = decode_token(credentials.credentials)
         if payload.get("type") != "access":
             raise HTTPException(status_code=401, detail="Invalid token type")
-        user_id: str = payload.get("sub")
-        if not user_id:
+        user_id_str: str = payload.get("sub")
+        if not user_id_str:
             raise HTTPException(status_code=401, detail="Invalid token")
-    except JWTError:
+        user_id = uuid.UUID(user_id_str)
+    except (JWTError, ValueError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token expired or invalid",
@@ -43,3 +46,25 @@ async def get_current_user(
     return user
 
 
+async def get_optional_user(
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> User | None:
+    """Optional auth — returns User if valid token, None otherwise. Never raises 401."""
+    if not credentials:
+        return None
+    try:
+        payload = decode_token(credentials.credentials)
+        if payload.get("type") != "access":
+            return None
+        user_id_str: str = payload.get("sub")
+        if not user_id_str:
+            return None
+        user_id = uuid.UUID(user_id_str)
+    except (JWTError, ValueError):
+        return None
+
+    user = await db.get(User, user_id)
+    if not user or not user.is_active:
+        return None
+    return user

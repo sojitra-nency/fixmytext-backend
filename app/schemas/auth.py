@@ -24,3 +24,4 @@ class UserResponse(BaseModel):
     id: str
     email: str
     display_name: str
+    subscription_tier: str = "free"
