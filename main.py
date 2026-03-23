@@ -8,8 +8,11 @@ Run locally:
 """
 
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 from concurrent.futures import ThreadPoolExecutor
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s  [%(name)s] %(message)s")
 
 from alembic import command
 from alembic.config import Config as AlembicConfig

@@ -15,14 +15,16 @@ class SubscriptionStatus(BaseModel):
     razorpay_subscription_id: Optional[str] = None
 
 
-class RazorpaySubscriptionResponse(BaseModel):
-    subscription_id: str
+class RazorpayProOrderResponse(BaseModel):
+    order_id: str
+    amount: int
+    currency: str
     key_id: str
     user_email: str
     user_name: str
 
 
-class RazorpaySubVerifyRequest(BaseModel):
-    razorpay_subscription_id: str
+class RazorpayProVerifyRequest(BaseModel):
+    razorpay_order_id: str
     razorpay_payment_id: str
     razorpay_signature: str

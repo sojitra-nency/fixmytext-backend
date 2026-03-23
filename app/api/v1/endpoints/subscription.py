@@ -15,11 +15,11 @@ from app.core.deps import get_current_user
 from app.db.session import get_db
 from app.db.models import User
 from app.schemas.subscription import (
-    SubscriptionStatus, RazorpaySubscriptionResponse, RazorpaySubVerifyRequest,
+    SubscriptionStatus, RazorpayProOrderResponse, RazorpayProVerifyRequest,
 )
 from app.services.razorpay_service import (
-    create_subscription, get_pro_plan_id, verify_subscription_signature,
-    cancel_subscription, verify_webhook_signature,
+    create_order, verify_payment_signature, PRO_PLAN_PRICES,
+    verify_webhook_signature,
 )
 
 router = APIRouter(prefix="/subscription", tags=["Subscription"])
@@ -64,49 +64,74 @@ async def subscription_status(
     )
 
 
-# ── Pro Checkout (create Razorpay subscription) ─────────────────────────────
+# ── Pro Checkout (create Razorpay order — one-time payment) ─────────────────
 
-@router.post("/checkout", response_model=RazorpaySubscriptionResponse)
+@router.post("/checkout", response_model=RazorpayProOrderResponse)
 async def create_pro_checkout(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Create a Razorpay subscription for upgrading to Pro."""
+    """Create a Razorpay order for upgrading to Pro (one-time monthly payment)."""
     if not settings.RAZORPAY_KEY_ID:
         raise HTTPException(503, "Payments not configured")
 
     if user.subscription_tier == "pro":
         raise HTTPException(400, "Already subscribed to Pro")
 
-    plan_id = get_pro_plan_id()
-    if not plan_id:
-        raise HTTPException(503, "Pro plan not available")
+    region = user.region or "IN"
+    pricing = PRO_PLAN_PRICES.get(region, PRO_PLAN_PRICES["IN"])
 
-    sub = create_subscription(plan_id, user.email)
-    return RazorpaySubscriptionResponse(
-        subscription_id=sub["id"],
+    try:
+        order = create_order(
+            amount=pricing["amount"],
+            currency=pricing["currency"],
+            receipt=f"pro_{str(user.id)[:8]}",
+            notes={"user_id": str(user.id), "item_type": "pro_subscription"},
+        )
+    except Exception:
+        logger.exception("Failed to create Razorpay order for Pro checkout, user %s", user.id)
+        raise HTTPException(502, "Failed to start checkout — please try again later")
+
+    return RazorpayProOrderResponse(
+        order_id=order["id"],
+        amount=order["amount"],
+        currency=order["currency"],
         key_id=settings.RAZORPAY_KEY_ID,
         user_email=user.email,
         user_name=user.display_name,
     )
 
 
-# ── Verify Pro Subscription Payment ─────────────────────────────────────────
+# ── Verify Pro Payment ─────────────────────────────────────────────────────
 
 @router.post("/verify")
 async def verify_pro_payment(
-    req: RazorpaySubVerifyRequest,
+    req: RazorpayProVerifyRequest,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Verify Razorpay subscription payment and activate Pro."""
-    if not verify_subscription_signature(req.razorpay_subscription_id, req.razorpay_payment_id, req.razorpay_signature):
-        raise HTTPException(400, "Subscription verification failed")
+    """Verify Razorpay payment and activate Pro."""
+    if not verify_payment_signature(req.razorpay_order_id, req.razorpay_payment_id, req.razorpay_signature):
+        raise HTTPException(400, "Payment verification failed — invalid signature")
+
+    # Validate order belongs to this user
+    from app.services.razorpay_service import fetch_order
+    try:
+        order = fetch_order(req.razorpay_order_id)
+    except Exception:
+        logger.exception("Failed to fetch order %s", req.razorpay_order_id)
+        raise HTTPException(502, "Could not verify order details")
+
+    notes = order.get("notes", {})
+    if notes.get("user_id") != str(user.id):
+        raise HTTPException(400, "Order does not belong to this user")
+    if notes.get("item_type") != "pro_subscription":
+        raise HTTPException(400, "Order is not for Pro subscription")
 
     user.subscription_tier = "pro"
-    user.razorpay_subscription_id = req.razorpay_subscription_id
+    user.razorpay_subscription_id = req.razorpay_payment_id  # store payment ID for reference
     await db.commit()
-    logger.info("Pro activated: user=%s sub=%s payment=%s", user.id, req.razorpay_subscription_id, req.razorpay_payment_id)
+    logger.info("Pro activated: user=%s order=%s payment=%s", user.id, req.razorpay_order_id, req.razorpay_payment_id)
     return {"status": "success", "tier": "pro"}
 
 
@@ -117,14 +142,9 @@ async def cancel_pro(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Cancel Pro subscription."""
-    if not user.razorpay_subscription_id:
-        raise HTTPException(400, "No active subscription")
-
-    try:
-        cancel_subscription(str(user.razorpay_subscription_id))
-    except Exception:
-        logger.warning("Razorpay cancel failed for sub %s, user %s", user.razorpay_subscription_id, user.id, exc_info=True)
+    """Cancel Pro subscription (immediate downgrade)."""
+    if user.subscription_tier != "pro":
+        raise HTTPException(400, "No active Pro subscription")
 
     user.subscription_tier = "free"
     user.razorpay_subscription_id = None
@@ -136,7 +156,7 @@ async def cancel_pro(
 
 @router.post("/webhook")
 async def razorpay_webhook(request: Request, db: AsyncSession = Depends(get_db)):
-    """Handle Razorpay webhook events for subscriptions and payments."""
+    """Handle Razorpay webhook events for payments."""
     body = await request.body()
     signature = request.headers.get("x-razorpay-signature", "")
 
@@ -153,47 +173,8 @@ async def razorpay_webhook(request: Request, db: AsyncSession = Depends(get_db))
     event_type = event.get("event", "")
     payload = event.get("payload", {})
 
-    if event_type == "subscription.charged":
-        # Renewal — keep Pro active
-        sub_entity = payload.get("subscription", {}).get("entity", {})
-        await _handle_subscription_active(db, sub_entity)
-
-    elif event_type in ("subscription.cancelled", "subscription.halted"):
-        sub_entity = payload.get("subscription", {}).get("entity", {})
-        await _handle_subscription_ended(db, sub_entity)
-
-    elif event_type == "payment.captured":
-        # One-time payments are verified via /passes/verify — log for audit trail only
+    if event_type == "payment.captured":
         payment_id = payload.get("payment", {}).get("entity", {}).get("id", "unknown")
-        logger.info("payment.captured webhook received: payment=%s (no action needed)", payment_id)
+        logger.info("payment.captured webhook received: payment=%s", payment_id)
 
     return {"status": "ok"}
-
-
-async def _handle_subscription_active(db: AsyncSession, sub: dict):
-    """Keep Pro tier active on subscription renewal."""
-    sub_id = sub.get("id")
-    if not sub_id:
-        logger.warning("subscription.charged webhook missing subscription ID in payload")
-        return
-
-    result = await db.execute(select(User).where(User.razorpay_subscription_id == sub_id))
-    user = result.scalars().first()
-    if user:
-        user.subscription_tier = "pro"
-        await db.commit()
-
-
-async def _handle_subscription_ended(db: AsyncSession, sub: dict):
-    """Downgrade user when subscription ends."""
-    sub_id = sub.get("id")
-    if not sub_id:
-        logger.warning("subscription.cancelled/halted webhook missing subscription ID in payload")
-        return
-
-    result = await db.execute(select(User).where(User.razorpay_subscription_id == sub_id))
-    user = result.scalars().first()
-    if user:
-        user.subscription_tier = "free"
-        user.razorpay_subscription_id = None
-        await db.commit()

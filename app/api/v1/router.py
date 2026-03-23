@@ -5,7 +5,7 @@ Add new feature routers here as the app grows.
 """
 
 from fastapi import APIRouter
-from app.api.v1.endpoints import text, auth, user_data, subscription, passes
+from app.api.v1.endpoints import text, auth, user_data, subscription, passes, history
 
 api_router = APIRouter()
 
@@ -14,3 +14,4 @@ api_router.include_router(auth.router)
 api_router.include_router(user_data.router)
 api_router.include_router(subscription.router)
 api_router.include_router(passes.router)
+api_router.include_router(history.router)

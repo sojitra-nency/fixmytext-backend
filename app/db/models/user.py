@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from app.db.models.template import UserTemplate
     from app.db.models.user_pass import UserPass
     from app.db.models.user_credit import UserCredit
+    from app.db.models.operation_history import OperationHistory
 
 
 class User(Base):
@@ -66,5 +67,8 @@ class User(Base):
         back_populates="user", cascade="all, delete-orphan"
     )
     credits: Mapped[list["UserCredit"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    operation_history: Mapped[list["OperationHistory"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
