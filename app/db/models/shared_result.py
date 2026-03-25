@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Optional, TYPE_CHECKING
 
-from sqlalchemy import String, Text, ForeignKey
+from sqlalchemy import String, Text, Integer, ForeignKey
 from sqlalchemy import text as sa_text
 from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -30,13 +30,20 @@ class SharedResult(Base):
         index=True,
     )
 
-    # Tool that produced this result
     tool_id: Mapped[str] = mapped_column(String(100), nullable=False)
     tool_label: Mapped[str] = mapped_column(String(200), nullable=False)
 
-    # Output text only
+    # Full input + output text (input_text added in migration 0013)
+    input_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     output_text: Mapped[str] = mapped_column(Text, nullable=False)
 
+    # View tracking and expiry (added in migration 0013)
+    view_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=sa_text("0"))
+    expires_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=sa_text("now() + INTERVAL '30 days'"),
+    )
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), server_default=sa_text("now()"), index=True
     )

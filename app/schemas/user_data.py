@@ -1,5 +1,6 @@
-"""Pydantic schemas for user preferences, gamification, and templates."""
+"""Pydantic schemas for user preferences, gamification, templates, ui-settings, favorites, tool-stats, pipelines."""
 
+import uuid
 from typing import Optional
 from pydantic import BaseModel, Field
 
@@ -72,3 +73,78 @@ class TemplateCreate(BaseModel):
 class TemplateUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=200)
     text: Optional[str] = Field(None, min_length=1)
+
+
+# ── UI Settings ───────────────────────────────────────────────────────────────
+
+class UiSettingsResponse(BaseModel):
+    tool_view: str = "grid"
+    keybindings: dict = {}
+    panel_sizes: dict = {}
+
+
+class UiSettingsUpdate(BaseModel):
+    tool_view: Optional[str] = Field(None, max_length=10)
+    keybindings: Optional[dict] = None
+    panel_sizes: Optional[dict] = None
+
+
+# ── Favorites ─────────────────────────────────────────────────────────────────
+
+class FavoriteToolItem(BaseModel):
+    tool_id: str
+    sort_order: int
+
+
+class FavoritesResponse(BaseModel):
+    favorites: list[FavoriteToolItem]
+
+
+# ── Tool Stats ────────────────────────────────────────────────────────────────
+
+class ToolStatItem(BaseModel):
+    tool_id: str
+    total_uses: int
+    last_used_at: str
+
+
+class ToolStatsResponse(BaseModel):
+    stats: list[ToolStatItem]
+
+
+# ── Pipelines ─────────────────────────────────────────────────────────────────
+
+class PipelineStepResponse(BaseModel):
+    id: str
+    step_order: int
+    tool_id: str
+    tool_label: str
+    config: Optional[dict] = None
+
+
+class PipelineResponse(BaseModel):
+    id: str
+    name: str
+    description: Optional[str] = None
+    steps: list[PipelineStepResponse]
+    created_at: str
+    updated_at: str
+
+
+class PipelineStepIn(BaseModel):
+    step_order: int
+    tool_id: str = Field(..., max_length=100)
+    tool_label: str = Field(..., max_length=200)
+    config: Optional[dict] = None
+
+
+class PipelineCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=200)
+    description: Optional[str] = Field(None, max_length=500)
+    steps: list[PipelineStepIn] = []
+
+
+class PipelineUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=200)
+    description: Optional[str] = Field(None, max_length=500)
+    steps: Optional[list[PipelineStepIn]] = None

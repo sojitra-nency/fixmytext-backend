@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     # ── PostgreSQL schemas ───────────────────────────────────────────────────
     DB_SCHEMA_AUTH: str = "auth"
     DB_SCHEMA_ACTIVITY: str = "activity"
+    DB_SCHEMA_BILLING: str = "billing"
 
     # ── CORS ──────────────────────────────────────────────────────────────────
     # Accepts JSON array or comma-separated string in .env

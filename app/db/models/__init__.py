@@ -1,13 +1,47 @@
 """ORM models package — re-exports all models for convenience."""
 
+# ── Core auth models ──────────────────────────────────────────────────────────
 from app.db.models.user import User
 from app.db.models.preferences import UserPreferences
-from app.db.models.gamification import UserGamification
-from app.db.models.template import UserTemplate
-from app.db.models.user_pass import UserPass
-from app.db.models.user_credit import UserCredit
+from app.db.models.user_ui_settings import UserUiSettings
+from app.db.models.user_tool_usage import UserToolUsage
+from app.db.models.user_daily_login import UserDailyLogin
+from app.db.models.user_spin_log import UserSpinLog
 from app.db.models.visitor_usage import VisitorUsage
+from app.db.models.visitor_tool_usage import VisitorToolUsage
+
+# ── Billing models ────────────────────────────────────────────────────────────
+from app.db.models.billing_catalog import PassCatalog, PassCatalogPrice, CreditPackCatalog, CreditPackPrice
+from app.db.models.billing_subscription import Subscription, PaymentEvent
+from app.db.models.billing_pass import BillingUserPass, UserPassTool
+from app.db.models.billing_credit import BillingUserCredit
+
+# ── Activity models ───────────────────────────────────────────────────────────
+from app.db.models.gamification import UserGamification
+from app.db.models.user_tool_stats import UserToolStats
+from app.db.models.user_discovered_tool import UserDiscoveredTool
+from app.db.models.user_favorite_tool import UserFavoriteTool
+from app.db.models.user_pipeline import UserPipeline, UserPipelineStep
+from app.db.models.template import UserTemplate
 from app.db.models.operation_history import OperationHistory
 from app.db.models.shared_result import SharedResult
 
-__all__ = ["User", "UserPreferences", "UserGamification", "UserTemplate", "UserPass", "UserCredit", "VisitorUsage", "OperationHistory", "SharedResult"]
+# ── Legacy auth-schema models (kept during dual-write window) ─────────────────
+from app.db.models.user_pass import UserPass
+from app.db.models.user_credit import UserCredit
+
+__all__ = [
+    # auth
+    "User", "UserPreferences", "UserUiSettings", "UserToolUsage",
+    "UserDailyLogin", "UserSpinLog", "VisitorUsage", "VisitorToolUsage",
+    # billing
+    "PassCatalog", "PassCatalogPrice", "CreditPackCatalog", "CreditPackPrice",
+    "Subscription", "PaymentEvent",
+    "BillingUserPass", "UserPassTool", "BillingUserCredit",
+    # activity
+    "UserGamification", "UserToolStats", "UserDiscoveredTool", "UserFavoriteTool",
+    "UserPipeline", "UserPipelineStep",
+    "UserTemplate", "OperationHistory", "SharedResult",
+    # legacy
+    "UserPass", "UserCredit",
+]

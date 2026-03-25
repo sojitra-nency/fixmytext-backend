@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import String, Text, ForeignKey
+from sqlalchemy import String, Text, Boolean, ForeignKey
 from sqlalchemy import text as sa_text
 from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -30,6 +30,8 @@ class UserTemplate(Base):
     )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     text: Mapped[str] = mapped_column(Text, nullable=False)
+    # Soft delete added in migration 0014
+    is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=sa_text("false"))
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=sa_text("now()"))
     updated_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), server_default=sa_text("now()"), onupdate=datetime.now
