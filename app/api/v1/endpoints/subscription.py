@@ -5,7 +5,6 @@ import logging
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
@@ -18,9 +17,11 @@ from app.schemas.subscription import (
     SubscriptionStatus, RazorpayProOrderResponse, RazorpayProVerifyRequest,
 )
 from app.services.razorpay_service import (
-    create_order, verify_payment_signature, PRO_PLAN_PRICES,
+    create_order, fetch_order, verify_payment_signature, PRO_PLAN_PRICES,
     verify_webhook_signature,
 )
+from app.services.pass_service import get_credit_balance, get_active_passes, record_daily_login
+from app.services.region_service import resolve_user_region
 
 router = APIRouter(prefix="/subscription", tags=["Subscription"])
 
@@ -34,8 +35,6 @@ async def subscription_status(
     db: AsyncSession = Depends(get_db),
 ):
     """Return the current user's subscription status, usage, and pass/credit info."""
-    from app.services.pass_service import get_credit_balance, get_active_passes, record_daily_login
-    from app.services.region_service import resolve_user_region
 
     if not user.region:
         await resolve_user_region(user, request, db)
@@ -115,7 +114,6 @@ async def verify_pro_payment(
         raise HTTPException(400, "Payment verification failed — invalid signature")
 
     # Validate order belongs to this user
-    from app.services.razorpay_service import fetch_order
     try:
         order = fetch_order(req.razorpay_order_id)
     except Exception:

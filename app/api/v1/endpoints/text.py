@@ -32,7 +32,7 @@ router = APIRouter(prefix="/text", tags=["Text"])
 
 # ── Helper ────────────────────────────────────────────────────────────────────
 
-async def _local_endpoint(request: Request, req: TextRequest, operation: str, transform_fn, success_msg: str, user: User | None = None, db: AsyncSession | None = None) -> TextResponse:
+async def _local_endpoint(request: Request, req: TextRequest, operation: str, transform_fn, user: User | None = None, db: AsyncSession | None = None) -> TextResponse:
     """Shared handler for non-AI text endpoints with optional usage tracking."""
     if db:
         await _enforce_tool_access(request, operation, "api", user, db)
@@ -71,73 +71,73 @@ async def _ai_endpoint(request: Request, req, operation: str, service_fn, error_
 @router.post("/uppercase", response_model=TextResponse)
 async def uppercase(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Convert text to UPPERCASE."""
-    return await _local_endpoint(request, req, "uppercase", ts.to_uppercase, "Converted to uppercase", user, db)
+    return await _local_endpoint(request, req, "uppercase", ts.to_uppercase, user, db)
 
 
 @router.post("/lowercase", response_model=TextResponse)
 async def lowercase(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Convert text to lowercase."""
-    return await _local_endpoint(request, req, "lowercase", ts.to_lowercase, "Converted to lowercase", user, db)
+    return await _local_endpoint(request, req, "lowercase", ts.to_lowercase, user, db)
 
 
 @router.post("/inversecase", response_model=TextResponse)
 async def inversecase(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Invert case of every character."""
-    return await _local_endpoint(request, req, "inversecase", ts.to_inverse_case, "Case inverted", user, db)
+    return await _local_endpoint(request, req, "inversecase", ts.to_inverse_case, user, db)
 
 
 @router.post("/sentencecase", response_model=TextResponse)
 async def sentencecase(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Convert text to Sentence case."""
-    return await _local_endpoint(request, req, "sentencecase", ts.to_sentence_case, "Converted to sentence case", user, db)
+    return await _local_endpoint(request, req, "sentencecase", ts.to_sentence_case, user, db)
 
 
 @router.post("/titlecase", response_model=TextResponse)
 async def titlecase(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Convert text to Title Case."""
-    return await _local_endpoint(request, req, "titlecase", ts.to_title_case, "Converted to title case", user, db)
+    return await _local_endpoint(request, req, "titlecase", ts.to_title_case, user, db)
 
 
 @router.post("/upper-camel-case", response_model=TextResponse)
 async def upper_camel_case(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Convert text to UpperCamelCase (PascalCase)."""
-    return await _local_endpoint(request, req, "upper-camel-case", ts.to_upper_camel_case, "Converted to UpperCamelCase", user, db)
+    return await _local_endpoint(request, req, "upper-camel-case", ts.to_upper_camel_case, user, db)
 
 
 @router.post("/lower-camel-case", response_model=TextResponse)
 async def lower_camel_case(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Convert text to lowerCamelCase."""
-    return await _local_endpoint(request, req, "lower-camel-case", ts.to_lower_camel_case, "Converted to lowerCamelCase", user, db)
+    return await _local_endpoint(request, req, "lower-camel-case", ts.to_lower_camel_case, user, db)
 
 
 @router.post("/snake-case", response_model=TextResponse)
 async def snake_case(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Convert text to snake_case."""
-    return await _local_endpoint(request, req, "snake-case", ts.to_snake_case, "Converted to snake_case", user, db)
+    return await _local_endpoint(request, req, "snake-case", ts.to_snake_case, user, db)
 
 
 @router.post("/kebab-case", response_model=TextResponse)
 async def kebab_case(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Convert text to kebab-case."""
-    return await _local_endpoint(request, req, "kebab-case", ts.to_kebab_case, "Converted to kebab-case", user, db)
+    return await _local_endpoint(request, req, "kebab-case", ts.to_kebab_case, user, db)
 
 
 @router.post("/remove-extra-spaces", response_model=TextResponse)
 async def remove_extra_spaces(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Collapse multiple whitespace runs into a single space."""
-    return await _local_endpoint(request, req, "remove-extra-spaces", ts.remove_extra_spaces, "Extra spaces removed", user, db)
+    return await _local_endpoint(request, req, "remove-extra-spaces", ts.remove_extra_spaces, user, db)
 
 
 @router.post("/remove-all-spaces", response_model=TextResponse)
 async def remove_all_spaces(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Strip all whitespace from text."""
-    return await _local_endpoint(request, req, "remove-all-spaces", ts.remove_all_spaces, "All spaces removed", user, db)
+    return await _local_endpoint(request, req, "remove-all-spaces", ts.remove_all_spaces, user, db)
 
 
 @router.post("/remove-line-breaks", response_model=TextResponse)
 async def remove_line_breaks(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Replace line breaks with spaces."""
-    return await _local_endpoint(request, req, "remove-line-breaks", ts.remove_line_breaks, "Line breaks removed", user, db)
+    return await _local_endpoint(request, req, "remove-line-breaks", ts.remove_line_breaks, user, db)
 
 
 # ── Text Cleaning ────────────────────────────────────────────────────────
@@ -145,19 +145,19 @@ async def remove_line_breaks(request: Request, req: TextRequest, user: User | No
 @router.post("/strip-html", response_model=TextResponse)
 async def strip_html(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Remove HTML tags and decode entities."""
-    return await _local_endpoint(request, req, "strip-html", ts.strip_html, "HTML stripped", user, db)
+    return await _local_endpoint(request, req, "strip-html", ts.strip_html, user, db)
 
 
 @router.post("/remove-accents", response_model=TextResponse)
 async def remove_accents(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Remove diacritics/accents from text."""
-    return await _local_endpoint(request, req, "remove-accents", ts.remove_accents, "Accents removed", user, db)
+    return await _local_endpoint(request, req, "remove-accents", ts.remove_accents, user, db)
 
 
 @router.post("/toggle-smart-quotes", response_model=TextResponse)
 async def toggle_smart_quotes(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Toggle between smart (curly) and straight quotes."""
-    return await _local_endpoint(request, req, "toggle-smart-quotes", ts.toggle_smart_quotes, "Smart quotes toggled", user, db)
+    return await _local_endpoint(request, req, "toggle-smart-quotes", ts.toggle_smart_quotes, user, db)
 
 
 # ── Encoding ──────────────────────────────────────────────────────────────────
@@ -165,7 +165,7 @@ async def toggle_smart_quotes(request: Request, req: TextRequest, user: User | N
 @router.post("/base64-encode", response_model=TextResponse)
 async def base64_encode(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Encode text to Base64."""
-    return await _local_endpoint(request, req, "base64-encode", ts.base64_encode, "Base64 encoded", user, db)
+    return await _local_endpoint(request, req, "base64-encode", ts.base64_encode, user, db)
 
 
 @router.post("/base64-decode", response_model=TextResponse)
@@ -181,7 +181,7 @@ async def base64_decode(request: Request, req: TextRequest, user: User | None = 
 @router.post("/url-encode", response_model=TextResponse)
 async def url_encode(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Percent-encode text for use in a URL."""
-    return await _local_endpoint(request, req, "url-encode", ts.url_encode, "URL encoded", user, db)
+    return await _local_endpoint(request, req, "url-encode", ts.url_encode, user, db)
 
 
 @router.post("/url-decode", response_model=TextResponse)
@@ -197,7 +197,7 @@ async def url_decode(request: Request, req: TextRequest, user: User | None = Dep
 @router.post("/hex-encode", response_model=TextResponse)
 async def hex_encode(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Encode text to hexadecimal."""
-    return await _local_endpoint(request, req, "hex-encode", ts.hex_encode, "Hex encoded", user, db)
+    return await _local_endpoint(request, req, "hex-encode", ts.hex_encode, user, db)
 
 
 @router.post("/hex-decode", response_model=TextResponse)
@@ -213,7 +213,7 @@ async def hex_decode(request: Request, req: TextRequest, user: User | None = Dep
 @router.post("/morse-encode", response_model=TextResponse)
 async def morse_encode(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Encode text to Morse code."""
-    return await _local_endpoint(request, req, "morse-encode", ts.morse_encode, "Morse encoded", user, db)
+    return await _local_endpoint(request, req, "morse-encode", ts.morse_encode, user, db)
 
 
 @router.post("/morse-decode", response_model=TextResponse)
@@ -231,43 +231,43 @@ async def morse_decode(request: Request, req: TextRequest, user: User | None = D
 @router.post("/reverse", response_model=TextResponse)
 async def reverse(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Reverse the entire text."""
-    return await _local_endpoint(request, req, "reverse", ts.reverse_text, "Text reversed", user, db)
+    return await _local_endpoint(request, req, "reverse", ts.reverse_text, user, db)
 
 
 @router.post("/sort-lines-asc", response_model=TextResponse)
 async def sort_lines_asc(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Sort lines alphabetically A → Z (case-insensitive)."""
-    return await _local_endpoint(request, req, "sort-lines-asc", ts.sort_lines_asc, "Lines sorted ascending", user, db)
+    return await _local_endpoint(request, req, "sort-lines-asc", ts.sort_lines_asc, user, db)
 
 
 @router.post("/sort-lines-desc", response_model=TextResponse)
 async def sort_lines_desc(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Sort lines alphabetically Z → A (case-insensitive)."""
-    return await _local_endpoint(request, req, "sort-lines-desc", ts.sort_lines_desc, "Lines sorted descending", user, db)
+    return await _local_endpoint(request, req, "sort-lines-desc", ts.sort_lines_desc, user, db)
 
 
 @router.post("/remove-duplicate-lines", response_model=TextResponse)
 async def remove_duplicate_lines(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Remove duplicate lines, preserving first occurrence."""
-    return await _local_endpoint(request, req, "remove-duplicate-lines", ts.remove_duplicate_lines, "Duplicate lines removed", user, db)
+    return await _local_endpoint(request, req, "remove-duplicate-lines", ts.remove_duplicate_lines, user, db)
 
 
 @router.post("/reverse-lines", response_model=TextResponse)
 async def reverse_lines(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Reverse line order."""
-    return await _local_endpoint(request, req, "reverse-lines", ts.reverse_lines, "Lines reversed", user, db)
+    return await _local_endpoint(request, req, "reverse-lines", ts.reverse_lines, user, db)
 
 
 @router.post("/number-lines", response_model=TextResponse)
 async def number_lines(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Prefix each line with its line number."""
-    return await _local_endpoint(request, req, "number-lines", ts.number_lines, "Lines numbered", user, db)
+    return await _local_endpoint(request, req, "number-lines", ts.number_lines, user, db)
 
 
 @router.post("/rot13", response_model=TextResponse)
 async def rot13(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Apply ROT13 cipher to text."""
-    return await _local_endpoint(request, req, "rot13", ts.rot13, "ROT13 applied", user, db)
+    return await _local_endpoint(request, req, "rot13", ts.rot13, user, db)
 
 
 # ── Developer Tools ───────────────────────────────────────────────────────────
@@ -297,7 +297,7 @@ async def json_to_yaml(request: Request, req: TextRequest, user: User | None = D
 @router.post("/json-escape", response_model=TextResponse)
 async def json_escape(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Escape special characters for JSON strings."""
-    return await _local_endpoint(request, req, "json-escape", ts.json_escape, "JSON escaped", user, db)
+    return await _local_endpoint(request, req, "json-escape", ts.json_escape, user, db)
 
 
 @router.post("/json-unescape", response_model=TextResponse)
@@ -313,13 +313,13 @@ async def json_unescape(request: Request, req: TextRequest, user: User | None = 
 @router.post("/html-escape", response_model=TextResponse)
 async def html_escape(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Escape HTML special characters to entities."""
-    return await _local_endpoint(request, req, "html-escape", ts.html_escape_text, "HTML escaped", user, db)
+    return await _local_endpoint(request, req, "html-escape", ts.html_escape_text, user, db)
 
 
 @router.post("/html-unescape", response_model=TextResponse)
 async def html_unescape(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Decode HTML entities to characters."""
-    return await _local_endpoint(request, req, "html-unescape", ts.html_unescape_text, "HTML unescaped", user, db)
+    return await _local_endpoint(request, req, "html-unescape", ts.html_unescape_text, user, db)
 
 
 # ── CSV / JSON Conversion ────────────────────────────────────────────────────

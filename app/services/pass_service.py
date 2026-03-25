@@ -5,13 +5,12 @@ import secrets
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
-from sqlalchemy import select, and_, or_
+from sqlalchemy import select, and_, or_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.pass_catalog import (
-    ALWAYS_FREE_TOOL_IDS, PASSES, CREDIT_PACKS, STREAK_REWARDS,
-    QUEST_REWARDS, SPIN_REWARDS, REFERRAL_REWARDS, get_pass, get_credit_pack,
+    ALWAYS_FREE_TOOL_IDS, SPIN_REWARDS, REFERRAL_REWARDS, get_pass,
 )
 from app.db.models.user import User
 from app.db.models.user_pass import UserPass
@@ -268,7 +267,6 @@ async def grant_credits(
 
 async def get_credit_balance(user: User, db: AsyncSession) -> int:
     """Return total remaining credits across all packs."""
-    from sqlalchemy import func
     result = await db.execute(
         select(func.coalesce(func.sum(UserCredit.credits_remaining), 0)).where(
             and_(UserCredit.user_id == user.id, UserCredit.credits_remaining > 0)
