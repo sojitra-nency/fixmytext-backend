@@ -25,6 +25,7 @@ from app.services.ai_service import (
     ParaphraserService, ToneChangerService, SentimentAnalyzerService,
     TextLengthenerService, FormatChangerService,
     ELI5Service, ProofreadService, TitleGeneratorService, PromptRefactorService,
+    EmojifyService, LanguageDetector,
 )
 
 router = APIRouter(prefix="/text", tags=["Text"])
@@ -398,6 +399,18 @@ async def translate(request: Request, req: TranslateRequest, user: User = Depend
 async def transliterate(request: Request, req: TranslateRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """Transliterate text into the script of the target language."""
     return await _ai_endpoint(request, req, f"transliterate-{req.target_language.lower()}", TransliterationService.transliterate, "Transliteration failed", req.target_language, user=user, db=db)
+
+
+@router.post("/emojify", response_model=TextResponse)
+async def emojify(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Add contextual emojis to text based on emotions, actions, and concepts."""
+    return await _ai_endpoint(request, req, "emojify", EmojifyService.emojify, "Could not emojify text", user=user, db=db)
+
+
+@router.post("/detect-language", response_model=TextResponse)
+async def detect_language(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Detect the language of the input text."""
+    return await _ai_endpoint(request, req, "detect-language", LanguageDetector.detect, "Could not detect language", user=user, db=db)
 
 
 @router.post("/summarize", response_model=TextResponse)

@@ -152,6 +152,14 @@ def _transliterate_fallback(text: str, target_language: str) -> str:
     return f"[Transliteration requires Groq API key. Set GROQ_API_KEY in .env to enable transliteration to {target_language}.]"
 
 
+def _emojify_fallback(text: str) -> str:
+    return text + " 😊"
+
+
+def _detect_lang_fallback(text: str) -> str:
+    return "Unknown"
+
+
 
 def _summarize_fallback(text: str) -> str:
     sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', text.strip()) if s.strip()]
@@ -618,3 +626,28 @@ class FormatChangerService:
             "Return ONLY the reformatted text, nothing else."
         )
         return await _ai_transform(prompt, text, _format_fallback, fmt, temperature=0.5, max_tokens=2000)
+
+
+class EmojifyService:
+    @staticmethod
+    async def emojify(text: str) -> str:
+        prompt = (
+            "You are an emoji translator. Replace words and phrases in the user's text with matching emojis wherever possible. "
+            "For example: 'I am crying' → 'I am 😭', 'boom' → '💥', 'I love pizza' → 'I ❤️ 🍕', 'happy birthday' → '🎂🎉'. "
+            "Replace the word/phrase itself with the emoji — do NOT keep both. "
+            "Keep words that have no good emoji match. Preserve sentence structure and grammar words (I, am, the, is, etc.). "
+            "Work with ANY language — understand the meaning and replace with emojis regardless of input language. "
+            "Return ONLY the emojified text, nothing else."
+        )
+        return await _ai_transform(prompt, text, _emojify_fallback, temperature=0.7, max_tokens=1000)
+
+
+class LanguageDetector:
+    @staticmethod
+    async def detect(text: str) -> str:
+        prompt = (
+            "Detect the language of the following text. "
+            "Return ONLY the language name in English (e.g., 'English', 'Hindi', 'Spanish', 'French'). "
+            "Nothing else."
+        )
+        return await _ai_transform(prompt, text, _detect_lang_fallback, temperature=0.1, max_tokens=20)
