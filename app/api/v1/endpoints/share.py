@@ -1,0 +1,71 @@
+"""Share endpoints — create and view shareable links for transformed text."""
+
+import uuid
+from datetime import datetime, timedelta, timezone
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+
+from app.core.deps import get_optional_user
+from app.db.session import get_db
+from app.db.models import User
+from app.db.models.shared_result import SharedResult
+from app.schemas.share import ShareCreate, ShareResponse, SharedResultView
+from app.core.config import settings
+
+router = APIRouter(prefix="/share", tags=["Share"])
+
+SHARE_EXPIRE_DAYS = 30
+MAX_SHARE_TEXT_LENGTH = 50_000
+
+
+@router.post("", response_model=ShareResponse)
+async def create_share(
+    req: ShareCreate,
+    user: User | None = Depends(get_optional_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a shareable link for a transformed result. No auth required."""
+    row = SharedResult(
+        user_id=user.id if user else None,
+        tool_id=req.tool_id,
+        tool_label=req.tool_label,
+        output_text=req.output_text[:MAX_SHARE_TEXT_LENGTH],
+    )
+    db.add(row)
+    await db.commit()
+    await db.refresh(row)
+
+    share_url = f"{settings.FRONTEND_URL}/share/{row.id}"
+    return ShareResponse(id=str(row.id), share_url=share_url)
+
+
+@router.get("/{share_id}", response_model=SharedResultView)
+async def get_share(
+    share_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """View a shared result. No auth required."""
+    try:
+        sid = uuid.UUID(share_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Share not found")
+
+    result = await db.execute(
+        select(SharedResult).where(SharedResult.id == sid)
+    )
+    row = result.scalar_one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Share not found")
+
+    if row.created_at < datetime.now(timezone.utc) - timedelta(days=SHARE_EXPIRE_DAYS):
+        raise HTTPException(status_code=410, detail="This share has expired")
+
+    return SharedResultView(
+        id=str(row.id),
+        tool_id=row.tool_id,
+        tool_label=row.tool_label,
+        output_text=row.output_text,
+        created_at=row.created_at.isoformat(),
+    )
