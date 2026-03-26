@@ -1,0 +1,163 @@
+# fixmytext-backend — unified compose file with profiles.
+#
+# Profiles:
+#   dev   development stack  (hot reload, source volumes)
+#   prod  production stack   (multi-stage builds, nginx)
+#
+# Usage:
+#   docker compose --profile dev up --build     # dev
+#   docker compose --profile prod up --build    # prod
+#
+services:
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # DATABASE  —  shared across profiles
+  # ══════════════════════════════════════════════════════════════════════════
+
+  db-service:
+    image: pgvector/pgvector:pg16
+    container_name: fixmytext-db
+    restart: unless-stopped
+    ports:
+      - "${DB_HOST_PORT:-5433}:5432"
+    environment:
+      POSTGRES_USER: fixmytext
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fixmytext_dev}
+      POSTGRES_DB: fixmytext
+    volumes:
+      - fixmytext-pgdata:/var/lib/postgresql/data
+    networks:
+      - fixmytext-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fixmytext -d fixmytext"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # MIGRATE  —  runs alembic upgrade head once, then exits (shared logic)
+  # Each profile has its own migrate service so build context matches.
+  # Both backend services depend on their migrate service completing.
+  # ══════════════════════════════════════════════════════════════════════════
+
+  migrate-dev:
+    profiles: ["dev"]
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: fixmytext-migrate-dev
+    restart: "no"
+    command: ["alembic", "upgrade", "head"]
+    volumes:
+      - .:/app      # Dockerfile.dev doesn't COPY source; mount it so alembic.ini is found
+      - /app/.venv  # keep the built venv from the image
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://fixmytext:${POSTGRES_PASSWORD:-fixmytext_dev}@db-service:5432/fixmytext
+    depends_on:
+      db-service:
+        condition: service_healthy
+    networks:
+      - fixmytext-net
+
+  migrate-prod:
+    profiles: ["prod"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: fixmytext-migrate-prod
+    restart: "no"
+    command: ["alembic", "upgrade", "head"]
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://fixmytext:${POSTGRES_PASSWORD:-fixmytext_dev}@db-service:5432/fixmytext
+      - SECRET_KEY=${SECRET_KEY:-}
+    depends_on:
+      db-service:
+        condition: service_healthy
+    networks:
+      - fixmytext-net
+
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # DEV  —  profile: dev
+  # ══════════════════════════════════════════════════════════════════════════
+
+  backend-dev:
+    profiles: ["dev"]
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: fixmytext-backend-dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app      # mount source — uvicorn --reload picks up changes
+      - /app/.venv          # anonymous volume keeps host .venv out of the container
+    env_file:
+      - .env
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+      - DEBUG=true
+      - ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+      - DATABASE_URL=postgresql+asyncpg://fixmytext:${POSTGRES_PASSWORD:-fixmytext_dev}@db-service:5432/fixmytext
+    depends_on:
+      db-service:
+        condition: service_healthy
+      migrate-dev:
+        condition: service_completed_successfully
+    networks:
+      - fixmytext-net
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # PROD  —  profile: prod
+  # ══════════════════════════════════════════════════════════════════════════
+
+  backend-prod:
+    profiles: ["prod"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: fixmytext-backend-prod
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+      - DEBUG=false
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000}
+      - DATABASE_URL=postgresql+asyncpg://fixmytext:${POSTGRES_PASSWORD:-fixmytext_dev}@db-service:5432/fixmytext
+      - SECRET_KEY=${SECRET_KEY:-}
+    depends_on:
+      db-service:
+        condition: service_healthy
+      migrate-prod:
+        condition: service_completed_successfully
+    networks:
+      - fixmytext-net
+    healthcheck:
+      test: ["CMD", "python", "-c",
+            "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+# ── Shared network ────────────────────────────────────────────────────────────
+networks:
+  fixmytext-net:
+    driver: bridge
+
+# ── Volumes ───────────────────────────────────────────────────────────────────
+volumes:
+  fixmytext-pgdata:
