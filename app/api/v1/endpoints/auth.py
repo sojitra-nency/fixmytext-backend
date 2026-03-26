@@ -1,9 +1,12 @@
 """Authentication endpoints: register, login, refresh, logout, me."""
 
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 from app.core.config import settings
 from jose import JWTError
@@ -53,12 +56,21 @@ def _clear_refresh_cookie(response: Response) -> None:
 @router.post("/register", response_model=TokenResponse)
 async def register(req: RegisterRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
     """Create a new account and return tokens."""
-    user = await do_register(db, req.email, req.password, req.display_name)
+    logger.info("REGISTER attempt email=%s display_name=%s", req.email, req.display_name)
+    try:
+        user = await do_register(db, req.email, req.password, req.display_name)
+    except HTTPException:
+        logger.warning("REGISTER failed email=%s (duplicate or validation error)", req.email)
+        raise
+    except Exception:
+        logger.exception("REGISTER unexpected error email=%s", req.email)
+        raise
     # Detect region from IP
     await _set_user_region(user, request, db)
     access = create_access_token(user.id)
     refresh = create_refresh_token(user.id)
     _set_refresh_cookie(response, refresh)
+    logger.info("REGISTER success user=%s email=%s", user.id, user.email)
     return TokenResponse(access_token=access)
 
 
@@ -67,6 +79,7 @@ async def register(req: RegisterRequest, request: Request, response: Response, d
 @router.post("/login", response_model=TokenResponse)
 async def login(req: LoginRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
     """Authenticate with email + password and return tokens."""
+    logger.info("LOGIN attempt email=%s", req.email)
     user = await authenticate(db, req.email, req.password)
     # Detect region from IP if not set yet
     if not user.region:

@@ -9,10 +9,41 @@ Run locally:
 
 import asyncio
 import logging
+import time
 from contextlib import asynccontextmanager
 from concurrent.futures import ThreadPoolExecutor
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s  [%(name)s] %(message)s")
+LOG_FORMAT = "%(asctime)s %(levelname)-5s [%(name)s] %(message)s"
+LOG_DATEFMT = "%Y-%m-%d %H:%M:%S"
+
+
+def _configure_logging() -> None:
+    """Set up consistent logging. Called at import AND after Alembic migrations
+    (which reset the root logger via fileConfig)."""
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+
+    # Remove any existing handlers (e.g. from alembic fileConfig) and set ours
+    root.handlers.clear()
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter(LOG_FORMAT, datefmt=LOG_DATEFMT))
+    root.addHandler(handler)
+
+    # Tame noisy loggers
+    logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+    logging.getLogger("alembic").setLevel(logging.WARNING)
+
+    # Make Uvicorn use the same format
+    for name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
+        uv_logger = logging.getLogger(name)
+        uv_logger.handlers.clear()
+        uv_handler = logging.StreamHandler()
+        uv_handler.setFormatter(logging.Formatter(LOG_FORMAT, datefmt=LOG_DATEFMT))
+        uv_logger.addHandler(uv_handler)
+        uv_logger.propagate = False
+
+
+_configure_logging()
 
 from alembic import command
 from alembic.config import Config as AlembicConfig
@@ -22,9 +53,12 @@ from app.api.v1.router import api_router
 from app.db.session import engine
 from app.services.ai_service import init_groq_client, close_groq_client
 from app.services.razorpay_service import init_razorpay
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 import uvicorn
+
+logger = logging.getLogger("fixmytext")
 
 
 def _run_migrations() -> None:
@@ -36,12 +70,18 @@ def _run_migrations() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize/cleanup shared clients on startup/shutdown."""
+    logger.info("Running database migrations …")
     loop = asyncio.get_running_loop()
     with ThreadPoolExecutor(max_workers=1) as pool:
         await loop.run_in_executor(pool, _run_migrations)
+    _configure_logging()          # alembic fileConfig resets root logger — reclaim it
+    logger.info("Migrations complete")
     init_groq_client()
+    logger.info("Groq client initialized")
     init_razorpay()
+    logger.info("Razorpay client initialized — app ready")
     yield
+    logger.info("Shutting down …")
     await close_groq_client()
     await engine.dispose()
 
@@ -55,6 +95,45 @@ app = FastAPI(
     openapi_url="/openapi.json",
     lifespan=lifespan,
 )
+
+
+# ── Request Logging Middleware ────────────────────────────────────────────────
+
+class RequestLoggingMiddleware(BaseHTTPMiddleware):
+    """Log every request with method, path, status code, and duration."""
+
+    async def dispatch(self, request: Request, call_next):
+        start = time.perf_counter()
+        client_ip = request.client.host if request.client else "unknown"
+        method = request.method
+        path = request.url.path
+        query = str(request.url.query)
+
+        logger.info(
+            "%s %s%s from %s",
+            method, path, f"?{query}" if query else "", client_ip,
+        )
+
+        try:
+            response = await call_next(request)
+        except Exception as exc:
+            duration_ms = (time.perf_counter() - start) * 1000
+            logger.error(
+                "%s %s -> 500 (%.1fms) ERROR: %s",
+                method, path, duration_ms, exc,
+            )
+            raise
+
+        duration_ms = (time.perf_counter() - start) * 1000
+        logger.info(
+            "%s %s -> %s (%.1fms)",
+            method, path, response.status_code, duration_ms,
+        )
+        return response
+
+
+app.add_middleware(RequestLoggingMiddleware)
+
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
 app.add_middleware(
@@ -82,4 +161,5 @@ if __name__ == "__main__":
         host=settings.HOST,
         port=settings.PORT,
         reload=settings.DEBUG,
+        log_config=None,          # use our basicConfig, not uvicorn's default
     )

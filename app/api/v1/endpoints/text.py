@@ -7,6 +7,7 @@ All routes live under: /api/v1/text/...
 import binascii
 import json
 import csv
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,6 +17,8 @@ from app.core.deps import get_current_user, get_optional_user
 from app.db.session import get_db
 from app.db.models import User
 from app.services import text_service as ts
+
+logger = logging.getLogger(__name__)
 from app.services.pass_service import check_tool_access, check_visitor_access
 from app.services.ai_service import (
     HashtagService, SEOTitleService, MetaDescriptionService, BlogOutlineService,
@@ -35,9 +38,14 @@ router = APIRouter(prefix="/text", tags=["Text"])
 
 async def _local_endpoint(request: Request, req: TextRequest, operation: str, transform_fn, user: User | None = None, db: AsyncSession | None = None) -> TextResponse:
     """Shared handler for non-AI text endpoints with optional usage tracking."""
+    client_ip = request.client.host if request.client else "unknown"
+    user_id = str(user.id) if user else "visitor"
+    logger.info("LOCAL  op=%s user=%s ip=%s chars=%d", operation, user_id, client_ip, len(req.text))
     if db:
         await _enforce_tool_access(request, operation, "api", user, db)
-    return TextResponse(original=req.text, result=transform_fn(req.text), operation=operation)
+    result = transform_fn(req.text)
+    logger.info("LOCAL  op=%s -> OK (%d chars)", operation, len(result))
+    return TextResponse(original=req.text, result=result, operation=operation)
 
 
 async def _enforce_tool_access(request: Request, tool_id: str, tool_type: str, user: User | None, db: AsyncSession):
@@ -50,20 +58,29 @@ async def _enforce_tool_access(request: Request, tool_id: str, tool_type: str, u
         result = await check_visitor_access(fingerprint, ip, tool_id, tool_type, db)
 
     if not result["allowed"]:
+        logger.warning("ACCESS DENIED tool=%s type=%s user=%s reason=%s",
+                        tool_id, tool_type,
+                        str(user.id) if user else "visitor",
+                        result.get("message", "limit reached"))
         raise HTTPException(status_code=429, detail=result.get("message", "Daily limit reached. Get a pass for more access!"))
 
 
 async def _ai_endpoint(request: Request, req, operation: str, service_fn, error_detail: str, *extra_args, user: User = None, db: AsyncSession = None) -> TextResponse:
     """Shared handler for all AI-powered endpoints."""
+    client_ip = request.client.host if request.client else "unknown"
+    user_id = str(user.id) if user else "visitor"
+    logger.info("AI     op=%s user=%s ip=%s chars=%d", operation, user_id, client_ip, len(req.text))
     ai_limiter.check(request)
     if db:
         await _enforce_tool_access(request, operation, "ai", user, db)
     try:
         result = await service_fn(req.text, *extra_args)
+        logger.info("AI     op=%s -> OK (%d chars)", operation, len(result))
         return TextResponse(original=req.text, result=result, operation=operation)
     except HTTPException:
         raise
-    except Exception:
+    except Exception as exc:
+        logger.exception("AI     op=%s -> FAILED: %s", operation, exc)
         raise HTTPException(status_code=500, detail=error_detail)
 
 
@@ -121,6 +138,96 @@ async def snake_case(request: Request, req: TextRequest, user: User | None = Dep
 async def kebab_case(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Convert text to kebab-case."""
     return await _local_endpoint(request, req, "kebab-case", ts.to_kebab_case, user, db)
+
+
+@router.post("/capitalize-words", response_model=TextResponse)
+async def capitalize_words(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Capitalize the first letter of each word, keep rest unchanged."""
+    return await _local_endpoint(request, req, "capitalize-words", ts.to_capitalize_words, user, db)
+
+
+@router.post("/alternating-case", response_model=TextResponse)
+async def alternating_case(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Convert text to aLtErNaTiNg CaSe."""
+    return await _local_endpoint(request, req, "alternating-case", ts.to_alternating_case, user, db)
+
+
+@router.post("/inverse-word-case", response_model=TextResponse)
+async def inverse_word_case(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Capitalize last letter of each word instead of first."""
+    return await _local_endpoint(request, req, "inverse-word-case", ts.to_inverse_word_case, user, db)
+
+
+@router.post("/wide-text", response_model=TextResponse)
+async def wide_text(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Add spaces between every character (aesthetic/vaporwave)."""
+    return await _local_endpoint(request, req, "wide-text", ts.to_wide_text, user, db)
+
+
+@router.post("/small-caps", response_model=TextResponse)
+async def small_caps(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Convert text to Unicode small capital letters."""
+    return await _local_endpoint(request, req, "small-caps", ts.to_small_caps, user, db)
+
+
+@router.post("/upside-down", response_model=TextResponse)
+async def upside_down(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Flip text upside down using Unicode characters."""
+    return await _local_endpoint(request, req, "upside-down", ts.to_upside_down, user, db)
+
+
+@router.post("/strikethrough", response_model=TextResponse)
+async def strikethrough(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Apply Unicode strikethrough to each character."""
+    return await _local_endpoint(request, req, "strikethrough", ts.to_strikethrough, user, db)
+
+
+@router.post("/ap-title-case", response_model=TextResponse)
+async def ap_title_case(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Smart title case following AP style rules."""
+    return await _local_endpoint(request, req, "ap-title-case", ts.to_ap_title_case, user, db)
+
+
+@router.post("/swap-word-case", response_model=TextResponse)
+async def swap_word_case(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Alternate case at the word level (UPPER lower UPPER lower)."""
+    return await _local_endpoint(request, req, "swap-word-case", ts.to_swap_word_case, user, db)
+
+
+@router.post("/dot-case", response_model=TextResponse)
+async def dot_case(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Join words with dots (e.g. my.config.value)."""
+    return await _local_endpoint(request, req, "dot-case", ts.to_dot_case, user, db)
+
+
+@router.post("/constant-case", response_model=TextResponse)
+async def constant_case(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Convert text to CONSTANT_CASE (SCREAMING_SNAKE_CASE)."""
+    return await _local_endpoint(request, req, "constant-case", ts.to_constant_case, user, db)
+
+
+@router.post("/train-case", response_model=TextResponse)
+async def train_case(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Capitalize each word and join with hyphens (Train-Case)."""
+    return await _local_endpoint(request, req, "train-case", ts.to_train_case, user, db)
+
+
+@router.post("/path-case", response_model=TextResponse)
+async def path_case(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Join words with forward slashes (my/file/path)."""
+    return await _local_endpoint(request, req, "path-case", ts.to_path_case, user, db)
+
+
+@router.post("/flat-case", response_model=TextResponse)
+async def flat_case(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """All lowercase with no separators (flatcase)."""
+    return await _local_endpoint(request, req, "flat-case", ts.to_flat_case, user, db)
+
+
+@router.post("/cobol-case", response_model=TextResponse)
+async def cobol_case(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Convert text to COBOL-CASE (uppercase with hyphens)."""
+    return await _local_endpoint(request, req, "cobol-case", ts.to_cobol_case, user, db)
 
 
 @router.post("/remove-extra-spaces", response_model=TextResponse)

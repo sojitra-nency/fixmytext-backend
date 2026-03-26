@@ -60,6 +60,105 @@ def to_kebab_case(text: str) -> str:
     s = re.sub(r'[^a-zA-Z0-9]+', '-', s)
     return s.strip('-').lower()
 
+def to_capitalize_words(text: str) -> str:
+    return " ".join(w[0].upper() + w[1:] if w else w for w in text.split(" "))
+
+def to_alternating_case(text: str) -> str:
+    result = []
+    i = 0
+    for c in text:
+        if c.isalpha():
+            result.append(c.lower() if i % 2 == 0 else c.upper())
+            i += 1
+        else:
+            result.append(c)
+    return "".join(result)
+
+def to_inverse_word_case(text: str) -> str:
+    result = []
+    for word in text.split(" "):
+        if word:
+            result.append(word[:-1].lower() + word[-1].upper() if len(word) > 1 else word.upper())
+        else:
+            result.append(word)
+    return " ".join(result)
+
+def to_wide_text(text: str) -> str:
+    return " ".join(text)
+
+_SMALL_CAPS_MAP = str.maketrans(
+    "abcdefghijklmnopqrstuvwxyz",
+    "ᴀʙᴄᴅᴇꜰɢʜɪᴊᴋʟᴍɴᴏᴘǫʀꜱᴛᴜᴠᴡxʏᴢ",
+)
+
+def to_small_caps(text: str) -> str:
+    return text.lower().translate(_SMALL_CAPS_MAP)
+
+_UPSIDE_DOWN_MAP = str.maketrans(
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,!?'\"",
+    "ɐqɔpǝɟƃɥᴉɾʞlɯuodbɹsʇnʌʍxʎz∀qƆpƎℲפHIſʞ˥WNOԀQɹS┴∩ΛMX⅄Z0ƖᄅƐㄣϛ9ㄥ86˙'¡¿,„",
+)
+
+def to_upside_down(text: str) -> str:
+    return text.translate(_UPSIDE_DOWN_MAP)[::-1]
+
+def to_strikethrough(text: str) -> str:
+    return "".join(c + "\u0336" if c.strip() else c for c in text)
+
+# AP-style small words that should stay lowercase in titles
+_AP_SMALL_WORDS = {
+    'a', 'an', 'and', 'as', 'at', 'but', 'by', 'for', 'if', 'in',
+    'nor', 'of', 'on', 'or', 'so', 'the', 'to', 'up', 'yet', 'is',
+    'it', 'its', 'my', 'vs', 'via',
+}
+
+def to_ap_title_case(text: str) -> str:
+    words = text.split()
+    result = []
+    for i, w in enumerate(words):
+        if i == 0 or i == len(words) - 1 or w.lower() not in _AP_SMALL_WORDS:
+            result.append(w.capitalize())
+        else:
+            result.append(w.lower())
+    return " ".join(result)
+
+def to_swap_word_case(text: str) -> str:
+    words = text.split(" ")
+    result = []
+    for i, w in enumerate(words):
+        result.append(w.upper() if i % 2 == 0 else w.lower())
+    return " ".join(result)
+
+def to_dot_case(text: str) -> str:
+    s = re.sub(r'([a-z0-9])([A-Z])', r'\1.\2', text)
+    s = re.sub(r'[^a-zA-Z0-9]+', '.', s)
+    return s.strip('.').lower()
+
+def to_constant_case(text: str) -> str:
+    s = re.sub(r'([a-z0-9])([A-Z])', r'\1_\2', text)
+    s = re.sub(r'[^a-zA-Z0-9]+', '_', s)
+    return s.strip('_').upper()
+
+def to_train_case(text: str) -> str:
+    s = re.sub(r'([a-z0-9])([A-Z])', r'\1-\2', text)
+    words = re.split(r'[^a-zA-Z0-9]+', s)
+    return "-".join(w.capitalize() for w in words if w)
+
+def to_path_case(text: str) -> str:
+    s = re.sub(r'([a-z0-9])([A-Z])', r'\1/\2', text)
+    s = re.sub(r'[^a-zA-Z0-9]+', '/', s)
+    return s.strip('/').lower()
+
+def to_flat_case(text: str) -> str:
+    s = re.sub(r'([a-z0-9])([A-Z])', r'\1\2', text)
+    s = re.sub(r'[^a-zA-Z0-9]+', '', s)
+    return s.lower()
+
+def to_cobol_case(text: str) -> str:
+    s = re.sub(r'([a-z0-9])([A-Z])', r'\1-\2', text)
+    s = re.sub(r'[^a-zA-Z0-9]+', '-', s)
+    return s.strip('-').upper()
+
 # ── Whitespace operations ─────────────────────────────────────────────────
 
 def remove_extra_spaces(text: str) -> str:

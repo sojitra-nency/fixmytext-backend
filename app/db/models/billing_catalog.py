@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import String, Boolean, SmallInteger, Integer, text
+from sqlalchemy import ForeignKey, String, Boolean, SmallInteger, Integer, text
 from sqlalchemy.dialects.postgresql import TIMESTAMP
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -37,7 +37,7 @@ class PassCatalogPrice(Base):
     __tablename__ = "pass_catalog_prices"
     __table_args__ = {"schema": settings.DB_SCHEMA_BILLING}
 
-    pass_id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    pass_id: Mapped[str] = mapped_column(String(50), ForeignKey(f"{settings.DB_SCHEMA_BILLING}.pass_catalog.id"), primary_key=True)
     region: Mapped[str] = mapped_column(String(5), primary_key=True)
     amount_subunits: Mapped[int] = mapped_column(Integer, nullable=False)
     currency: Mapped[str] = mapped_column(String(10), nullable=False)
@@ -64,7 +64,7 @@ class CreditPackPrice(Base):
     __tablename__ = "credit_pack_prices"
     __table_args__ = {"schema": settings.DB_SCHEMA_BILLING}
 
-    pack_id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    pack_id: Mapped[str] = mapped_column(String(50), ForeignKey(f"{settings.DB_SCHEMA_BILLING}.credit_pack_catalog.id"), primary_key=True)
     region: Mapped[str] = mapped_column(String(5), primary_key=True)
     amount_subunits: Mapped[int] = mapped_column(Integer, nullable=False)
     currency: Mapped[str] = mapped_column(String(10), nullable=False)
