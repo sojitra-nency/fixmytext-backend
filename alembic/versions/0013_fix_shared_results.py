@@ -48,16 +48,17 @@ def upgrade() -> None:
     # Make expires_at NOT NULL now that all rows are backfilled
     op.alter_column("shared_results", "expires_at", nullable=False, schema="activity")
 
-    # Partial index for background cleanup job (find expired shares)
-    op.execute(
-        "CREATE INDEX ix_shared_results_expires_at "
-        "ON activity.shared_results (expires_at) "
-        "WHERE expires_at < now()"
+    # Index for background cleanup job (find expired shares)
+    op.create_index(
+        "ix_shared_results_expires_at",
+        "shared_results",
+        ["expires_at"],
+        schema="activity",
     )
 
 
 def downgrade() -> None:
-    op.execute("DROP INDEX IF EXISTS ix_shared_results_expires_at")
+    op.drop_index("ix_shared_results_expires_at", table_name="shared_results", schema="activity")
     op.drop_column("shared_results", "expires_at", schema="activity")
     op.drop_column("shared_results", "view_count", schema="activity")
     op.drop_column("shared_results", "input_text", schema="activity")
