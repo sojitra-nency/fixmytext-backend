@@ -20,7 +20,7 @@ from app.services.razorpay_service import (
     create_order, fetch_order, verify_payment_signature, PRO_PLAN_PRICES,
     verify_webhook_signature,
 )
-from app.services.pass_service import get_credit_balance, get_active_passes, record_daily_login
+from app.services.pass_service import record_daily_login, get_credit_balance, get_active_passes, get_all_tool_uses_today, has_logged_in_today
 from app.services.region_service import resolve_user_region
 
 router = APIRouter(prefix="/subscription", tags=["Subscription"])
@@ -41,9 +41,9 @@ async def subscription_status(
         await db.commit()
 
     today = date.today().isoformat()
-    tool_uses = user.tool_uses_today if user.tool_uses_reset_date == today else {}
+    tool_uses = await get_all_tool_uses_today(user.id, db)
 
-    daily_bonus = user.daily_login_date == today
+    daily_bonus = await has_logged_in_today(user.id, db)
     if not daily_bonus:
         await record_daily_login(user, db)
         daily_bonus = True
