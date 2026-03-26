@@ -136,6 +136,7 @@ async def record_tool_discovery(user_id: str, tool_id: str, db: AsyncSession) ->
         tool_id=tool_id,
     ).on_conflict_do_nothing()
     await db.execute(stmt)
+    await db.commit()
 
 
 # ── Tool access check (authenticated users) ─────────────────────────────────
@@ -185,7 +186,7 @@ async def check_tool_access(
             user.tool_uses_today = {}
             user.tool_uses_reset_date = today_str
         new_uses = dict(user.tool_uses_today)
-        new_uses[tool_id] = uses + 1
+        new_uses[tool_id] = new_count
         user.tool_uses_today = new_uses
 
         await db.commit()
@@ -305,7 +306,7 @@ async def check_visitor_access(
             visitor.tool_uses_today = {}
             visitor.reset_date = today_str
         new_uses = dict(visitor.tool_uses_today)
-        new_uses[tool_id] = uses + 1
+        new_uses[tool_id] = new_count
         visitor.tool_uses_today = new_uses
 
         # Update fingerprint/IP if we found by the other
@@ -364,6 +365,7 @@ async def grant_pass(
         uses_per_day=pass_def["uses_per_day"],
         source=source,
         expires_at=expires,
+        razorpay_payment_id=razorpay_payment_id,
     )
     db.add(billing_pass)
     await db.flush()  # get billing_pass.id for junction rows
@@ -406,6 +408,7 @@ async def grant_credits(
         credits_total=amount,
         credits_remaining=amount,
         source=source,
+        razorpay_payment_id=razorpay_payment_id,
     )
     db.add(billing_credit)
 
@@ -540,21 +543,26 @@ async def spin_wheel(user: User, db: AsyncSession) -> dict:
     # DUAL-WRITE: also set legacy column
     user.last_spin_date = today.isoformat()
 
+    # Flush the spin log insert first — if it violates the weekly uniqueness
+    # constraint, surface the friendly "already spun" message without masking
+    # unrelated integrity errors from grant_pass/grant_credits.
     try:
-        if reward["type"] == "credits":
-            await grant_credits(user, reward["amount"], "spin", db, auto_commit=False)
-            await db.commit()
-            return {"reward_type": "credits", "amount": reward["amount"], "message": f"You won {reward['amount']} credits!"}
-        else:
-            pass_def = get_pass(reward["pass_id"])
-            if not pass_def:
-                raise ValueError(f"Invalid spin reward pass_id: {reward['pass_id']}")
-            await grant_pass(user, reward["pass_id"], ["*"], "spin", db, auto_commit=False)
-            await db.commit()
-            return {"reward_type": "pass", "pass_id": reward["pass_id"], "pass_name": pass_def["name"], "message": f"You won a {pass_def['name']} pass!"}
+        await db.flush()
     except IntegrityError:
         await db.rollback()
         return {"error": "Already spun this week. Come back next week!"}
+
+    if reward["type"] == "credits":
+        await grant_credits(user, reward["amount"], "spin", db, auto_commit=False)
+        await db.commit()
+        return {"reward_type": "credits", "amount": reward["amount"], "message": f"You won {reward['amount']} credits!"}
+    else:
+        pass_def = get_pass(reward["pass_id"])
+        if not pass_def:
+            raise ValueError(f"Invalid spin reward pass_id: {reward['pass_id']}")
+        await grant_pass(user, reward["pass_id"], ["*"], "spin", db, auto_commit=False)
+        await db.commit()
+        return {"reward_type": "pass", "pass_id": reward["pass_id"], "pass_name": pass_def["name"], "message": f"You won a {pass_def['name']} pass!"}
 
 
 # ── Referral code ────────────────────────────────────────────────────────────

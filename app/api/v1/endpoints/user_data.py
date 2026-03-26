@@ -433,11 +433,21 @@ async def delete_pipeline(
 async def get_discovered_tools(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    limit: int = 200,
+    offset: int = 0,
 ):
+    # Total count (unaffected by pagination)
+    count_result = await db.execute(
+        select(func.count()).where(UserDiscoveredTool.user_id == user.id)
+    )
+    total = count_result.scalar()
+
     result = await db.execute(
         select(UserDiscoveredTool)
         .where(UserDiscoveredTool.user_id == user.id)
         .order_by(UserDiscoveredTool.discovered_at.asc())
+        .limit(min(limit, 500))
+        .offset(offset)
     )
     tools = result.scalars().all()
     return DiscoveredToolsResponse(
@@ -448,7 +458,7 @@ async def get_discovered_tools(
             )
             for t in tools
         ],
-        count=len(tools),
+        count=total,
     )
 
 

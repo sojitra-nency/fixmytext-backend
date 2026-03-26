@@ -2,7 +2,6 @@
 
 import json
 import logging
-from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -40,7 +39,6 @@ async def subscription_status(
         await resolve_user_region(user, request, db)
         await db.commit()
 
-    today = date.today().isoformat()
     tool_uses = await get_all_tool_uses_today(user.id, db)
 
     daily_bonus = await has_logged_in_today(user.id, db)
