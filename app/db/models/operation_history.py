@@ -2,9 +2,9 @@
 
 import uuid
 from datetime import datetime
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
-from sqlalchemy import String, Text, Integer, ForeignKey
+from sqlalchemy import String, Text, Integer, Boolean, ForeignKey
 from sqlalchemy import text as sa_text
 from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -32,7 +32,7 @@ class OperationHistory(Base):
     # Tool identification
     tool_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     tool_label: Mapped[str] = mapped_column(String(200), nullable=False)
-    tool_type: Mapped[str] = mapped_column(String(20), nullable=False)  # api, ai, local, select, action
+    tool_type: Mapped[str] = mapped_column(String(20), nullable=False)  # api, ai, local, select, action, drawer
 
     # Text snapshots (truncated to 500 chars to avoid bloating)
     input_preview: Mapped[str] = mapped_column(Text, nullable=False)
@@ -40,8 +40,9 @@ class OperationHistory(Base):
     input_length: Mapped[int] = mapped_column(Integer, nullable=False)
     output_length: Mapped[int] = mapped_column(Integer, nullable=False)
 
-    # Optional metadata
-    status: Mapped[str] = mapped_column(String(20), nullable=False, server_default=sa_text("'success'"))  # success, error
+    status: Mapped[str] = mapped_column(String(20), nullable=False, server_default=sa_text("'success'"))
+    # Soft delete: set is_deleted=True instead of hard deleting (migration 0012)
+    is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=sa_text("false"))
 
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), server_default=sa_text("now()"), index=True

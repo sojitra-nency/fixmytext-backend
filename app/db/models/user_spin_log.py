@@ -1,0 +1,30 @@
+"""UserSpinLog ORM model — one spin per ISO week per user (enforced by composite PK)."""
+
+import uuid
+from datetime import date, datetime
+from typing import Optional
+
+from sqlalchemy import SmallInteger, Date, String, text, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.db.session import Base
+from app.core.config import settings
+
+
+class UserSpinLog(Base):
+    __tablename__ = "user_spin_log"
+    __table_args__ = {"schema": settings.DB_SCHEMA_AUTH}
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey(f"{settings.DB_SCHEMA_AUTH}.users.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    # ISO year + week as composite PK enforces one spin per week per user at DB level
+    iso_year: Mapped[int] = mapped_column(SmallInteger, primary_key=True)
+    iso_week: Mapped[int] = mapped_column(SmallInteger, primary_key=True)
+    spin_date: Mapped[date] = mapped_column(Date, nullable=False)
+    reward_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    reward_ref: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=text("now()"))

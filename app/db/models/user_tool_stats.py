@@ -1,0 +1,25 @@
+"""UserToolStats ORM model — lifetime per-tool usage totals per user."""
+
+import uuid
+from datetime import datetime
+
+from sqlalchemy import Integer, String, text, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.db.session import Base
+from app.core.config import settings
+
+
+class UserToolStats(Base):
+    __tablename__ = "user_tool_stats"
+    __table_args__ = {"schema": settings.DB_SCHEMA_ACTIVITY}
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey(f"{settings.DB_SCHEMA_AUTH}.users.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    tool_id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    total_uses: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default=text("1"))
+    last_used_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=text("now()"))
