@@ -103,7 +103,8 @@ def to_upside_down(text: str) -> str:
     return text.translate(_UPSIDE_DOWN_MAP)[::-1]
 
 def to_strikethrough(text: str) -> str:
-    return "".join(c + "\u0336" if c.strip() else c for c in text)
+    lines = text.split('\n')
+    return '\n'.join(f'<del>{line}</del>' if line.strip() else line for line in lines)
 
 # AP-style small words that should stay lowercase in titles
 _AP_SMALL_WORDS = {
@@ -173,9 +174,35 @@ def remove_line_breaks(text: str) -> str:
 # ── Text Cleaning ────────────────────────────────────────────────────────
 
 def strip_html(text: str) -> str:
-    clean = re.sub(r'<(head|style|script|noscript)\b[^>]*>.*?</\1>', '', text, flags=re.DOTALL | re.IGNORECASE)
-    clean = re.sub(r'<[^>]+>', '', clean)
-    clean = html.unescape(clean)
+    from html.parser import HTMLParser
+    from io import StringIO
+
+    class _TagStripper(HTMLParser):
+        _skip = frozenset(('head', 'style', 'script', 'noscript'))
+
+        def __init__(self):
+            super().__init__()
+            self._fed: list[str] = []
+            self._skip_depth = 0
+
+        def handle_starttag(self, tag: str, attrs: list) -> None:
+            if tag.lower() in self._skip:
+                self._skip_depth += 1
+
+        def handle_endtag(self, tag: str) -> None:
+            if tag.lower() in self._skip and self._skip_depth > 0:
+                self._skip_depth -= 1
+
+        def handle_data(self, data: str) -> None:
+            if self._skip_depth == 0:
+                self._fed.append(data)
+
+        def get_text(self) -> str:
+            return ''.join(self._fed)
+
+    stripper = _TagStripper()
+    stripper.feed(text)
+    clean = html.unescape(stripper.get_text())
     clean = re.sub(r'\n\s*\n+', '\n\n', clean).strip()
     return clean
 
