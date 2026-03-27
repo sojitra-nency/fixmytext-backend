@@ -13,6 +13,7 @@ from app.db.models import (
     User, UserPreferences, UserGamification, UserTemplate,
     UserUiSettings, UserFavoriteTool, UserToolStats,
     UserPipeline, UserPipelineStep,
+    UserDiscoveredTool, UserSpinLog,
 )
 from app.schemas.user_data import (
     PreferencesResponse, PreferencesUpdate,
@@ -22,6 +23,8 @@ from app.schemas.user_data import (
     FavoriteToolItem, FavoritesResponse,
     ToolStatItem, ToolStatsResponse,
     PipelineStepResponse, PipelineResponse, PipelineCreate, PipelineUpdate,
+    DiscoveredToolItem, DiscoveredToolsResponse,
+    SpinHistoryItem, SpinHistoryResponse,
 )
 
 router = APIRouter(prefix="/user", tags=["User Data"])
@@ -422,3 +425,65 @@ async def delete_pipeline(
         raise HTTPException(status_code=404, detail="Pipeline not found")
     pipeline.is_active = False
     await db.commit()
+
+
+# ── Discovered Tools ────────────────────────────────────────────────────────
+
+@router.get("/discovered-tools", response_model=DiscoveredToolsResponse)
+async def get_discovered_tools(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    limit: int = 200,
+    offset: int = 0,
+):
+    # Total count (unaffected by pagination)
+    count_result = await db.execute(
+        select(func.count()).where(UserDiscoveredTool.user_id == user.id)
+    )
+    total = count_result.scalar()
+
+    result = await db.execute(
+        select(UserDiscoveredTool)
+        .where(UserDiscoveredTool.user_id == user.id)
+        .order_by(UserDiscoveredTool.discovered_at.asc())
+        .limit(min(limit, 500))
+        .offset(offset)
+    )
+    tools = result.scalars().all()
+    return DiscoveredToolsResponse(
+        tools=[
+            DiscoveredToolItem(
+                tool_id=t.tool_id,
+                discovered_at=t.discovered_at.isoformat(),
+            )
+            for t in tools
+        ],
+        count=total,
+    )
+
+
+# ── Spin History ────────────────────────────────────────────────────────────
+
+@router.get("/spin-history", response_model=SpinHistoryResponse)
+async def get_spin_history(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(UserSpinLog)
+        .where(UserSpinLog.user_id == user.id)
+        .order_by(UserSpinLog.created_at.desc())
+        .limit(20)
+    )
+    spins = result.scalars().all()
+    return SpinHistoryResponse(
+        spins=[
+            SpinHistoryItem(
+                spin_date=s.spin_date.isoformat(),
+                reward_type=s.reward_type,
+                reward_ref=s.reward_ref,
+                iso_week=s.iso_week,
+            )
+            for s in spins
+        ],
+    )

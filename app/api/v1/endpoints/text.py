@@ -19,7 +19,7 @@ from app.db.models import User
 from app.services import text_service as ts
 
 logger = logging.getLogger(__name__)
-from app.services.pass_service import check_tool_access, check_visitor_access
+from app.services.pass_service import check_tool_access, check_visitor_access, record_tool_discovery
 from app.services.ai_service import (
     HashtagService, SEOTitleService, MetaDescriptionService, BlogOutlineService,
     TweetShortenerService, EmailRewriterService,
@@ -63,6 +63,10 @@ async def _enforce_tool_access(request: Request, tool_id: str, tool_type: str, u
                         str(user.id) if user else "visitor",
                         result.get("message", "limit reached"))
         raise HTTPException(status_code=429, detail=result.get("message", "Daily limit reached. Get a pass for more access!"))
+
+    # Record tool discovery for authenticated users (fire-and-forget, ON CONFLICT DO NOTHING)
+    if user:
+        await record_tool_discovery(user.id, tool_id, db)
 
 
 async def _ai_endpoint(request: Request, req, operation: str, service_fn, error_detail: str, *extra_args, user: User = None, db: AsyncSession = None) -> TextResponse:

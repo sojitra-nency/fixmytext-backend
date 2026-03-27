@@ -6,7 +6,10 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 from sqlalchemy import select, and_, or_, func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
 from app.core.pass_catalog import (
@@ -16,6 +19,124 @@ from app.db.models.user import User
 from app.db.models.user_pass import UserPass
 from app.db.models.user_credit import UserCredit
 from app.db.models.visitor_usage import VisitorUsage
+from app.db.models.user_tool_usage import UserToolUsage
+from app.db.models.visitor_tool_usage import VisitorToolUsage
+from app.db.models.user_discovered_tool import UserDiscoveredTool
+from app.db.models.user_daily_login import UserDailyLogin
+from app.db.models.user_spin_log import UserSpinLog
+from app.db.models.billing_pass import BillingUserPass, UserPassTool
+from app.db.models.billing_credit import BillingUserCredit
+
+
+# ── New-table helper functions ────────────────────────────────────────────────
+
+async def get_tool_use_count_today(user_id: str, tool_id: str, db: AsyncSession) -> int:
+    """Return how many times *user_id* has used *tool_id* today (new table)."""
+    result = await db.execute(
+        select(UserToolUsage.use_count).where(
+            and_(
+                UserToolUsage.user_id == user_id,
+                UserToolUsage.tool_id == tool_id,
+                UserToolUsage.usage_date == date.today(),
+            )
+        )
+    )
+    row = result.scalar()
+    return row if row is not None else 0
+
+
+async def increment_tool_usage(user_id: str, tool_id: str, db: AsyncSession) -> int:
+    """UPSERT a row in user_tool_usage and return the new count."""
+    stmt = pg_insert(UserToolUsage).values(
+        user_id=user_id,
+        tool_id=tool_id,
+        usage_date=date.today(),
+        use_count=1,
+    ).on_conflict_do_update(
+        index_elements=[UserToolUsage.user_id, UserToolUsage.tool_id, UserToolUsage.usage_date],
+        set_={"use_count": UserToolUsage.use_count + 1},
+    )
+    await db.execute(stmt)
+    return await get_tool_use_count_today(user_id, tool_id, db)
+
+
+async def get_all_tool_uses_today(user_id: str, db: AsyncSession) -> dict[str, int]:
+    """Return {tool_id: use_count} for all tools used by *user_id* today."""
+    result = await db.execute(
+        select(UserToolUsage.tool_id, UserToolUsage.use_count).where(
+            and_(
+                UserToolUsage.user_id == user_id,
+                UserToolUsage.usage_date == date.today(),
+            )
+        )
+    )
+    return {row.tool_id: row.use_count for row in result.all()}
+
+
+async def get_visitor_tool_use_count_today(visitor_id: str, tool_id: str, db: AsyncSession) -> int:
+    """Return how many times *visitor_id* has used *tool_id* today (new table)."""
+    result = await db.execute(
+        select(VisitorToolUsage.use_count).where(
+            and_(
+                VisitorToolUsage.visitor_id == visitor_id,
+                VisitorToolUsage.tool_id == tool_id,
+                VisitorToolUsage.usage_date == date.today(),
+            )
+        )
+    )
+    row = result.scalar()
+    return row if row is not None else 0
+
+
+async def increment_visitor_tool_usage(visitor_id: str, tool_id: str, db: AsyncSession) -> int:
+    """UPSERT a row in visitor_tool_usage and return the new count."""
+    stmt = pg_insert(VisitorToolUsage).values(
+        visitor_id=visitor_id,
+        tool_id=tool_id,
+        usage_date=date.today(),
+        use_count=1,
+    ).on_conflict_do_update(
+        index_elements=[VisitorToolUsage.visitor_id, VisitorToolUsage.tool_id, VisitorToolUsage.usage_date],
+        set_={"use_count": VisitorToolUsage.use_count + 1},
+    )
+    await db.execute(stmt)
+    return await get_visitor_tool_use_count_today(visitor_id, tool_id, db)
+
+
+async def get_visitor_all_tool_uses_today(visitor_id: str, db: AsyncSession) -> dict[str, int]:
+    """Return {tool_id: use_count} for all tools used by *visitor_id* today."""
+    result = await db.execute(
+        select(VisitorToolUsage.tool_id, VisitorToolUsage.use_count).where(
+            and_(
+                VisitorToolUsage.visitor_id == visitor_id,
+                VisitorToolUsage.usage_date == date.today(),
+            )
+        )
+    )
+    return {row.tool_id: row.use_count for row in result.all()}
+
+
+async def has_logged_in_today(user_id, db: AsyncSession) -> bool:
+    """Check if user has a daily login record for today (new table)."""
+    result = await db.execute(
+        select(UserDailyLogin).where(
+            and_(
+                UserDailyLogin.user_id == user_id,
+                UserDailyLogin.login_date == date.today(),
+            )
+        )
+    )
+    return result.scalars().first() is not None
+
+
+async def record_tool_discovery(user_id: str, tool_id: str, db: AsyncSession) -> None:
+    """Record that a user discovered a tool. Fire-and-forget, ignores duplicates."""
+    stmt = pg_insert(UserDiscoveredTool).values(
+        user_id=user_id,
+        tool_id=tool_id,
+    ).on_conflict_do_nothing()
+    await db.execute(stmt)
+    await db.commit()
 
 
 # ── Tool access check (authenticated users) ─────────────────────────────────
@@ -40,11 +161,6 @@ async def check_tool_access(
     if user.subscription_tier == "pro":
         return {"allowed": True, "reason": "pro"}
 
-    # Reset daily counters if needed
-    if user.tool_uses_reset_date != today_str:
-        user.tool_uses_today = {}
-        user.tool_uses_reset_date = today_str
-
     # Check active passes
     pass_result = await _check_passes(user, tool_id, today_str, db)
     if pass_result:
@@ -55,19 +171,26 @@ async def check_tool_access(
     if credit_result:
         return credit_result
 
-    # Check daily free limit
-    uses = user.tool_uses_today.get(tool_id, 0)
+    # Check daily free limit — read from new table
+    uses = await get_tool_use_count_today(user.id, tool_id, db)
     max_free = settings.FREE_USES_PER_TOOL_PER_DAY
-    if user.daily_login_date == today_str:
+    if await has_logged_in_today(user.id, db):
         max_free += settings.DAILY_LOGIN_BONUS
 
     if uses < max_free:
-        # Increment — must create new dict for SQLAlchemy JSONB mutation detection
+        # Increment in new table
+        new_count = await increment_tool_usage(user.id, tool_id, db)
+
+        # DUAL-WRITE: also update legacy JSONB column
+        if user.tool_uses_reset_date != today_str:
+            user.tool_uses_today = {}
+            user.tool_uses_reset_date = today_str
         new_uses = dict(user.tool_uses_today)
-        new_uses[tool_id] = uses + 1
+        new_uses[tool_id] = new_count
         user.tool_uses_today = new_uses
+
         await db.commit()
-        return {"allowed": True, "reason": "free", "uses_today": uses + 1, "max_free": max_free}
+        return {"allowed": True, "reason": "free", "uses_today": new_count, "max_free": max_free}
 
     # Blocked
     return {
@@ -83,24 +206,26 @@ async def _check_passes(user: User, tool_id: str, today_str: str, db: AsyncSessi
     """Check if any active pass covers this tool with remaining uses."""
     now = datetime.now(timezone.utc)
     result = await db.execute(
-        select(UserPass).where(
+        select(BillingUserPass)
+        .options(selectinload(BillingUserPass.tools))
+        .where(
             and_(
-                UserPass.user_id == user.id,
-                UserPass.is_active == True,  # noqa: E712
-                UserPass.expires_at > now,
+                BillingUserPass.user_id == user.id,
+                BillingUserPass.is_active == True,  # noqa: E712
+                BillingUserPass.expires_at > now,
             )
         )
     )
     passes = result.scalars().all()
 
     for p in passes:
-        # Reset pass daily uses if needed
-        if p.uses_reset_date != today_str:
+        # Reset pass daily uses if needed (date comparison, not string)
+        if p.uses_reset_date != date.today():
             p.uses_today = 0
-            p.uses_reset_date = today_str
+            p.uses_reset_date = date.today()
 
         # Check if this pass covers the tool
-        covers = p.tools_count == -1 or "*" in (p.tool_ids or []) or tool_id in (p.tool_ids or [])
+        covers = p.tools_count == -1 or any(t.tool_id in ("*", tool_id) for t in p.tools)
         if covers and p.uses_today < p.uses_per_day:
             p.uses_today += 1
             await db.commit()
@@ -116,12 +241,12 @@ async def _check_passes(user: User, tool_id: str, today_str: str, db: AsyncSessi
 async def _check_credits(user: User, db: AsyncSession) -> Optional[dict]:
     """Check if user has any remaining credits. Consume 1 if so."""
     result = await db.execute(
-        select(UserCredit).where(
+        select(BillingUserCredit).where(
             and_(
-                UserCredit.user_id == user.id,
-                UserCredit.credits_remaining > 0,
+                BillingUserCredit.user_id == user.id,
+                BillingUserCredit.credits_remaining > 0,
             )
-        ).order_by(UserCredit.created_at.asc())  # FIFO
+        ).order_by(BillingUserCredit.created_at.asc())  # FIFO
     )
     credit = result.scalars().first()
     if credit:
@@ -162,12 +287,8 @@ async def check_visitor_access(
         visitor = result.scalars().first()
 
     if visitor:
-        # Reset if new day
-        if visitor.reset_date != today_str:
-            visitor.tool_uses_today = {}
-            visitor.reset_date = today_str
-
-        uses = visitor.tool_uses_today.get(tool_id, 0)
+        # Read from new table
+        uses = await get_visitor_tool_use_count_today(visitor.id, tool_id, db)
         if uses >= settings.FREE_USES_PER_TOOL_PER_DAY:
             return {
                 "allowed": False,
@@ -177,16 +298,24 @@ async def check_visitor_access(
                 "message": "Sign in to get more free uses, or buy a pass!",
             }
 
+        # Increment in new table
+        new_count = await increment_visitor_tool_usage(visitor.id, tool_id, db)
+
+        # DUAL-WRITE: also update legacy JSONB column
+        if visitor.reset_date != today_str:
+            visitor.tool_uses_today = {}
+            visitor.reset_date = today_str
         new_uses = dict(visitor.tool_uses_today)
-        new_uses[tool_id] = uses + 1
+        new_uses[tool_id] = new_count
         visitor.tool_uses_today = new_uses
+
         # Update fingerprint/IP if we found by the other
         if fingerprint and visitor.fingerprint != fingerprint:
             visitor.fingerprint = fingerprint
         if ip_address and visitor.ip_address != ip_address:
             visitor.ip_address = ip_address
         await db.commit()
-        return {"allowed": True, "reason": "free", "uses_today": uses + 1}
+        return {"allowed": True, "reason": "free", "uses_today": new_count}
 
     # New visitor
     new_visitor = VisitorUsage(
@@ -196,6 +325,11 @@ async def check_visitor_access(
         reset_date=today_str,
     )
     db.add(new_visitor)
+    await db.flush()  # get new_visitor.id for the new-table insert
+
+    # Also insert into new table
+    await increment_visitor_tool_usage(new_visitor.id, tool_id, db)
+
     await db.commit()
     return {"allowed": True, "reason": "free", "uses_today": 1}
 
@@ -211,7 +345,7 @@ async def grant_pass(
     razorpay_payment_id: str | None = None,
     auto_commit: bool = True,
 ) -> UserPass:
-    """Create a UserPass for the user."""
+    """Create a BillingUserPass + UserPassTool rows AND a legacy UserPass."""
     pass_def = get_pass(pass_id)
     if not pass_def:
         raise ValueError(f"Unknown pass: {pass_id}")
@@ -223,6 +357,23 @@ async def grant_pass(
     if pass_def["tools"] == -1:
         tool_ids = ["*"]
 
+    # New billing table
+    billing_pass = BillingUserPass(
+        user_id=user.id,
+        pass_id=pass_id,
+        tools_count=pass_def["tools"],
+        uses_per_day=pass_def["uses_per_day"],
+        source=source,
+        expires_at=expires,
+        razorpay_payment_id=razorpay_payment_id,
+    )
+    db.add(billing_pass)
+    await db.flush()  # get billing_pass.id for junction rows
+
+    for tid in tool_ids:
+        db.add(UserPassTool(pass_instance_id=billing_pass.id, tool_id=tid))
+
+    # DUAL-WRITE: legacy table
     user_pass = UserPass(
         user_id=user.id,
         pass_id=pass_id,
@@ -234,6 +385,7 @@ async def grant_pass(
         razorpay_payment_id=razorpay_payment_id,
     )
     db.add(user_pass)
+
     if auto_commit:
         await db.commit()
     return user_pass
@@ -249,7 +401,18 @@ async def grant_credits(
     razorpay_payment_id: str | None = None,
     auto_commit: bool = True,
 ) -> UserCredit:
-    """Add credits to user's balance."""
+    """Add credits to user's balance in both new and legacy tables."""
+    # New billing table
+    billing_credit = BillingUserCredit(
+        user_id=user.id,
+        credits_total=amount,
+        credits_remaining=amount,
+        source=source,
+        razorpay_payment_id=razorpay_payment_id,
+    )
+    db.add(billing_credit)
+
+    # DUAL-WRITE: legacy table
     credit = UserCredit(
         user_id=user.id,
         credits_total=amount,
@@ -258,6 +421,7 @@ async def grant_credits(
         razorpay_payment_id=razorpay_payment_id,
     )
     db.add(credit)
+
     if auto_commit:
         await db.commit()
     return credit
@@ -266,10 +430,10 @@ async def grant_credits(
 # ── Credit balance ───────────────────────────────────────────────────────────
 
 async def get_credit_balance(user: User, db: AsyncSession) -> int:
-    """Return total remaining credits across all packs."""
+    """Return total remaining credits across all packs (new table)."""
     result = await db.execute(
-        select(func.coalesce(func.sum(UserCredit.credits_remaining), 0)).where(
-            and_(UserCredit.user_id == user.id, UserCredit.credits_remaining > 0)
+        select(func.coalesce(func.sum(BillingUserCredit.credits_remaining), 0)).where(
+            and_(BillingUserCredit.user_id == user.id, BillingUserCredit.credits_remaining > 0)
         )
     )
     return result.scalar()
@@ -277,29 +441,31 @@ async def get_credit_balance(user: User, db: AsyncSession) -> int:
 
 # ── Active passes ────────────────────────────────────────────────────────────
 
-async def get_active_passes(user: User, db: AsyncSession) -> list[UserPass]:
-    """Return all non-expired active passes."""
+async def get_active_passes(user: User, db: AsyncSession) -> list[BillingUserPass]:
+    """Return all non-expired active passes (new table)."""
     now = datetime.now(timezone.utc)
     result = await db.execute(
-        select(UserPass).where(
+        select(BillingUserPass)
+        .options(selectinload(BillingUserPass.tools))
+        .where(
             and_(
-                UserPass.user_id == user.id,
-                UserPass.is_active == True,  # noqa: E712
-                UserPass.expires_at > now,
+                BillingUserPass.user_id == user.id,
+                BillingUserPass.is_active == True,  # noqa: E712
+                BillingUserPass.expires_at > now,
             )
-        ).order_by(UserPass.expires_at.asc())
+        ).order_by(BillingUserPass.expires_at.asc())
     )
     return result.scalars().all()
 
 
 # ── Active credits ───────────────────────────────────────────────────────────
 
-async def get_active_credits(user: User, db: AsyncSession) -> list[UserCredit]:
-    """Return all credit rows with remaining balance."""
+async def get_active_credits(user: User, db: AsyncSession) -> list[BillingUserCredit]:
+    """Return all credit rows with remaining balance (new table)."""
     result = await db.execute(
-        select(UserCredit).where(
-            and_(UserCredit.user_id == user.id, UserCredit.credits_remaining > 0)
-        ).order_by(UserCredit.created_at.asc())
+        select(BillingUserCredit).where(
+            and_(BillingUserCredit.user_id == user.id, BillingUserCredit.credits_remaining > 0)
+        ).order_by(BillingUserCredit.created_at.asc())
     )
     return result.scalars().all()
 
@@ -308,27 +474,43 @@ async def get_active_credits(user: User, db: AsyncSession) -> list[UserCredit]:
 
 async def record_daily_login(user: User, db: AsyncSession) -> bool:
     """Record daily login. Returns True if this is first login today (bonus granted)."""
-    today_str = date.today().isoformat()
-    if user.daily_login_date == today_str:
-        return False
-    user.daily_login_date = today_str
+    today = date.today()
+
+    # Use new table — INSERT ON CONFLICT DO NOTHING
+    stmt = pg_insert(UserDailyLogin).values(
+        user_id=user.id,
+        login_date=today,
+    ).on_conflict_do_nothing()
+    result = await db.execute(stmt)
+
+    # DUAL-WRITE: also update legacy column
+    user.daily_login_date = today.isoformat()
+
     await db.commit()
-    return True
+    # rowcount == 1 means this was the first login today
+    return result.rowcount == 1
 
 
 # ── Spin the wheel ───────────────────────────────────────────────────────────
 
 async def spin_wheel(user: User, db: AsyncSession) -> dict:
     """Spin the weekly wheel. Returns reward info."""
-    today_str = date.today().isoformat()
+    today = date.today()
+    iso_cal = today.isocalendar()
 
-    # Check if already spun this week (Sunday-based)
-    if user.last_spin_date:
-        last_spin = date.fromisoformat(user.last_spin_date)
-        today = date.today()
-        # Same ISO week?
-        if last_spin.isocalendar()[1] == today.isocalendar()[1] and last_spin.year == today.year:
-            return {"error": "Already spun this week. Come back next week!"}
+    # Check if already spun this week via new table
+    result = await db.execute(
+        select(UserSpinLog).where(
+            and_(
+                UserSpinLog.user_id == user.id,
+                UserSpinLog.iso_year == iso_cal[0],
+                UserSpinLog.iso_week == iso_cal[1],
+            )
+        )
+    )
+    existing_spin = result.scalars().first()
+    if existing_spin:
+        return {"error": "Already spun this week. Come back next week!"}
 
     # Weighted random selection
     total_weight = sum(r["weight"] for r in SPIN_REWARDS)
@@ -341,7 +523,34 @@ async def spin_wheel(user: User, db: AsyncSession) -> dict:
             reward = r
             break
 
-    user.last_spin_date = today_str
+    # Determine reward_ref for the spin log
+    if reward["type"] == "credits":
+        reward_ref = str(reward["amount"])
+    else:
+        reward_ref = reward["pass_id"]
+
+    # Insert into new spin log table
+    spin_log = UserSpinLog(
+        user_id=user.id,
+        iso_year=iso_cal[0],
+        iso_week=iso_cal[1],
+        spin_date=today,
+        reward_type=reward["type"],
+        reward_ref=reward_ref,
+    )
+    db.add(spin_log)
+
+    # DUAL-WRITE: also set legacy column
+    user.last_spin_date = today.isoformat()
+
+    # Flush the spin log insert first — if it violates the weekly uniqueness
+    # constraint, surface the friendly "already spun" message without masking
+    # unrelated integrity errors from grant_pass/grant_credits.
+    try:
+        await db.flush()
+    except IntegrityError:
+        await db.rollback()
+        return {"error": "Already spun this week. Come back next week!"}
 
     if reward["type"] == "credits":
         await grant_credits(user, reward["amount"], "spin", db, auto_commit=False)

@@ -148,3 +148,28 @@ class PipelineUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=200)
     description: Optional[str] = Field(None, max_length=500)
     steps: Optional[list[PipelineStepIn]] = None
+
+
+# ── Discovered Tools ─────────────────────────────────────────────────────────
+
+class DiscoveredToolItem(BaseModel):
+    tool_id: str
+    discovered_at: str
+
+
+class DiscoveredToolsResponse(BaseModel):
+    tools: list[DiscoveredToolItem]
+    count: int
+
+
+# ── Spin History ─────────────────────────────────────────────────────────────
+
+class SpinHistoryItem(BaseModel):
+    spin_date: str
+    reward_type: str
+    reward_ref: Optional[str] = None
+    iso_week: int
+
+
+class SpinHistoryResponse(BaseModel):
+    spins: list[SpinHistoryItem]

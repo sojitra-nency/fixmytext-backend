@@ -15,7 +15,7 @@ from app.core.pass_catalog import (
     get_price, get_currency, get_symbol,
 )
 from app.db.session import get_db
-from app.db.models import User, UserCredit
+from app.db.models import User, BillingUserCredit
 from app.schemas.passes import (
     CatalogResponse, PassCatalogItem, CreditPackItem,
     ActiveResponse, ActivePass, ActiveCredit,
@@ -88,7 +88,8 @@ async def get_active(
             ActivePass(
                 id=str(p.id), pass_id=p.pass_id,
                 name=(get_pass(p.pass_id) or {}).get("name", p.pass_id),
-                tool_ids=p.tool_ids or [], tools_count=p.tools_count,
+                tool_ids=[t.tool_id for t in p.tools] if hasattr(p, 'tools') else (p.tool_ids or []),
+                tools_count=p.tools_count,
                 uses_per_day=p.uses_per_day, uses_today=p.uses_today,
                 expires_at=p.expires_at, source=p.source,
             )
@@ -221,7 +222,7 @@ async def verify_pass_payment(
 
     # First purchase welcome gift (idempotent — user row already locked above)
     already_welcomed = await db.execute(
-        select(func.count()).where(UserCredit.user_id == user.id, UserCredit.source == "welcome")
+        select(func.count()).where(BillingUserCredit.user_id == user.id, BillingUserCredit.source == "welcome")
     )
     if already_welcomed.scalar() == 0:
         await grant_credits(user, 10, "welcome", db, auto_commit=False)
