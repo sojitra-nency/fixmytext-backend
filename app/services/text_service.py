@@ -160,7 +160,7 @@ def to_cobol_case(text: str) -> str:
     s = re.sub(r'[^a-zA-Z0-9]+', '-', s)
     return s.strip('-').upper()
 
-# ── Whitespace operations ─────────────────────────────────────────────────
+# ── Text Cleanup ──────────────────────────────────────────────────────────
 
 def remove_extra_spaces(text: str) -> str:
     return " ".join(text.split())
@@ -171,7 +171,6 @@ def remove_all_spaces(text: str) -> str:
 def remove_line_breaks(text: str) -> str:
     return re.sub(r"[\r\n]+", " ", text).strip()
 
-# ── Text Cleaning ────────────────────────────────────────────────────────
 
 def strip_html(text: str) -> str:
     from html.parser import HTMLParser
@@ -245,6 +244,66 @@ def toggle_smart_quotes(text: str) -> str:
         text = text.replace('...', '\u2026')
         text = re.sub(r'(?<!-)--(?!-)', '\u2014', text)
     return text
+
+def strip_invisible(text: str) -> str:
+    return ''.join(c for c in text if unicodedata.category(c) != 'Cf')
+
+def strip_emoji(text: str) -> str:
+    import emoji
+    cleaned = emoji.replace_emoji(text, replace='')
+    return re.sub(r'  +', ' ', cleaned).strip()
+
+def normalize_whitespace(text: str) -> str:
+    return re.sub(r'[^\S\n]+', ' ', text)
+
+def strip_non_ascii(text: str) -> str:
+    return re.sub(r'[^\x00-\x7F]', '', text)
+
+def fix_line_endings(text: str) -> str:
+    return text.replace('\r\n', '\n').replace('\r', '\n')
+
+def strip_markdown(text: str) -> str:
+    s = text
+    s = re.sub(r'^#{1,6}\s+', '', s, flags=re.MULTILINE)
+    s = re.sub(r'\!\[([^\]]*)\]\([^\)]+\)', r'\1', s)
+    s = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', s)
+    s = re.sub(r'(\*\*|__)(.*?)\1', r'\2', s)
+    s = re.sub(r'(\*|_)(.*?)\1', r'\2', s)
+    s = re.sub(r'~~(.*?)~~', r'\1', s)
+    s = re.sub(r'`{3}[\s\S]*?`{3}', '', s)
+    s = re.sub(r'`([^`]+)`', r'\1', s)
+    s = re.sub(r'^>\s?', '', s, flags=re.MULTILINE)
+    s = re.sub(r'^[-*+]\s+', '', s, flags=re.MULTILINE)
+    s = re.sub(r'^\d+\.\s+', '', s, flags=re.MULTILINE)
+    s = re.sub(r'^[-*_]{3,}\s*$', '', s, flags=re.MULTILINE)
+    return s.strip()
+
+def trim_lines(text: str) -> str:
+    return '\n'.join(line.strip() for line in text.splitlines())
+
+def strip_empty_lines(text: str) -> str:
+    return '\n'.join(line for line in text.splitlines() if line.strip())
+
+def strip_urls(text: str) -> str:
+    s = re.sub(r'https?://\S+', '', text)
+    s = re.sub(r'www\.\S+', '', s)
+    return re.sub(r'  +', ' ', s).strip()
+
+def strip_emails(text: str) -> str:
+    s = re.sub(r'[\w.+-]+@[\w-]+\.[\w.-]+', '', text)
+    return re.sub(r'  +', ' ', s).strip()
+
+def normalize_punctuation(text: str) -> str:
+    s = re.sub(r'\s+([.,;:!?])', r'\1', text)
+    s = re.sub(r'([.,;:!?])([^\s.,;:!?\'\"\)\]\}0-9])', r'\1 \2', s)
+    s = re.sub(r'\(\s+', '(', s)
+    s = re.sub(r'\s+\)', ')', s)
+    s = re.sub(r'\.{2}(?!\.)', '.', s)
+    return s
+
+def strip_numbers(text: str) -> str:
+    s = re.sub(r'\d+', '', text)
+    return re.sub(r'  +', ' ', s).strip()
 
 # ── Encoding ──────────────────────────────────────────────────────────────
 

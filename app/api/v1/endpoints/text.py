@@ -271,6 +271,66 @@ async def toggle_smart_quotes(request: Request, req: TextRequest, user: User | N
     """Toggle between smart (curly) and straight quotes."""
     return await _local_endpoint(request, req, "toggle-smart-quotes", ts.toggle_smart_quotes, user, db)
 
+@router.post("/strip-invisible", response_model=TextResponse)
+async def strip_invisible(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Remove zero-width spaces, soft hyphens, and hidden Unicode characters."""
+    return await _local_endpoint(request, req, "strip-invisible", ts.strip_invisible, user, db)
+
+@router.post("/strip-emoji", response_model=TextResponse)
+async def strip_emoji(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Remove all emoji characters from text."""
+    return await _local_endpoint(request, req, "strip-emoji", ts.strip_emoji, user, db)
+
+@router.post("/normalize-whitespace", response_model=TextResponse)
+async def normalize_whitespace(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Convert tabs, non-breaking spaces, and exotic whitespace to regular spaces."""
+    return await _local_endpoint(request, req, "normalize-whitespace", ts.normalize_whitespace, user, db)
+
+@router.post("/strip-non-ascii", response_model=TextResponse)
+async def strip_non_ascii(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Remove all non-ASCII characters."""
+    return await _local_endpoint(request, req, "strip-non-ascii", ts.strip_non_ascii, user, db)
+
+@router.post("/fix-line-endings", response_model=TextResponse)
+async def fix_line_endings(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Normalize mixed line endings (CRLF/CR) to Unix-style LF."""
+    return await _local_endpoint(request, req, "fix-line-endings", ts.fix_line_endings, user, db)
+
+@router.post("/strip-markdown", response_model=TextResponse)
+async def strip_markdown(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Remove Markdown formatting to get plain text."""
+    return await _local_endpoint(request, req, "strip-markdown", ts.strip_markdown, user, db)
+
+@router.post("/trim-lines", response_model=TextResponse)
+async def trim_lines(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Remove leading and trailing spaces from every line."""
+    return await _local_endpoint(request, req, "trim-lines", ts.trim_lines, user, db)
+
+@router.post("/strip-empty-lines", response_model=TextResponse)
+async def strip_empty_lines(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Delete all blank lines, keeping only lines with content."""
+    return await _local_endpoint(request, req, "strip-empty-lines", ts.strip_empty_lines, user, db)
+
+@router.post("/strip-urls", response_model=TextResponse)
+async def strip_urls(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Strip all URLs and web links from text."""
+    return await _local_endpoint(request, req, "strip-urls", ts.strip_urls, user, db)
+
+@router.post("/strip-emails", response_model=TextResponse)
+async def strip_emails(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Strip all email addresses from text."""
+    return await _local_endpoint(request, req, "strip-emails", ts.strip_emails, user, db)
+
+@router.post("/normalize-punctuation", response_model=TextResponse)
+async def normalize_punctuation(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Fix spaces around punctuation marks."""
+    return await _local_endpoint(request, req, "normalize-punctuation", ts.normalize_punctuation, user, db)
+
+@router.post("/strip-numbers", response_model=TextResponse)
+async def strip_numbers(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Remove all numeric digits from text."""
+    return await _local_endpoint(request, req, "strip-numbers", ts.strip_numbers, user, db)
+
 
 # ── Encoding ──────────────────────────────────────────────────────────────────
 

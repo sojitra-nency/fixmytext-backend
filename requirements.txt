@@ -12,6 +12,9 @@ pydantic-settings>=2.2.0
 groq>=0.9.0
 yake>=0.4.8
 
+# Emoji handling
+emoji>=2.12.0
+
 # Database (async SQLAlchemy + PostgreSQL)
 sqlalchemy[asyncio]>=2.0.30
 asyncpg>=0.29.0
