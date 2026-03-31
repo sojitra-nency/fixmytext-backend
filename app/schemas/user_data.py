@@ -1,6 +1,5 @@
 """Pydantic schemas for user preferences, gamification, templates, ui-settings, favorites, tool-stats, pipelines."""
 
-import uuid
 from typing import Optional
 from pydantic import BaseModel, Field
 

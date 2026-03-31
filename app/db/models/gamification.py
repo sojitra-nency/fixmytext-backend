@@ -31,7 +31,6 @@ class UserGamification(Base):
     daily_quest_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
 
     total_ops: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
-    # BIGINT upgrade from INTEGER (migration 0011) — can handle high-volume users
     total_chars: Mapped[int] = mapped_column(BigInteger, default=0, server_default=text("0"))
 
     # ── JSONB kept: bounded append-only sets, only need membership checks via GIN ──

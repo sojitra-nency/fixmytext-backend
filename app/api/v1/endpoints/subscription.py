@@ -4,6 +4,7 @@ import json
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
@@ -156,7 +157,6 @@ async def cancel_pro(
         raise HTTPException(400, "No active Pro subscription")
 
     # Update Subscription row
-    from sqlalchemy import select, and_
     sub_result = await db.execute(
         select(Subscription).where(
             and_(

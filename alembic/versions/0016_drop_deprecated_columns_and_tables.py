@@ -42,6 +42,7 @@ def upgrade() -> None:
     op.drop_column('visitor_usage', 'ip_address', schema='auth')
     op.drop_column('visitor_usage', 'tool_uses_today', schema='auth')
     op.drop_column('visitor_usage', 'reset_date', schema='auth')
+    op.drop_column('visitor_usage', 'last_seen_at', schema='auth')
 
     # ── 5. Rename ip_address_inet to ip_address in auth.visitor_usage ─────────
     op.alter_column('visitor_usage', 'ip_address_inet', new_column_name='ip_address', schema='auth')
@@ -97,6 +98,7 @@ def downgrade() -> None:
     op.create_index('ix_auth_visitor_usage_ip_address', 'visitor_usage', ['ip_address'], schema='auth')
     op.add_column('visitor_usage', sa.Column('tool_uses_today', postgresql.JSONB(), server_default=sa.text("'{}'::jsonb"), nullable=True), schema='auth')
     op.add_column('visitor_usage', sa.Column('reset_date', sa.String(10), nullable=True), schema='auth')
+    op.add_column('visitor_usage', sa.Column('last_seen_at', postgresql.TIMESTAMP(timezone=True), nullable=True, server_default=sa.text('now()')), schema='auth')
 
     # ── 3. Rename columns back to _new suffixed names ─────────────────────────
     op.alter_column('user_gamification', 'streak_last_date', new_column_name='streak_last_date_new', schema='activity')
