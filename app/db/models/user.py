@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Optional, TYPE_CHECKING
 
 from sqlalchemy import String, Boolean, text, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID, JSONB, TIMESTAMP
+from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.session import Base
@@ -16,8 +16,6 @@ if TYPE_CHECKING:
     from app.db.models.user_ui_settings import UserUiSettings
     from app.db.models.gamification import UserGamification
     from app.db.models.template import UserTemplate
-    from app.db.models.user_pass import UserPass
-    from app.db.models.user_credit import UserCredit
     from app.db.models.operation_history import OperationHistory
     from app.db.models.billing_subscription import Subscription, PaymentEvent
     from app.db.models.billing_pass import BillingUserPass
@@ -49,14 +47,6 @@ class User(Base):
     )
     region: Mapped[Optional[str]] = mapped_column(String(5), nullable=True)
 
-    # ── DEPRECATED columns — kept alive during dual-write window (removed in migration 0015) ──
-    subscription_tier: Mapped[str] = mapped_column(String(20), default="free", server_default=text("'free'"))
-    razorpay_subscription_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    tool_uses_today: Mapped[dict] = mapped_column(JSONB, default=dict, server_default=text("'{}'::jsonb"))
-    tool_uses_reset_date: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
-    daily_login_date: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
-    last_spin_date: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
-
     # ── Relationships ──────────────────────────────────────────────────────────
     preferences: Mapped[Optional["UserPreferences"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
@@ -76,14 +66,7 @@ class User(Base):
     pipelines: Mapped[list["UserPipeline"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
-    # Legacy auth-schema passes/credits (kept during dual-write window)
-    passes: Mapped[list["UserPass"]] = relationship(
-        back_populates="user", cascade="all, delete-orphan"
-    )
-    credits: Mapped[list["UserCredit"]] = relationship(
-        back_populates="user", cascade="all, delete-orphan"
-    )
-    # New billing-schema entities
+    # Billing-schema entities
     subscriptions: Mapped[list["Subscription"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )

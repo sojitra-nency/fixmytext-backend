@@ -19,8 +19,6 @@ from app.db.models.user import User  # noqa: F401
 from app.db.models.preferences import UserPreferences  # noqa: F401
 from app.db.models.gamification import UserGamification  # noqa: F401
 from app.db.models.template import UserTemplate  # noqa: F401
-from app.db.models.user_pass import UserPass  # noqa: F401
-from app.db.models.user_credit import UserCredit  # noqa: F401
 from app.db.models.visitor_usage import VisitorUsage  # noqa: F401
 
 config = context.config

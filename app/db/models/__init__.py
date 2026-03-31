@@ -26,10 +26,6 @@ from app.db.models.template import UserTemplate
 from app.db.models.operation_history import OperationHistory
 from app.db.models.shared_result import SharedResult
 
-# ── Legacy auth-schema models (kept during dual-write window) ─────────────────
-from app.db.models.user_pass import UserPass
-from app.db.models.user_credit import UserCredit
-
 __all__ = [
     # auth
     "User", "UserPreferences", "UserUiSettings", "UserToolUsage",
@@ -42,6 +38,4 @@ __all__ = [
     "UserGamification", "UserToolStats", "UserDiscoveredTool", "UserFavoriteTool",
     "UserPipeline", "UserPipelineStep",
     "UserTemplate", "OperationHistory", "SharedResult",
-    # legacy
-    "UserPass", "UserCredit",
 ]

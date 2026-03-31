@@ -134,11 +134,12 @@ async def logout(response: Response, user: User = Depends(get_current_user)):
 # ── Me ───────────────────────────────────────────────────────────────────────
 
 @router.get("/me", response_model=UserResponse)
-async def me(user: User = Depends(get_current_user)):
+async def me(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """Return the current authenticated user's profile."""
+    from app.services.pass_service import get_subscription_tier
     return UserResponse(
         id=str(user.id),
         email=user.email,
         display_name=user.display_name,
-        subscription_tier=user.subscription_tier or "free",
+        subscription_tier=await get_subscription_tier(user.id, db),
     )

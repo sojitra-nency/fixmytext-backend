@@ -12,7 +12,6 @@ class SubscriptionStatus(BaseModel):
     credit_balance: int = 0
     active_passes_count: int = 0
     region: Optional[str] = None
-    razorpay_subscription_id: Optional[str] = None
 
 
 class RazorpayProOrderResponse(BaseModel):

@@ -19,7 +19,9 @@ from app.services.razorpay_service import (
     create_order, fetch_order, verify_payment_signature, PRO_PLAN_PRICES,
     verify_webhook_signature,
 )
-from app.services.pass_service import record_daily_login, get_credit_balance, get_active_passes, get_all_tool_uses_today, has_logged_in_today
+from app.services.pass_service import record_daily_login, get_credit_balance, get_active_passes, get_all_tool_uses_today, has_logged_in_today, get_subscription_tier
+from app.db.models.billing_subscription import Subscription
+from datetime import datetime, timezone
 from app.services.region_service import resolve_user_region
 
 router = APIRouter(prefix="/subscription", tags=["Subscription"])
@@ -50,14 +52,13 @@ async def subscription_status(
     active_passes = await get_active_passes(user, db)
 
     return SubscriptionStatus(
-        tier=user.subscription_tier or "free",
+        tier=await get_subscription_tier(user.id, db),
         tool_uses_today=tool_uses,
         free_uses_per_tool=settings.FREE_USES_PER_TOOL_PER_DAY,
         daily_login_bonus=daily_bonus,
         credit_balance=credit_balance,
         active_passes_count=len(active_passes),
         region=user.region,
-        razorpay_subscription_id=str(user.razorpay_subscription_id) if user.razorpay_subscription_id else None,
     )
 
 
@@ -72,7 +73,7 @@ async def create_pro_checkout(
     if not settings.RAZORPAY_KEY_ID:
         raise HTTPException(503, "Payments not configured")
 
-    if user.subscription_tier == "pro":
+    if await get_subscription_tier(user.id, db) == "pro":
         raise HTTPException(400, "Already subscribed to Pro")
 
     region = user.region or "IN"
@@ -124,8 +125,19 @@ async def verify_pro_payment(
     if notes.get("item_type") != "pro_subscription":
         raise HTTPException(400, "Order is not for Pro subscription")
 
-    user.subscription_tier = "pro"
-    user.razorpay_subscription_id = req.razorpay_payment_id  # store payment ID for reference
+    # Create/update Subscription row in billing schema
+    sub = Subscription(
+        user_id=user.id,
+        tier="pro",
+        status="active",
+        razorpay_order_id=req.razorpay_order_id,
+        razorpay_payment_id=req.razorpay_payment_id,
+        amount_paid_subunits=order.get("amount"),
+        currency=order.get("currency"),
+        region=user.region,
+    )
+    db.add(sub)
+
     await db.commit()
     logger.info("Pro activated: user=%s order=%s payment=%s", user.id, req.razorpay_order_id, req.razorpay_payment_id)
     return {"status": "success", "tier": "pro"}
@@ -139,11 +151,26 @@ async def cancel_pro(
     db: AsyncSession = Depends(get_db),
 ):
     """Cancel Pro subscription (immediate downgrade)."""
-    if user.subscription_tier != "pro":
+    tier = await get_subscription_tier(user.id, db)
+    if tier != "pro":
         raise HTTPException(400, "No active Pro subscription")
 
-    user.subscription_tier = "free"
-    user.razorpay_subscription_id = None
+    # Update Subscription row
+    from sqlalchemy import select, and_
+    sub_result = await db.execute(
+        select(Subscription).where(
+            and_(
+                Subscription.user_id == user.id,
+                Subscription.status == "active",
+                Subscription.tier == "pro",
+            )
+        )
+    )
+    active_sub = sub_result.scalars().first()
+    if active_sub:
+        active_sub.status = "cancelled"
+        active_sub.cancelled_at = datetime.now(timezone.utc)
+
     await db.commit()
     return {"status": "cancelled"}
 

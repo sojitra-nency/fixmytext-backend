@@ -16,8 +16,6 @@ from app.core.pass_catalog import (
     ALWAYS_FREE_TOOL_IDS, SPIN_REWARDS, REFERRAL_REWARDS, get_pass,
 )
 from app.db.models.user import User
-from app.db.models.user_pass import UserPass
-from app.db.models.user_credit import UserCredit
 from app.db.models.visitor_usage import VisitorUsage
 from app.db.models.user_tool_usage import UserToolUsage
 from app.db.models.visitor_tool_usage import VisitorToolUsage
@@ -26,6 +24,21 @@ from app.db.models.user_daily_login import UserDailyLogin
 from app.db.models.user_spin_log import UserSpinLog
 from app.db.models.billing_pass import BillingUserPass, UserPassTool
 from app.db.models.billing_credit import BillingUserCredit
+
+
+async def get_subscription_tier(user_id, db: AsyncSession) -> str:
+    """Return 'pro' if user has an active Pro subscription, else 'free'."""
+    from app.db.models.billing_subscription import Subscription
+    result = await db.execute(
+        select(Subscription.tier).where(
+            and_(
+                Subscription.user_id == user_id,
+                Subscription.status == "active",
+                Subscription.tier == "pro",
+            )
+        ).limit(1)
+    )
+    return "pro" if result.scalar() else "free"
 
 
 # ── New-table helper functions ────────────────────────────────────────────────
@@ -103,19 +116,6 @@ async def increment_visitor_tool_usage(visitor_id: str, tool_id: str, db: AsyncS
     return await get_visitor_tool_use_count_today(visitor_id, tool_id, db)
 
 
-async def get_visitor_all_tool_uses_today(visitor_id: str, db: AsyncSession) -> dict[str, int]:
-    """Return {tool_id: use_count} for all tools used by *visitor_id* today."""
-    result = await db.execute(
-        select(VisitorToolUsage.tool_id, VisitorToolUsage.use_count).where(
-            and_(
-                VisitorToolUsage.visitor_id == visitor_id,
-                VisitorToolUsage.usage_date == date.today(),
-            )
-        )
-    )
-    return {row.tool_id: row.use_count for row in result.all()}
-
-
 async def has_logged_in_today(user_id, db: AsyncSession) -> bool:
     """Check if user has a daily login record for today (new table)."""
     result = await db.execute(
@@ -158,7 +158,7 @@ async def check_tool_access(
         return {"allowed": True, "reason": "free"}
 
     # Pro subscriber
-    if user.subscription_tier == "pro":
+    if await get_subscription_tier(user.id, db) == "pro":
         return {"allowed": True, "reason": "pro"}
 
     # Check active passes
@@ -180,14 +180,6 @@ async def check_tool_access(
     if uses < max_free:
         # Increment in new table
         new_count = await increment_tool_usage(user.id, tool_id, db)
-
-        # DUAL-WRITE: also update legacy JSONB column
-        if user.tool_uses_reset_date != today_str:
-            user.tool_uses_today = {}
-            user.tool_uses_reset_date = today_str
-        new_uses = dict(user.tool_uses_today)
-        new_uses[tool_id] = new_count
-        user.tool_uses_today = new_uses
 
         await db.commit()
         return {"allowed": True, "reason": "free", "uses_today": new_count, "max_free": max_free}
@@ -301,18 +293,10 @@ async def check_visitor_access(
         # Increment in new table
         new_count = await increment_visitor_tool_usage(visitor.id, tool_id, db)
 
-        # DUAL-WRITE: also update legacy JSONB column
-        if visitor.reset_date != today_str:
-            visitor.tool_uses_today = {}
-            visitor.reset_date = today_str
-        new_uses = dict(visitor.tool_uses_today)
-        new_uses[tool_id] = new_count
-        visitor.tool_uses_today = new_uses
-
         # Update fingerprint/IP if we found by the other
         if fingerprint and visitor.fingerprint != fingerprint:
             visitor.fingerprint = fingerprint
-        if ip_address and visitor.ip_address != ip_address:
+        if ip_address and str(visitor.ip_address) != ip_address:
             visitor.ip_address = ip_address
         await db.commit()
         return {"allowed": True, "reason": "free", "uses_today": new_count}
@@ -320,9 +304,7 @@ async def check_visitor_access(
     # New visitor
     new_visitor = VisitorUsage(
         fingerprint=fingerprint or "unknown",
-        ip_address=ip_address or "unknown",
-        tool_uses_today={tool_id: 1},
-        reset_date=today_str,
+        ip_address=ip_address or None,
     )
     db.add(new_visitor)
     await db.flush()  # get new_visitor.id for the new-table insert
@@ -344,8 +326,8 @@ async def grant_pass(
     db: AsyncSession,
     razorpay_payment_id: str | None = None,
     auto_commit: bool = True,
-) -> UserPass:
-    """Create a BillingUserPass + UserPassTool rows AND a legacy UserPass."""
+) -> BillingUserPass:
+    """Create a BillingUserPass + UserPassTool rows."""
     pass_def = get_pass(pass_id)
     if not pass_def:
         raise ValueError(f"Unknown pass: {pass_id}")
@@ -373,22 +355,9 @@ async def grant_pass(
     for tid in tool_ids:
         db.add(UserPassTool(pass_instance_id=billing_pass.id, tool_id=tid))
 
-    # DUAL-WRITE: legacy table
-    user_pass = UserPass(
-        user_id=user.id,
-        pass_id=pass_id,
-        tool_ids=tool_ids,
-        tools_count=pass_def["tools"],
-        uses_per_day=pass_def["uses_per_day"],
-        source=source,
-        expires_at=expires,
-        razorpay_payment_id=razorpay_payment_id,
-    )
-    db.add(user_pass)
-
     if auto_commit:
         await db.commit()
-    return user_pass
+    return billing_pass
 
 
 # ── Grant credits ────────────────────────────────────────────────────────────
@@ -400,8 +369,8 @@ async def grant_credits(
     db: AsyncSession,
     razorpay_payment_id: str | None = None,
     auto_commit: bool = True,
-) -> UserCredit:
-    """Add credits to user's balance in both new and legacy tables."""
+) -> BillingUserCredit:
+    """Add credits to user's balance."""
     # New billing table
     billing_credit = BillingUserCredit(
         user_id=user.id,
@@ -412,19 +381,9 @@ async def grant_credits(
     )
     db.add(billing_credit)
 
-    # DUAL-WRITE: legacy table
-    credit = UserCredit(
-        user_id=user.id,
-        credits_total=amount,
-        credits_remaining=amount,
-        source=source,
-        razorpay_payment_id=razorpay_payment_id,
-    )
-    db.add(credit)
-
     if auto_commit:
         await db.commit()
-    return credit
+    return billing_credit
 
 
 # ── Credit balance ───────────────────────────────────────────────────────────
@@ -483,9 +442,6 @@ async def record_daily_login(user: User, db: AsyncSession) -> bool:
     ).on_conflict_do_nothing()
     result = await db.execute(stmt)
 
-    # DUAL-WRITE: also update legacy column
-    user.daily_login_date = today.isoformat()
-
     await db.commit()
     # rowcount == 1 means this was the first login today
     return result.rowcount == 1
@@ -539,9 +495,6 @@ async def spin_wheel(user: User, db: AsyncSession) -> dict:
         reward_ref=reward_ref,
     )
     db.add(spin_log)
-
-    # DUAL-WRITE: also set legacy column
-    user.last_spin_date = today.isoformat()
 
     # Flush the spin log insert first — if it violates the weekly uniqueness
     # constraint, surface the friendly "already spun" message without masking

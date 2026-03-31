@@ -27,11 +27,7 @@ class GamificationResponse(BaseModel):
     streak_last_date: Optional[str] = None
     total_ops: int = 0
     total_chars: int = 0
-    tools_used: dict = {}
-    discovered_tools: list[str] = []
     achievements: list[str] = []
-    favorites: list[str] = []
-    saved_pipelines: list = []
     completed_quests: list[str] = []
     daily_quest_id: Optional[str] = None
     daily_quest_date: Optional[str] = None
@@ -44,11 +40,7 @@ class GamificationUpdate(BaseModel):
     streak_last_date: Optional[str] = None
     total_ops: Optional[int] = None
     total_chars: Optional[int] = None
-    tools_used: Optional[dict] = None
-    discovered_tools: Optional[list[str]] = None
     achievements: Optional[list[str]] = None
-    favorites: Optional[list[str]] = None
-    saved_pipelines: Optional[list] = None
     completed_quests: Optional[list[str]] = None
     daily_quest_id: Optional[str] = None
     daily_quest_date: Optional[str] = None

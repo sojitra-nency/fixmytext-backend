@@ -1,6 +1,7 @@
 """User data endpoints: preferences, gamification, templates, ui-settings, favorites, tool-stats, pipelines."""
 
 import uuid
+from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -65,22 +66,22 @@ async def update_preferences(
 
 # ── Gamification ─────────────────────────────────────────────────────────────
 
-def _gam_to_response(gam: UserGamification) -> GamificationResponse:
-    """Convert ORM model to response schema. JSONB columns are native dicts/lists."""
+async def _gam_to_response(gam: UserGamification, db: AsyncSession) -> GamificationResponse:
+    """Convert ORM model to response schema — reads from normalized tables."""
+    # Date columns: use new Date columns, format as ISO string
+    streak_last_date = gam.streak_last_date.isoformat() if gam.streak_last_date else None
+    daily_quest_date = gam.daily_quest_date.isoformat() if gam.daily_quest_date else None
+
     return GamificationResponse(
         xp=gam.xp,
         streak_current=gam.streak_current,
-        streak_last_date=gam.streak_last_date,
+        streak_last_date=streak_last_date,
         total_ops=gam.total_ops,
         total_chars=gam.total_chars,
-        tools_used=gam.tools_used,
-        discovered_tools=gam.discovered_tools,
         achievements=gam.achievements,
-        favorites=gam.favorites,
-        saved_pipelines=gam.saved_pipelines,
         completed_quests=gam.completed_quests,
         daily_quest_id=gam.daily_quest_id,
-        daily_quest_date=gam.daily_quest_date,
+        daily_quest_date=daily_quest_date,
         daily_quest_completed=gam.daily_quest_completed,
     )
 
@@ -93,7 +94,7 @@ async def get_gamification(
     gam = await db.get(UserGamification, user.id)
     if not gam:
         return GamificationResponse()
-    return _gam_to_response(gam)
+    return await _gam_to_response(gam, db)
 
 
 @router.put("/gamification", response_model=GamificationResponse)
@@ -109,11 +110,16 @@ async def update_gamification(
 
     updates = body.model_dump(exclude_unset=True)
     for key, value in updates.items():
-        setattr(gam, key, value)
+        if key == "streak_last_date" and value:
+            gam.streak_last_date = date.fromisoformat(value)
+        elif key == "daily_quest_date" and value:
+            gam.daily_quest_date = date.fromisoformat(value)
+        elif key not in ("streak_last_date", "daily_quest_date"):
+            setattr(gam, key, value)
 
     await db.commit()
     await db.refresh(gam)
-    return _gam_to_response(gam)
+    return await _gam_to_response(gam, db)
 
 
 # ── Templates ────────────────────────────────────────────────────────────────

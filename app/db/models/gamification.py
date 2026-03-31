@@ -27,9 +27,8 @@ class UserGamification(Base):
     xp: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     streak_current: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
 
-    # Proper DATE columns (migrated from VARCHAR(10) in migration 0011)
-    streak_last_date_new: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
-    daily_quest_date_new: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    streak_last_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    daily_quest_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
 
     total_ops: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     # BIGINT upgrade from INTEGER (migration 0011) — can handle high-volume users
@@ -44,14 +43,5 @@ class UserGamification(Base):
     updated_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), server_default=text("now()"), onupdate=datetime.now
     )
-
-    # ── DEPRECATED JSONB columns — kept alive during dual-write window (removed in 0015) ──
-    tools_used: Mapped[dict] = mapped_column(JSONB, default=dict, server_default=text("'{}'::jsonb"))
-    discovered_tools: Mapped[list] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
-    favorites: Mapped[list] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
-    saved_pipelines: Mapped[list] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
-    # DEPRECATED string date columns (kept for dual-write window — removed in 0015)
-    streak_last_date: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
-    daily_quest_date: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="gamification")
