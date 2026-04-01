@@ -135,7 +135,7 @@ async def list_templates(
     templates = result.scalars().all()
     return [
         TemplateResponse(
-            id=str(t.id), name=t.name, text=t.text,
+            id=str(t.id), name=t.name, text=t.text, tool_id=t.tool_id,
             created_at=t.created_at.isoformat(), updated_at=t.updated_at.isoformat(),
         )
         for t in templates
@@ -148,12 +148,12 @@ async def create_template(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    template = UserTemplate(user_id=user.id, name=body.name, text=body.text)
+    template = UserTemplate(user_id=user.id, name=body.name, text=body.text, tool_id=body.tool_id)
     db.add(template)
     await db.commit()
     await db.refresh(template)
     return TemplateResponse(
-        id=str(template.id), name=template.name, text=template.text,
+        id=str(template.id), name=template.name, text=template.text, tool_id=template.tool_id,
         created_at=template.created_at.isoformat(), updated_at=template.updated_at.isoformat(),
     )
 
@@ -176,7 +176,7 @@ async def update_template(
     await db.commit()
     await db.refresh(template)
     return TemplateResponse(
-        id=str(template.id), name=template.name, text=template.text,
+        id=str(template.id), name=template.name, text=template.text, tool_id=template.tool_id,
         created_at=template.created_at.isoformat(), updated_at=template.updated_at.isoformat(),
     )
 

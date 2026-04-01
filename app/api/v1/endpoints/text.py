@@ -401,6 +401,90 @@ async def morse_decode(request: Request, req: TextRequest, user: User | None = D
         raise HTTPException(status_code=400, detail="Invalid Morse code input")
 
 
+# ── Binary / Octal / Decimal Encoding ─────────────────────────────────────────
+
+@router.post("/binary-encode", response_model=TextResponse)
+async def binary_encode(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Encode text to binary representation."""
+    return await _local_endpoint(request, req, "binary-encode", ts.binary_encode, user, db)
+
+@router.post("/binary-decode", response_model=TextResponse)
+async def binary_decode(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Decode binary representation back to text."""
+    await _enforce_tool_access(request, "binary-decode", "api", user, db)
+    try:
+        return TextResponse(original=req.text, result=ts.binary_decode(req.text), operation="binary-decode")
+    except (ValueError, UnicodeDecodeError):
+        raise HTTPException(status_code=400, detail="Invalid binary input")
+
+@router.post("/octal-encode", response_model=TextResponse)
+async def octal_encode(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Encode text to octal representation."""
+    return await _local_endpoint(request, req, "octal-encode", ts.octal_encode, user, db)
+
+@router.post("/octal-decode", response_model=TextResponse)
+async def octal_decode(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Decode octal representation back to text."""
+    await _enforce_tool_access(request, "octal-decode", "api", user, db)
+    try:
+        return TextResponse(original=req.text, result=ts.octal_decode(req.text), operation="octal-decode")
+    except (ValueError, UnicodeDecodeError):
+        raise HTTPException(status_code=400, detail="Invalid octal input")
+
+@router.post("/decimal-encode", response_model=TextResponse)
+async def decimal_encode(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Encode text to decimal character codes."""
+    return await _local_endpoint(request, req, "decimal-encode", ts.decimal_encode, user, db)
+
+@router.post("/decimal-decode", response_model=TextResponse)
+async def decimal_decode(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Decode decimal character codes back to text."""
+    await _enforce_tool_access(request, "decimal-decode", "api", user, db)
+    try:
+        return TextResponse(original=req.text, result=ts.decimal_decode(req.text), operation="decimal-decode")
+    except (ValueError, UnicodeDecodeError):
+        raise HTTPException(status_code=400, detail="Invalid decimal input")
+
+# ── Unicode Escape / Unescape ─────────────────────────────────────────────────
+
+@router.post("/unicode-escape", response_model=TextResponse)
+async def unicode_escape(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Convert characters to \\uXXXX escape sequences."""
+    return await _local_endpoint(request, req, "unicode-escape", ts.unicode_escape, user, db)
+
+@router.post("/unicode-unescape", response_model=TextResponse)
+async def unicode_unescape(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Convert \\uXXXX escape sequences back to characters."""
+    await _enforce_tool_access(request, "unicode-unescape", "api", user, db)
+    try:
+        return TextResponse(original=req.text, result=ts.unicode_unescape(req.text), operation="unicode-unescape")
+    except (ValueError, UnicodeDecodeError):
+        raise HTTPException(status_code=400, detail="Invalid Unicode escape sequence")
+
+# ── Brainfuck Encoding ─────────────────────────────────────────────────────────
+
+@router.post("/brainfuck-encode", response_model=TextResponse)
+async def brainfuck_encode(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Encode text as a Brainfuck program."""
+    return await _local_endpoint(request, req, "brainfuck-encode", ts.brainfuck_encode, user, db)
+
+@router.post("/brainfuck-decode", response_model=TextResponse)
+async def brainfuck_decode(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Execute a Brainfuck program and return its output."""
+    await _enforce_tool_access(request, "brainfuck-decode", "api", user, db)
+    try:
+        return TextResponse(original=req.text, result=ts.brainfuck_decode(req.text), operation="brainfuck-decode")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# ── Ciphers ───────────────────────────────────────────────────────────────────
+
+@router.post("/atbash", response_model=TextResponse)
+async def atbash(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Apply Atbash cipher (reverse alphabet substitution)."""
+    return await _local_endpoint(request, req, "atbash", ts.atbash_cipher, user, db)
+
+
 # ── Text Tools ────────────────────────────────────────────────────────────────
 
 @router.post("/reverse", response_model=TextResponse)

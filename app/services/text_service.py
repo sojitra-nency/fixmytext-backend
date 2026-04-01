@@ -378,6 +378,124 @@ def number_lines(text: str) -> str:
 def rot13(text: str) -> str:
     return codecs.encode(text, 'rot_13')
 
+# ── Binary / Octal / Decimal Encoding ───────────────────────────────────
+
+def binary_encode(text: str) -> str:
+    return ' '.join(format(b, '08b') for b in text.encode('utf-8'))
+
+def binary_decode(text: str) -> str:
+    chunks = text.strip().split()
+    return bytes(int(b, 2) for b in chunks).decode('utf-8')
+
+def octal_encode(text: str) -> str:
+    return ' '.join(format(b, '03o') for b in text.encode('utf-8'))
+
+def octal_decode(text: str) -> str:
+    chunks = text.strip().split()
+    return bytes(int(o, 8) for o in chunks).decode('utf-8')
+
+def decimal_encode(text: str) -> str:
+    return ' '.join(str(b) for b in text.encode('utf-8'))
+
+def decimal_decode(text: str) -> str:
+    chunks = text.strip().split()
+    return bytes(int(d) for d in chunks).decode('utf-8')
+
+# ── Brainfuck Encoding ──────────────────────────────────────────────────
+
+def brainfuck_encode(text: str) -> str:
+    """Convert text to a Brainfuck program that prints it."""
+    result = []
+    prev = 0
+    for ch in text:
+        val = ord(ch)
+        diff = val - prev
+        if diff > 0:
+            result.append('+' * diff)
+        elif diff < 0:
+            result.append('-' * (-diff))
+        result.append('.')
+        prev = val
+    return ''.join(result)
+
+
+def brainfuck_decode(code: str) -> str:
+    """Execute a Brainfuck program and return its output."""
+    tape = [0] * 30000
+    ptr = 0
+    ip = 0
+    output = []
+    # Pre-compute bracket pairs
+    stack = []
+    brackets = {}
+    for i, ch in enumerate(code):
+        if ch == '[':
+            stack.append(i)
+        elif ch == ']':
+            if not stack:
+                raise ValueError("Unmatched ']' at position %d" % i)
+            j = stack.pop()
+            brackets[j] = i
+            brackets[i] = j
+    if stack:
+        raise ValueError("Unmatched '[' at position %d" % stack[-1])
+
+    max_steps = 10_000_000  # prevent infinite loops
+    steps = 0
+    while ip < len(code):
+        steps += 1
+        if steps > max_steps:
+            raise ValueError("Execution exceeded maximum step limit (possible infinite loop)")
+        ch = code[ip]
+        if ch == '>':
+            ptr += 1
+            if ptr >= 30000:
+                ptr = 0
+        elif ch == '<':
+            ptr -= 1
+            if ptr < 0:
+                ptr = 29999
+        elif ch == '+':
+            tape[ptr] = (tape[ptr] + 1) % 256
+        elif ch == '-':
+            tape[ptr] = (tape[ptr] - 1) % 256
+        elif ch == '.':
+            output.append(chr(tape[ptr]))
+        elif ch == ',':
+            tape[ptr] = 0  # no input available
+        elif ch == '[':
+            if tape[ptr] == 0:
+                ip = brackets[ip]
+        elif ch == ']':
+            if tape[ptr] != 0:
+                ip = brackets[ip]
+        ip += 1
+    return ''.join(output)
+
+# ── Unicode Escape / Unescape ───────────────────────────────────────────
+
+def unicode_escape(text: str) -> str:
+    return ''.join(
+        f'\\u{ord(ch):04x}' if ord(ch) <= 0xFFFF else f'\\U{ord(ch):08x}'
+        for ch in text
+    )
+
+def unicode_unescape(text: str) -> str:
+    return text.encode('utf-8').decode('unicode_escape')
+
+# ── Ciphers ─────────────────────────────────────────────────────────────
+
+def atbash_cipher(text: str) -> str:
+    result = []
+    for ch in text:
+        if 'a' <= ch <= 'z':
+            result.append(chr(ord('z') - (ord(ch) - ord('a'))))
+        elif 'A' <= ch <= 'Z':
+            result.append(chr(ord('Z') - (ord(ch) - ord('A'))))
+        else:
+            result.append(ch)
+    return ''.join(result)
+
 def remove_duplicate_lines(text: str) -> str:
     seen: set = set()
     result = []

@@ -52,6 +52,7 @@ class TemplateResponse(BaseModel):
     id: str
     name: str
     text: str
+    tool_id: Optional[str] = None
     created_at: str
     updated_at: str
 
@@ -59,11 +60,13 @@ class TemplateResponse(BaseModel):
 class TemplateCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
     text: str = Field(..., min_length=1)
+    tool_id: Optional[str] = Field(None, max_length=100)
 
 
 class TemplateUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=200)
     text: Optional[str] = Field(None, min_length=1)
+    tool_id: Optional[str] = Field(None, max_length=100)
 
 
 # ── UI Settings ───────────────────────────────────────────────────────────────
