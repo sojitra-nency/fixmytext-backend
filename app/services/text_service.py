@@ -387,6 +387,89 @@ def remove_duplicate_lines(text: str) -> str:
             result.append(line)
     return "\n".join(result)
 
+
+def shuffle_lines(text: str) -> str:
+    import random
+    lines = text.splitlines()
+    random.shuffle(lines)
+    return "\n".join(lines)
+
+
+def sort_by_length(text: str) -> str:
+    return "\n".join(sorted(text.splitlines(), key=len))
+
+
+def sort_numeric(text: str) -> str:
+    def _numeric_key(line: str):
+        match = re.search(r'-?\d+\.?\d*', line)
+        return float(match.group()) if match else float('inf')
+    return "\n".join(sorted(text.splitlines(), key=_numeric_key))
+
+
+def line_frequency(text: str) -> str:
+    from collections import Counter
+    counts = Counter(text.splitlines())
+    return "\n".join(f"{count}x  {line}" for line, count in counts.most_common())
+
+
+
+def split_to_lines(text: str, delimiter: str = ",") -> str:
+    return "\n".join(part.strip() for part in text.split(delimiter))
+
+
+def join_lines(text: str, separator: str = ", ") -> str:
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    return separator.join(lines)
+
+
+def pad_lines(text: str, align: str = "left") -> str:
+    lines = text.splitlines()
+    max_len = max((len(line) for line in lines), default=0)
+    if align == "right":
+        return "\n".join(line.rjust(max_len) for line in lines)
+    elif align == "center":
+        return "\n".join(line.center(max_len) for line in lines)
+    return "\n".join(line.ljust(max_len) for line in lines)
+
+
+def wrap_lines(text: str, prefix: str = "", suffix: str = "") -> str:
+    return "\n".join(f"{prefix}{line}{suffix}" for line in text.splitlines())
+
+
+def _line_matches(line: str, pattern: str, case_sensitive: bool, use_regex: bool) -> bool:
+    if use_regex:
+        flags = 0 if case_sensitive else re.IGNORECASE
+        try:
+            return bool(re.search(pattern, line, flags))
+        except re.error:
+            return False
+    if case_sensitive:
+        return pattern in line
+    return pattern.lower() in line.lower()
+
+
+def filter_lines_contain(text: str, pattern: str, case_sensitive: bool = False, use_regex: bool = False) -> str:
+    return "\n".join(line for line in text.splitlines() if _line_matches(line, pattern, case_sensitive, use_regex))
+
+
+def remove_lines_contain(text: str, pattern: str, case_sensitive: bool = False, use_regex: bool = False) -> str:
+    return "\n".join(line for line in text.splitlines() if not _line_matches(line, pattern, case_sensitive, use_regex))
+
+
+def truncate_lines(text: str, max_length: int = 80) -> str:
+    result = []
+    for line in text.splitlines():
+        if len(line) > max_length:
+            result.append(line[:max_length - 1] + "…")
+        else:
+            result.append(line)
+    return "\n".join(result)
+
+
+def extract_nth_lines(text: str, n: int = 2, offset: int = 0) -> str:
+    lines = text.splitlines()
+    return "\n".join(lines[i] for i in range(offset, len(lines), n))
+
 # ── Developer Tools ───────────────────────────────────────────────────────
 
 def format_json(text: str) -> str:

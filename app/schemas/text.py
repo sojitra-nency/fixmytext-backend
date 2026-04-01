@@ -62,6 +62,122 @@ class FormatRequest(BaseModel):
     )
 
 
+class SplitJoinRequest(BaseModel):
+    """Payload for split-to-lines and join-lines requests."""
+
+    text: str = Field(
+        ...,
+        min_length=1,
+        max_length=50_000,
+        description="The input text to be processed.",
+    )
+    delimiter: str = Field(
+        default=",",
+        max_length=20,
+        description="Delimiter or separator character(s).",
+    )
+
+
+class PadRequest(BaseModel):
+    """Payload for pad-lines requests."""
+
+    text: str = Field(
+        ...,
+        min_length=1,
+        max_length=50_000,
+        description="The input text to be processed.",
+    )
+    align: Literal["left", "right", "center"] = Field(
+        default="left",
+        description="Alignment direction: left, right, or center.",
+    )
+
+
+class WrapRequest(BaseModel):
+    """Payload for wrap-lines requests."""
+
+    text: str = Field(
+        ...,
+        min_length=1,
+        max_length=50_000,
+        description="The input text to be processed.",
+    )
+    prefix: str = Field(
+        default="",
+        max_length=100,
+        description="Text to prepend to each line.",
+    )
+    suffix: str = Field(
+        default="",
+        max_length=100,
+        description="Text to append to each line.",
+    )
+
+
+class FilterRequest(BaseModel):
+    """Payload for filter-lines and remove-lines requests."""
+
+    text: str = Field(
+        ...,
+        min_length=1,
+        max_length=50_000,
+        description="The input text to be processed.",
+    )
+    pattern: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+        description="Word or phrase (or regex pattern) to match against each line.",
+    )
+    case_sensitive: bool = Field(
+        default=False,
+        description="If true, match is case-sensitive.",
+    )
+    use_regex: bool = Field(
+        default=False,
+        description="If true, treat pattern as a regular expression.",
+    )
+
+
+class TruncateRequest(BaseModel):
+    """Payload for truncate-lines requests."""
+
+    text: str = Field(
+        ...,
+        min_length=1,
+        max_length=50_000,
+        description="The input text to be processed.",
+    )
+    max_length: int = Field(
+        default=80,
+        ge=5,
+        le=1000,
+        description="Maximum character length per line.",
+    )
+
+
+class NthLineRequest(BaseModel):
+    """Payload for extract-nth-lines requests."""
+
+    text: str = Field(
+        ...,
+        min_length=1,
+        max_length=50_000,
+        description="The input text to be processed.",
+    )
+    n: int = Field(
+        default=2,
+        ge=2,
+        le=100,
+        description="Extract every Nth line.",
+    )
+    offset: int = Field(
+        default=0,
+        ge=0,
+        description="Starting line offset (0-indexed).",
+    )
+
+
 class TextResponse(BaseModel):
     """Transformed text returned by the API."""
 

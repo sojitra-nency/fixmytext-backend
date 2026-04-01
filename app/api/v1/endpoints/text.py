@@ -11,7 +11,10 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.schemas.text import TextRequest, TextResponse, TranslateRequest, ToneRequest, FormatRequest
+from app.schemas.text import (
+    TextRequest, TextResponse, TranslateRequest, ToneRequest, FormatRequest,
+    SplitJoinRequest, PadRequest, WrapRequest, FilterRequest, TruncateRequest, NthLineRequest,
+)
 from app.core.rate_limit import ai_limiter
 from app.core.deps import get_current_user, get_optional_user
 from app.db.session import get_db
@@ -434,6 +437,127 @@ async def reverse_lines(request: Request, req: TextRequest, user: User | None = 
 async def number_lines(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
     """Prefix each line with its line number."""
     return await _local_endpoint(request, req, "number-lines", ts.number_lines, user, db)
+
+
+@router.post("/shuffle-lines", response_model=TextResponse)
+async def shuffle_lines(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Randomly shuffle the order of all lines."""
+    return await _local_endpoint(request, req, "shuffle-lines", ts.shuffle_lines, user, db)
+
+
+@router.post("/sort-by-length", response_model=TextResponse)
+async def sort_by_length(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Sort lines from shortest to longest."""
+    return await _local_endpoint(request, req, "sort-by-length", ts.sort_by_length, user, db)
+
+
+@router.post("/sort-numeric", response_model=TextResponse)
+async def sort_numeric(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Sort lines by their leading number in natural numeric order."""
+    return await _local_endpoint(request, req, "sort-numeric", ts.sort_numeric, user, db)
+
+
+@router.post("/line-frequency", response_model=TextResponse)
+async def line_frequency(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Count how many times each unique line appears, sorted by frequency."""
+    return await _local_endpoint(request, req, "line-frequency", ts.line_frequency, user, db)
+
+
+
+@router.post("/split-to-lines", response_model=TextResponse)
+async def split_to_lines(request: Request, req: SplitJoinRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Split text into separate lines by a delimiter."""
+    client_ip = request.client.host if request.client else "unknown"
+    user_id = str(user.id) if user else "visitor"
+    logger.info("LOCAL  op=split-to-lines user=%s ip=%s chars=%d", user_id, client_ip, len(req.text))
+    if db:
+        await _enforce_tool_access(request, "split-to-lines", "api", user, db)
+    result = ts.split_to_lines(req.text, req.delimiter)
+    return TextResponse(original=req.text, result=result, operation="split-to-lines")
+
+
+@router.post("/join-lines", response_model=TextResponse)
+async def join_lines(request: Request, req: SplitJoinRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Merge all lines into one using a chosen separator."""
+    client_ip = request.client.host if request.client else "unknown"
+    user_id = str(user.id) if user else "visitor"
+    logger.info("LOCAL  op=join-lines user=%s ip=%s chars=%d", user_id, client_ip, len(req.text))
+    if db:
+        await _enforce_tool_access(request, "join-lines", "api", user, db)
+    result = ts.join_lines(req.text, req.delimiter)
+    return TextResponse(original=req.text, result=result, operation="join-lines")
+
+
+@router.post("/pad-lines", response_model=TextResponse)
+async def pad_lines(request: Request, req: PadRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Pad all lines to equal width with spaces."""
+    client_ip = request.client.host if request.client else "unknown"
+    user_id = str(user.id) if user else "visitor"
+    logger.info("LOCAL  op=pad-lines user=%s ip=%s chars=%d", user_id, client_ip, len(req.text))
+    if db:
+        await _enforce_tool_access(request, "pad-lines", "api", user, db)
+    result = ts.pad_lines(req.text, req.align)
+    return TextResponse(original=req.text, result=result, operation="pad-lines")
+
+
+@router.post("/wrap-lines", response_model=TextResponse)
+async def wrap_lines(request: Request, req: WrapRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Add a custom prefix and/or suffix to every line."""
+    client_ip = request.client.host if request.client else "unknown"
+    user_id = str(user.id) if user else "visitor"
+    logger.info("LOCAL  op=wrap-lines user=%s ip=%s chars=%d", user_id, client_ip, len(req.text))
+    if db:
+        await _enforce_tool_access(request, "wrap-lines", "api", user, db)
+    result = ts.wrap_lines(req.text, req.prefix, req.suffix)
+    return TextResponse(original=req.text, result=result, operation="wrap-lines")
+
+
+@router.post("/filter-lines", response_model=TextResponse)
+async def filter_lines(request: Request, req: FilterRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Keep only lines that contain a specific word or phrase."""
+    client_ip = request.client.host if request.client else "unknown"
+    user_id = str(user.id) if user else "visitor"
+    logger.info("LOCAL  op=filter-lines user=%s ip=%s chars=%d", user_id, client_ip, len(req.text))
+    if db:
+        await _enforce_tool_access(request, "filter-lines", "api", user, db)
+    result = ts.filter_lines_contain(req.text, req.pattern, req.case_sensitive, req.use_regex)
+    return TextResponse(original=req.text, result=result, operation="filter-lines")
+
+
+@router.post("/remove-lines", response_model=TextResponse)
+async def remove_lines(request: Request, req: FilterRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Remove all lines that contain a specific word or phrase."""
+    client_ip = request.client.host if request.client else "unknown"
+    user_id = str(user.id) if user else "visitor"
+    logger.info("LOCAL  op=remove-lines user=%s ip=%s chars=%d", user_id, client_ip, len(req.text))
+    if db:
+        await _enforce_tool_access(request, "remove-lines", "api", user, db)
+    result = ts.remove_lines_contain(req.text, req.pattern, req.case_sensitive, req.use_regex)
+    return TextResponse(original=req.text, result=result, operation="remove-lines")
+
+
+@router.post("/truncate-lines", response_model=TextResponse)
+async def truncate_lines(request: Request, req: TruncateRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Cut each line to a maximum character length."""
+    client_ip = request.client.host if request.client else "unknown"
+    user_id = str(user.id) if user else "visitor"
+    logger.info("LOCAL  op=truncate-lines user=%s ip=%s chars=%d", user_id, client_ip, len(req.text))
+    if db:
+        await _enforce_tool_access(request, "truncate-lines", "api", user, db)
+    result = ts.truncate_lines(req.text, req.max_length)
+    return TextResponse(original=req.text, result=result, operation="truncate-lines")
+
+
+@router.post("/extract-nth-lines", response_model=TextResponse)
+async def extract_nth_lines(request: Request, req: NthLineRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Extract every Nth line."""
+    client_ip = request.client.host if request.client else "unknown"
+    user_id = str(user.id) if user else "visitor"
+    logger.info("LOCAL  op=extract-nth-lines user=%s ip=%s chars=%d", user_id, client_ip, len(req.text))
+    if db:
+        await _enforce_tool_access(request, "extract-nth-lines", "api", user, db)
+    result = ts.extract_nth_lines(req.text, req.n, req.offset)
+    return TextResponse(original=req.text, result=result, operation="extract-nth-lines")
 
 
 @router.post("/rot13", response_model=TextResponse)
