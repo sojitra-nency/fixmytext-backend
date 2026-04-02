@@ -178,6 +178,74 @@ class NthLineRequest(BaseModel):
     )
 
 
+class CaesarRequest(BaseModel):
+    """Payload for Caesar cipher requests."""
+
+    text: str = Field(
+        ...,
+        min_length=1,
+        max_length=50_000,
+        description="The input text to be processed.",
+    )
+    shift: int = Field(
+        default=3,
+        ge=1,
+        le=25,
+        description="Number of positions to shift each letter.",
+    )
+
+
+class RailFenceRequest(BaseModel):
+    """Payload for Rail Fence cipher requests."""
+
+    text: str = Field(
+        ...,
+        min_length=1,
+        max_length=50_000,
+        description="The input text to be processed.",
+    )
+    rails: int = Field(
+        default=3,
+        ge=2,
+        le=10,
+        description="Number of rails for the cipher.",
+    )
+
+
+class KeyedCipherRequest(BaseModel):
+    """Payload for cipher requests that require a key (Vigenere, Playfair, etc.)."""
+
+    text: str = Field(
+        ...,
+        min_length=1,
+        max_length=50_000,
+        description="The input text to be processed.",
+    )
+    key: str = Field(
+        ...,
+        min_length=1,
+        max_length=100,
+        description="The cipher key or passphrase.",
+    )
+
+
+class SubstitutionRequest(BaseModel):
+    """Payload for substitution cipher requests."""
+
+    text: str = Field(
+        ...,
+        min_length=1,
+        max_length=50_000,
+        description="The input text to be processed.",
+    )
+    mapping: str = Field(
+        ...,
+        min_length=26,
+        max_length=26,
+        description="26-character substitution alphabet (A-Z mapping).",
+    )
+
+
 class TextResponse(BaseModel):
     """Transformed text returned by the API."""
 

@@ -625,3 +625,308 @@ def json_to_csv(text: str) -> str:
     writer.writeheader()
     writer.writerows(data)
     return output.getvalue()
+
+
+# ── Cipher Functions (new) ──────────────────────────────────────────────
+
+def caesar_cipher(text: str, shift: int = 3) -> str:
+    result = []
+    for ch in text:
+        if 'a' <= ch <= 'z':
+            result.append(chr((ord(ch) - ord('a') + shift) % 26 + ord('a')))
+        elif 'A' <= ch <= 'Z':
+            result.append(chr((ord(ch) - ord('A') + shift) % 26 + ord('A')))
+        else:
+            result.append(ch)
+    return ''.join(result)
+
+
+def caesar_brute_force(text: str) -> str:
+    lines = []
+    for shift in range(1, 26):
+        decrypted = caesar_cipher(text, -shift)
+        lines.append(f"Shift {shift:2d}: {decrypted}")
+    return '\n'.join(lines)
+
+
+def vigenere_encrypt(text: str, key: str) -> str:
+    if not key or not key.isalpha():
+        raise ValueError("Key must be non-empty and contain only letters")
+    key = key.upper()
+    result = []
+    ki = 0
+    for ch in text:
+        if ch.isalpha():
+            shift = ord(key[ki % len(key)]) - ord('A')
+            base = ord('A') if ch.isupper() else ord('a')
+            result.append(chr((ord(ch) - base + shift) % 26 + base))
+            ki += 1
+        else:
+            result.append(ch)
+    return ''.join(result)
+
+
+def vigenere_decrypt(text: str, key: str) -> str:
+    if not key or not key.isalpha():
+        raise ValueError("Key must be non-empty and contain only letters")
+    key = key.upper()
+    result = []
+    ki = 0
+    for ch in text:
+        if ch.isalpha():
+            shift = ord(key[ki % len(key)]) - ord('A')
+            base = ord('A') if ch.isupper() else ord('a')
+            result.append(chr((ord(ch) - base - shift) % 26 + base))
+            ki += 1
+        else:
+            result.append(ch)
+    return ''.join(result)
+
+
+def rail_fence_encrypt(text: str, rails: int = 3) -> str:
+    if rails < 2:
+        raise ValueError("Rails must be at least 2")
+    fence = [[] for _ in range(rails)]
+    rail, direction = 0, 1
+    for ch in text:
+        fence[rail].append(ch)
+        if rail == 0:
+            direction = 1
+        elif rail == rails - 1:
+            direction = -1
+        rail += direction
+    return ''.join(''.join(row) for row in fence)
+
+
+def rail_fence_decrypt(text: str, rails: int = 3) -> str:
+    if rails < 2:
+        raise ValueError("Rails must be at least 2")
+    n = len(text)
+    pattern = []
+    rail, direction = 0, 1
+    for i in range(n):
+        pattern.append(rail)
+        if rail == 0:
+            direction = 1
+        elif rail == rails - 1:
+            direction = -1
+        rail += direction
+    sorted_indices = sorted(range(n), key=lambda i: pattern[i])
+    result = [''] * n
+    for idx, char in zip(sorted_indices, text):
+        result[idx] = char
+    return ''.join(result)
+
+
+def playfair_encrypt(text: str, key: str) -> str:
+    if not key:
+        raise ValueError("Key must be non-empty")
+    key = key.upper().replace('J', 'I')
+    seen = set()
+    matrix = []
+    for ch in key + 'ABCDEFGHIKLMNOPQRSTUVWXYZ':
+        if ch.isalpha() and ch not in seen:
+            seen.add(ch)
+            matrix.append(ch)
+    # Prepare text: uppercase, replace J with I, split into digrams
+    cleaned = re.sub(r'[^A-Za-z]', '', text).upper().replace('J', 'I')
+    pairs = []
+    i = 0
+    while i < len(cleaned):
+        a = cleaned[i]
+        b = cleaned[i + 1] if i + 1 < len(cleaned) else 'X'
+        if a == b:
+            b = 'X'
+            i += 1
+        else:
+            i += 2
+        pairs.append((a, b))
+    # Encrypt pairs
+    def pos(c):
+        idx = matrix.index(c)
+        return idx // 5, idx % 5
+    result = []
+    for a, b in pairs:
+        r1, c1 = pos(a)
+        r2, c2 = pos(b)
+        if r1 == r2:
+            result.append(matrix[r1 * 5 + (c1 + 1) % 5])
+            result.append(matrix[r2 * 5 + (c2 + 1) % 5])
+        elif c1 == c2:
+            result.append(matrix[((r1 + 1) % 5) * 5 + c1])
+            result.append(matrix[((r2 + 1) % 5) * 5 + c2])
+        else:
+            result.append(matrix[r1 * 5 + c2])
+            result.append(matrix[r2 * 5 + c1])
+    return ''.join(result)
+
+
+def substitution_cipher(text: str, mapping: str) -> str:
+    if len(mapping) != 26:
+        raise ValueError("Mapping must be exactly 26 characters (A-Z substitution)")
+    mapping = mapping.upper()
+    result = []
+    for ch in text:
+        if 'a' <= ch <= 'z':
+            result.append(mapping[ord(ch) - ord('a')].lower())
+        elif 'A' <= ch <= 'Z':
+            result.append(mapping[ord(ch) - ord('A')])
+        else:
+            result.append(ch)
+    return ''.join(result)
+
+
+def columnar_transposition(text: str, key: str) -> str:
+    if not key:
+        raise ValueError("Key must be non-empty")
+    key = key.upper()
+    num_cols = len(key)
+    # Pad text to fill grid
+    padded = text + ' ' * ((num_cols - len(text) % num_cols) % num_cols)
+    # Create grid
+    rows = [padded[i:i + num_cols] for i in range(0, len(padded), num_cols)]
+    # Get column order from key
+    order = sorted(range(num_cols), key=lambda i: key[i])
+    # Read columns in key order
+    result = []
+    for col in order:
+        for row in rows:
+            result.append(row[col])
+    return ''.join(result)
+
+
+def nato_phonetic(text: str) -> str:
+    NATO = {
+        'A': 'Alpha', 'B': 'Bravo', 'C': 'Charlie', 'D': 'Delta',
+        'E': 'Echo', 'F': 'Foxtrot', 'G': 'Golf', 'H': 'Hotel',
+        'I': 'India', 'J': 'Juliet', 'K': 'Kilo', 'L': 'Lima',
+        'M': 'Mike', 'N': 'November', 'O': 'Oscar', 'P': 'Papa',
+        'Q': 'Quebec', 'R': 'Romeo', 'S': 'Sierra', 'T': 'Tango',
+        'U': 'Uniform', 'V': 'Victor', 'W': 'Whiskey', 'X': 'X-ray',
+        'Y': 'Yankee', 'Z': 'Zulu',
+        '0': 'Zero', '1': 'One', '2': 'Two', '3': 'Three',
+        '4': 'Four', '5': 'Five', '6': 'Six', '7': 'Seven',
+        '8': 'Eight', '9': 'Niner',
+    }
+    # Check if input is NATO phonetic (reverse conversion)
+    words = text.strip().split()
+    reverse_nato = {v.upper(): k for k, v in NATO.items()}
+    if all(w.upper() in reverse_nato for w in words):
+        return ''.join(reverse_nato[w.upper()] for w in words)
+    # Forward conversion
+    result = []
+    for ch in text.upper():
+        if ch in NATO:
+            result.append(NATO[ch])
+        elif ch == ' ':
+            result.append('[space]')
+        else:
+            result.append(ch)
+    return ' '.join(result)
+
+
+def bacon_cipher(text: str) -> str:
+    BACON = {
+        'A': 'AAAAA', 'B': 'AAAAB', 'C': 'AAABA', 'D': 'AAABB',
+        'E': 'AABAA', 'F': 'AABAB', 'G': 'AABBA', 'H': 'AABBB',
+        'I': 'ABAAA', 'J': 'ABAAA', 'K': 'ABAAB', 'L': 'ABABA',
+        'M': 'ABABB', 'N': 'ABBAA', 'O': 'ABBAB', 'P': 'ABBBA',
+        'Q': 'ABBBB', 'R': 'BAAAA', 'S': 'BAAAB', 'T': 'BAABA',
+        'U': 'BAABB', 'V': 'BAABB', 'W': 'BABAA', 'X': 'BABAB',
+        'Y': 'BABBA', 'Z': 'BABBB',
+    }
+    # Check if input is Bacon-encoded (all A's and B's with spaces)
+    cleaned = text.strip().replace(' ', '')
+    if cleaned and all(c in 'AaBb' for c in cleaned):
+        REVERSE = {v: k for k, v in BACON.items()}
+        upper = cleaned.upper()
+        result = []
+        for i in range(0, len(upper) - 4, 5):
+            chunk = upper[i:i + 5]
+            if chunk in REVERSE:
+                result.append(REVERSE[chunk])
+        return ''.join(result)
+    # Forward encoding
+    result = []
+    for ch in text.upper():
+        if ch in BACON:
+            result.append(BACON[ch])
+        elif ch == ' ':
+            result.append(' ')
+    return ' '.join(result) if ' ' not in ''.join(result) else ''.join(result)
+
+
+# ── Encoding Extensions (new) ──────────────────────────────────────────
+
+def base32_encode(text: str) -> str:
+    return base64.b32encode(text.encode('utf-8')).decode('ascii')
+
+
+def base32_decode(text: str) -> str:
+    # Add padding if needed
+    padded = text.strip()
+    padded += '=' * ((8 - len(padded) % 8) % 8)
+    return base64.b32decode(padded).decode('utf-8')
+
+
+def ascii85_encode(text: str) -> str:
+    return base64.a85encode(text.encode('utf-8')).decode('ascii')
+
+
+def ascii85_decode(text: str) -> str:
+    return base64.a85decode(text.strip()).decode('utf-8')
+
+
+# ── Developer Tool Functions (new) ─────────────────────────────────────
+
+def xml_to_json(text: str) -> str:
+    import xmltodict
+    parsed = xmltodict.parse(text)
+    return json.dumps(parsed, indent=2, ensure_ascii=False)
+
+
+def csv_to_table(text: str) -> str:
+    reader = csv.reader(io.StringIO(text))
+    rows = list(reader)
+    if not rows:
+        return text
+    # Calculate column widths
+    widths = [0] * len(rows[0])
+    for row in rows:
+        for i, cell in enumerate(row):
+            if i < len(widths):
+                widths[i] = max(widths[i], len(cell.strip()))
+    # Build markdown table
+    lines = []
+    # Header
+    header = '| ' + ' | '.join(cell.strip().ljust(widths[i]) for i, cell in enumerate(rows[0])) + ' |'
+    lines.append(header)
+    # Separator
+    sep = '| ' + ' | '.join('-' * widths[i] for i in range(len(rows[0]))) + ' |'
+    lines.append(sep)
+    # Data rows
+    for row in rows[1:]:
+        data = '| ' + ' | '.join((row[i].strip() if i < len(row) else '').ljust(widths[i]) for i in range(len(rows[0]))) + ' |'
+        lines.append(data)
+    return '\n'.join(lines)
+
+
+def sql_insert_gen(text: str) -> str:
+    reader = csv.reader(io.StringIO(text))
+    rows = list(reader)
+    if len(rows) < 2:
+        raise ValueError("Input must have a header row and at least one data row")
+    headers = [h.strip() for h in rows[0]]
+    table_name = 'table_name'
+    lines = []
+    for row in rows[1:]:
+        values = []
+        for cell in row:
+            cell = cell.strip()
+            try:
+                float(cell)
+                values.append(cell)
+            except ValueError:
+                values.append(f"'{cell}'")
+        lines.append(f"INSERT INTO {table_name} ({', '.join(headers)}) VALUES ({', '.join(values)});")
+    return '\n'.join(lines)

@@ -651,3 +651,551 @@ class LanguageDetector:
             "Nothing else."
         )
         return await _ai_transform(prompt, text, _detect_lang_fallback, temperature=0.1, max_tokens=20)
+
+
+# ── New AI Writing Services ──────────────────────────────────────────────────
+
+def _passthrough_fallback(text: str, *args) -> str:
+    return text
+
+
+class AcademicStyleService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are an academic writing expert. Rewrite the user's text in formal academic style. "
+            "Use third person, formal vocabulary, hedging language (e.g., 'suggests', 'indicates'), "
+            "and appropriate academic register. Do not add citations but use citation-ready phrasing. "
+            "Return ONLY the rewritten text, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.5, max_tokens=1500)
+
+
+class CreativeStyleService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are a creative writer. Rewrite the user's text with vivid, literary flair. "
+            "Use figurative language, sensory details, varied sentence structure, and engaging prose. "
+            "Make it more expressive and evocative while preserving the core meaning. "
+            "Return ONLY the rewritten text, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.9, max_tokens=1500)
+
+
+class TechnicalStyleService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are a technical documentation writer. Rewrite the user's text in precise, "
+            "technical documentation style. Use clear, unambiguous language, active voice, "
+            "step-by-step structure where applicable, and technical precision. "
+            "Return ONLY the rewritten text, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.3, max_tokens=1500)
+
+
+class ActiveVoiceService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are a writing editor. Convert all passive voice sentences in the user's text to active voice. "
+            "Keep sentences that are already in active voice unchanged. "
+            "Preserve the original meaning completely. "
+            "Return ONLY the rewritten text, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.3, max_tokens=1500)
+
+
+class RedundancyRemoverService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are a concise writing editor. Remove redundant words and phrases from the user's text. "
+            "Examples: 'free gift' → 'gift', 'advance planning' → 'planning', 'past history' → 'history'. "
+            "Also remove unnecessary qualifiers and filler words. Preserve the original meaning. "
+            "Return ONLY the cleaned text, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.3, max_tokens=1500)
+
+
+class SentenceSplitterService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are a writing clarity editor. Break overly complex, compound, or run-on sentences "
+            "into shorter, clearer sentences. Keep simple sentences unchanged. "
+            "Preserve the original meaning and all information. "
+            "Return ONLY the rewritten text, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.3, max_tokens=1500)
+
+
+class ConcisenessService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are a conciseness editor. Remove filler words, unnecessary qualifiers, "
+            "wordy constructions, and tighten the prose without losing any meaning. "
+            "Examples: 'in order to' → 'to', 'at this point in time' → 'now', "
+            "'due to the fact that' → 'because'. "
+            "Return ONLY the tightened text, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.3, max_tokens=1500)
+
+
+class ResumeBulletsService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are a resume writing expert. Transform the user's text into 3-5 impactful resume bullet points. "
+            "Start each with a strong action verb (Led, Developed, Implemented, etc.). "
+            "Quantify achievements where possible. Use past tense. "
+            "Return ONLY the bullet points (prefixed with •), nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.6, max_tokens=500)
+
+
+class MeetingNotesService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are a meeting notes organizer. Summarize the user's text into structured meeting notes. "
+            "Include: ## Key Decisions, ## Discussion Points, ## Action Items (with owners if mentioned), "
+            "## Next Steps. Use concise bullet points. "
+            "Return ONLY the structured notes, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.4, max_tokens=800)
+
+
+class CoverLetterService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are a career coach. Generate a professional cover letter based on the user's text "
+            "(which may contain job requirements, experience, or rough notes). "
+            "Include: greeting, opening hook, 2-3 body paragraphs connecting experience to requirements, "
+            "closing with call to action, sign-off. Keep it under 400 words. "
+            "Return ONLY the cover letter, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.7, max_tokens=800)
+
+
+class OutlineToDraftService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are a writer. Expand the user's bullet-point outline into full prose paragraphs. "
+            "Each bullet point should become a well-developed paragraph. "
+            "Add transitions between sections. Maintain the outline's structure and order. "
+            "Return ONLY the expanded prose, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.7, max_tokens=1500)
+
+
+class ContinueWritingService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are a writing assistant. Continue writing from where the user's text ends. "
+            "Match the existing style, tone, and voice perfectly. "
+            "Write 2-3 additional paragraphs that naturally follow from the content. "
+            "Return ONLY the continuation (do NOT repeat the original text), nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.8, max_tokens=800)
+
+
+class RewriteUniqueService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are a deep rewriter. Completely rewrite the user's text with entirely original "
+            "phrasing, sentence structure, and organization. Change the word order, use different "
+            "vocabulary, restructure paragraphs, but preserve ALL the original meaning and information. "
+            "The result should read as a completely different text saying the same thing. "
+            "Return ONLY the rewritten text, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.9, max_tokens=1500)
+
+
+class ToneAnalyzerService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are a tone analyzer. Analyze the emotional tone and formality of the user's text. "
+            "Provide: Tone (e.g., Professional, Casual, Urgent, Friendly), "
+            "Sentiment (Positive/Negative/Neutral with percentage), "
+            "Formality (High/Medium/Low with percentage), "
+            "Key emotional words found. "
+            "Format as a brief analysis report. Return ONLY the analysis, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.3, max_tokens=400)
+
+
+# ── New AI Content Services ──────────────────────────────────────────────────
+
+class LinkedinPostService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are a LinkedIn content creator. Transform the user's text into an engaging LinkedIn post. "
+            "Include: attention-grabbing opening line, short paragraphs (1-2 sentences each), "
+            "line breaks for readability, a clear takeaway, and a call-to-action at the end. "
+            "Do NOT include hashtags. Keep under 1300 characters. "
+            "Return ONLY the LinkedIn post, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.7, max_tokens=600)
+
+
+class TwitterThreadService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are a Twitter/X thread creator. Break the user's content into a numbered thread. "
+            "Format: '1/ [hook tweet]\\n\\n2/ [point]\\n\\n3/ [point]...' "
+            "First tweet must be a strong hook. Each tweet under 280 characters. "
+            "End with a summary or CTA tweet. Aim for 4-8 tweets. "
+            "Return ONLY the thread, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.7, max_tokens=800)
+
+
+class InstagramCaptionService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are an Instagram content creator. Create an engaging Instagram caption from the user's text. "
+            "Include: attention-grabbing first line, engaging story or value, "
+            "relevant emojis sprinkled naturally, a call-to-action question at the end, "
+            "and 10-15 relevant hashtags on a separate line. "
+            "Return ONLY the caption, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.8, max_tokens=600)
+
+
+class YoutubeDescService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are a YouTube content strategist. Generate a structured YouTube video description. "
+            "Include: 2-3 sentence intro summary, '📌 In this video:' section with bullet points, "
+            "placeholder timestamps (00:00 Intro, etc.), 'LINKS' section with placeholders, "
+            "and a brief bio placeholder. "
+            "Return ONLY the description, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.6, max_tokens=600)
+
+
+class SocialBioService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are a social media branding expert. Generate 5 concise social media bio options "
+            "from the user's text or self-description. Each bio should be under 160 characters, "
+            "punchy, and use pipe separators or emojis for structure. "
+            "Return ONLY the 5 bios, numbered 1-5, one per line."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.8, max_tokens=400)
+
+
+class ProductDescService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are a copywriter. Write a compelling product description from the user's text "
+            "(features, specs, or rough notes). Include: attention-grabbing headline, "
+            "benefit-focused body copy, key features as bullet points, "
+            "and a persuasive closing line. "
+            "Return ONLY the product description, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.7, max_tokens=600)
+
+
+class CtaGeneratorService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are a conversion copywriter. Generate 10 call-to-action variations for the user's text. "
+            "Include a mix of: button text (2-5 words), banner copy (one sentence), "
+            "and urgency-driven CTAs. Number them 1-10. "
+            "Return ONLY the CTAs, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.8, max_tokens=400)
+
+
+class AdCopyService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are an advertising copywriter. Generate ad copy from the user's text. "
+            "Create 3 variations, each with: Headline (max 30 chars), "
+            "Description (max 90 chars), Display URL suggestion. "
+            "Format for Google Ads style. Number them 1-3. "
+            "Return ONLY the ad copies, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.8, max_tokens=500)
+
+
+class LandingHeadlineService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are a landing page copywriter. Generate 5 attention-grabbing headlines "
+            "from the user's value proposition or product text. Mix styles: "
+            "benefit-driven, curiosity-driven, social proof, urgency, and question-based. "
+            "Number them 1-5. Return ONLY the headlines, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.8, max_tokens=300)
+
+
+class EmailSubjectService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are an email marketing expert. Generate 8 compelling email subject lines "
+            "from the user's text/topic. Mix: curiosity, urgency, personalization, benefit, "
+            "question, and number-based approaches. Keep each under 60 characters. "
+            "Number them 1-8. Return ONLY the subject lines, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.8, max_tokens=400)
+
+
+class ContentIdeasService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are a content strategist. Generate 10 content ideas from the user's topic or niche. "
+            "For each idea, include: title, format (blog/video/thread/infographic), "
+            "and a one-line angle. Number them 1-10. "
+            "Return ONLY the ideas, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.9, max_tokens=600)
+
+
+class HookGeneratorService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are a copywriting expert. Create 5 attention-grabbing opening lines (hooks) "
+            "for the user's topic. Include diverse styles: startling statistic, provocative question, "
+            "bold statement, story opener, and contrarian take. Number them 1-5. "
+            "Return ONLY the hooks, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.8, max_tokens=400)
+
+
+class AngleGeneratorService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are a content strategist. Find 5 unique angles or perspectives for the user's topic. "
+            "For each angle: a catchy title and a 1-2 sentence description of the approach. "
+            "Think: contrarian, data-driven, personal story, industry insider, beginner-friendly. "
+            "Number them 1-5. Return ONLY the angles, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.9, max_tokens=500)
+
+
+class FaqSchemaService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are an SEO expert. Convert the user's text into FAQ Schema markup (JSON-LD format). "
+            "Extract Q&A pairs from the text (or generate FAQs if the text is a topic). "
+            "Return valid JSON-LD with @context, @type: FAQPage, and mainEntity array. "
+            "Return ONLY the JSON-LD code, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.3, max_tokens=800)
+
+
+# ── New Language Services ────────────────────────────────────────────────────
+
+class PosTaggerService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are a linguistics expert. Tag each word in the user's text with its part of speech. "
+            "Format: word/TAG (e.g., The/DET quick/ADJ brown/ADJ fox/NOUN jumps/VERB). "
+            "Use standard POS tags: NOUN, VERB, ADJ, ADV, DET, PRON, PREP, CONJ, INTJ. "
+            "Return ONLY the tagged text, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.2, max_tokens=1500)
+
+
+class SentenceTypeService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are a grammar expert. Classify each sentence in the user's text as: "
+            "Declarative (statement), Interrogative (question), Imperative (command), "
+            "or Exclamatory (exclamation). Format: 'sentence' → Type. "
+            "Return ONLY the classifications, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.2, max_tokens=800)
+
+
+class GrammarExplainService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are an English grammar teacher. Find grammar errors in the user's text, "
+            "correct them, and explain the grammar rule behind each correction. "
+            "Format: ❌ Original → ✅ Corrected\n📖 Rule: [explanation]\n\n "
+            "If no errors found, say 'No grammar errors found!' "
+            "Return ONLY the corrections and explanations, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.3, max_tokens=800)
+
+
+class SynonymFinderService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are a thesaurus. For each significant word in the user's text, "
+            "provide 3-5 synonyms. Format: word → synonym1, synonym2, synonym3. "
+            "Skip common words (the, is, a, and, etc.). "
+            "Return ONLY the synonym list, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.5, max_tokens=800)
+
+
+class AntonymFinderService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are a thesaurus. For each significant word in the user's text, "
+            "provide 2-3 antonyms. Format: word → antonym1, antonym2. "
+            "Skip words that don't have clear antonyms. "
+            "Return ONLY the antonym list, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.5, max_tokens=800)
+
+
+class DefineWordsService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are a dictionary. Define each significant or uncommon word in the user's text. "
+            "Format: word (part of speech) — definition. "
+            "Skip very common words. Include pronunciation hints for difficult words. "
+            "Return ONLY the definitions, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.3, max_tokens=800)
+
+
+class WordPowerService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are a writing power editor. Replace weak, generic words in the user's text "
+            "with stronger, more impactful alternatives. Examples: 'good' → 'exceptional', "
+            "'bad' → 'devastating', 'said' → 'declared', 'went' → 'strode'. "
+            "Return the full text with replacements made. "
+            "Return ONLY the improved text, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.6, max_tokens=1500)
+
+
+class VocabComplexityService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are a vocabulary analyst. Analyze the vocabulary sophistication of the user's text. "
+            "Provide: Overall Complexity Score (1-10), "
+            "Complex words found with simpler alternatives, "
+            "Vocabulary diversity ratio, Suggested reading level. "
+            "Return ONLY the analysis, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.3, max_tokens=600)
+
+
+class JargonSimplifierService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are a plain language editor. Identify and replace technical jargon, "
+            "acronyms, and specialized terms in the user's text with plain, everyday language. "
+            "Make the text accessible to a general audience with no specialized knowledge. "
+            "Return ONLY the simplified text, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.4, max_tokens=1500)
+
+
+class FormalityDetectorService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are a register analyst. Analyze the formality level of the user's text. "
+            "Provide: Overall Register (Formal/Semi-formal/Informal/Casual), "
+            "Formality Score (1-10), Key indicators found (contractions, slang, passive voice, etc.), "
+            "Suggestions to adjust formality if needed. "
+            "Return ONLY the analysis, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.3, max_tokens=400)
+
+
+class ClicheDetectorService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are a writing freshness editor. Find all cliched, overused phrases in the user's text. "
+            "For each cliche found: quote the cliche → suggest a fresher alternative. "
+            "Common cliches: 'at the end of the day', 'think outside the box', 'low-hanging fruit', etc. "
+            "If no cliches found, say 'No cliches detected — your writing is fresh!' "
+            "Return ONLY the findings, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.5, max_tokens=600)
+
+
+# ── New Generator AI Services ───────────────────────────────────────────────
+
+class RegexGenService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are a regex expert. The user describes what they want to match. "
+            "Generate the regex pattern and explain it. Format:\n"
+            "Pattern: /regex_here/flags\n"
+            "Explanation: Brief description of each part\n"
+            "Examples: 2-3 example matches\n"
+            "Return ONLY the pattern, explanation, and examples."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.3, max_tokens=400)
+
+
+class WritingPromptService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are a creative writing instructor. Generate 5 unique, inspiring writing prompts "
+            "related to the user's topic or genre (or random if no topic given). "
+            "Each prompt should be 1-2 sentences and spark imagination. "
+            "Mix genres: fiction, creative nonfiction, poetry, flash fiction, dialogue. "
+            "Number them 1-5. Return ONLY the prompts, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.9, max_tokens=400)
+
+
+class TeamNameGenService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are a creative naming expert. Generate 10 creative team or project names "
+            "based on the user's keywords or description. Mix: professional, playful, techy, "
+            "and memorable options. Number them 1-10. "
+            "Return ONLY the names, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.9, max_tokens=300)
+
+
+class MockApiResponseService:
+    @staticmethod
+    async def transform(text: str) -> str:
+        prompt = (
+            "You are an API designer. Generate a realistic mock REST API JSON response "
+            "based on the user's description (endpoint, data type, etc.). "
+            "Include realistic field names, data types, and sample values. "
+            "Add pagination metadata if appropriate. Return valid, properly formatted JSON. "
+            "Return ONLY the JSON response, nothing else."
+        )
+        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.6, max_tokens=800)

@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.schemas.text import (
     TextRequest, TextResponse, TranslateRequest, ToneRequest, FormatRequest,
     SplitJoinRequest, PadRequest, WrapRequest, FilterRequest, TruncateRequest, NthLineRequest,
+    CaesarRequest, RailFenceRequest, KeyedCipherRequest, SubstitutionRequest,
 )
 from app.core.rate_limit import ai_limiter
 from app.core.deps import get_current_user, get_optional_user
@@ -32,6 +33,23 @@ from app.services.ai_service import (
     TextLengthenerService, FormatChangerService,
     ELI5Service, ProofreadService, TitleGeneratorService, PromptRefactorService,
     EmojifyService, LanguageDetector,
+    # New AI services
+    AcademicStyleService, CreativeStyleService, TechnicalStyleService,
+    ActiveVoiceService, RedundancyRemoverService, SentenceSplitterService,
+    ConcisenessService, ResumeBulletsService, MeetingNotesService,
+    CoverLetterService, OutlineToDraftService, ContinueWritingService,
+    RewriteUniqueService, ToneAnalyzerService,
+    LinkedinPostService, TwitterThreadService, InstagramCaptionService,
+    YoutubeDescService, SocialBioService, ProductDescService,
+    CtaGeneratorService, AdCopyService, LandingHeadlineService,
+    EmailSubjectService, ContentIdeasService, HookGeneratorService,
+    AngleGeneratorService, FaqSchemaService,
+    PosTaggerService, SentenceTypeService, GrammarExplainService,
+    SynonymFinderService, AntonymFinderService, DefineWordsService,
+    WordPowerService, VocabComplexityService, JargonSimplifierService,
+    FormalityDetectorService, ClicheDetectorService,
+    RegexGenService, WritingPromptService, TeamNameGenService,
+    MockApiResponseService,
 )
 
 router = APIRouter(prefix="/text", tags=["Text"])
@@ -485,6 +503,171 @@ async def atbash(request: Request, req: TextRequest, user: User | None = Depends
     return await _local_endpoint(request, req, "atbash", ts.atbash_cipher, user, db)
 
 
+@router.post("/caesar-cipher", response_model=TextResponse)
+async def caesar_cipher(request: Request, req: CaesarRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Apply Caesar cipher with custom shift."""
+    if db:
+        await _enforce_tool_access(request, "caesar-cipher", "api", user, db)
+    result = ts.caesar_cipher(req.text, req.shift)
+    return TextResponse(original=req.text, result=result, operation="caesar-cipher")
+
+
+@router.post("/caesar-brute-force", response_model=TextResponse)
+async def caesar_brute_force(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Try all 25 Caesar shifts to find plaintext."""
+    return await _local_endpoint(request, req, "caesar-brute-force", ts.caesar_brute_force, user, db)
+
+
+@router.post("/vigenere-encrypt", response_model=TextResponse)
+async def vigenere_encrypt(request: Request, req: KeyedCipherRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Encrypt text using Vigenere cipher."""
+    if db:
+        await _enforce_tool_access(request, "vigenere-encrypt", "api", user, db)
+    try:
+        result = ts.vigenere_encrypt(req.text, req.key)
+        return TextResponse(original=req.text, result=result, operation="vigenere-encrypt")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/vigenere-decrypt", response_model=TextResponse)
+async def vigenere_decrypt(request: Request, req: KeyedCipherRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Decrypt text using Vigenere cipher."""
+    if db:
+        await _enforce_tool_access(request, "vigenere-decrypt", "api", user, db)
+    try:
+        result = ts.vigenere_decrypt(req.text, req.key)
+        return TextResponse(original=req.text, result=result, operation="vigenere-decrypt")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/rail-fence-encrypt", response_model=TextResponse)
+async def rail_fence_encrypt(request: Request, req: RailFenceRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Encrypt text using Rail Fence cipher."""
+    if db:
+        await _enforce_tool_access(request, "rail-fence-encrypt", "api", user, db)
+    result = ts.rail_fence_encrypt(req.text, req.rails)
+    return TextResponse(original=req.text, result=result, operation="rail-fence-encrypt")
+
+
+@router.post("/rail-fence-decrypt", response_model=TextResponse)
+async def rail_fence_decrypt(request: Request, req: RailFenceRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Decrypt text using Rail Fence cipher."""
+    if db:
+        await _enforce_tool_access(request, "rail-fence-decrypt", "api", user, db)
+    result = ts.rail_fence_decrypt(req.text, req.rails)
+    return TextResponse(original=req.text, result=result, operation="rail-fence-decrypt")
+
+
+@router.post("/playfair-encrypt", response_model=TextResponse)
+async def playfair_encrypt(request: Request, req: KeyedCipherRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Encrypt text using Playfair cipher."""
+    if db:
+        await _enforce_tool_access(request, "playfair-encrypt", "api", user, db)
+    try:
+        result = ts.playfair_encrypt(req.text, req.key)
+        return TextResponse(original=req.text, result=result, operation="playfair-encrypt")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/substitution-cipher", response_model=TextResponse)
+async def substitution_cipher_route(request: Request, req: SubstitutionRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Apply custom substitution cipher."""
+    if db:
+        await _enforce_tool_access(request, "substitution-cipher", "api", user, db)
+    try:
+        result = ts.substitution_cipher(req.text, req.mapping)
+        return TextResponse(original=req.text, result=result, operation="substitution-cipher")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/columnar-transposition", response_model=TextResponse)
+async def columnar_transposition(request: Request, req: KeyedCipherRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Apply columnar transposition cipher."""
+    if db:
+        await _enforce_tool_access(request, "columnar-transposition", "api", user, db)
+    try:
+        result = ts.columnar_transposition(req.text, req.key)
+        return TextResponse(original=req.text, result=result, operation="columnar-transposition")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/nato-phonetic", response_model=TextResponse)
+async def nato_phonetic(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Convert text to/from NATO phonetic alphabet."""
+    return await _local_endpoint(request, req, "nato-phonetic", ts.nato_phonetic, user, db)
+
+
+@router.post("/bacon-cipher", response_model=TextResponse)
+async def bacon_cipher(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Encode/decode using Bacon's biliteral cipher."""
+    return await _local_endpoint(request, req, "bacon-cipher", ts.bacon_cipher, user, db)
+
+
+# ── Encoding Extensions ─────────────────────────────────────────────────────
+
+@router.post("/base32-encode", response_model=TextResponse)
+async def base32_encode(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Encode text to Base32."""
+    return await _local_endpoint(request, req, "base32-encode", ts.base32_encode, user, db)
+
+
+@router.post("/base32-decode", response_model=TextResponse)
+async def base32_decode(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Decode Base32 text."""
+    try:
+        return await _local_endpoint(request, req, "base32-decode", ts.base32_decode, user, db)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid Base32 input")
+
+
+@router.post("/ascii85-encode", response_model=TextResponse)
+async def ascii85_encode(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Encode text to Ascii85."""
+    return await _local_endpoint(request, req, "ascii85-encode", ts.ascii85_encode, user, db)
+
+
+@router.post("/ascii85-decode", response_model=TextResponse)
+async def ascii85_decode(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Decode Ascii85 text."""
+    try:
+        return await _local_endpoint(request, req, "ascii85-decode", ts.ascii85_decode, user, db)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid Ascii85 input")
+
+
+# ── Developer Tools (new) ───────────────────────────────────────────────────
+
+@router.post("/xml-to-json", response_model=TextResponse)
+async def xml_to_json(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Convert XML to JSON."""
+    await _enforce_tool_access(request, "xml-to-json", "api", user, db)
+    try:
+        return TextResponse(original=req.text, result=ts.xml_to_json(req.text), operation="xml-to-json")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid XML input")
+
+
+@router.post("/csv-to-table", response_model=TextResponse)
+async def csv_to_table(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Convert CSV to Markdown table."""
+    return await _local_endpoint(request, req, "csv-to-table", ts.csv_to_table, user, db)
+
+
+@router.post("/sql-insert-gen", response_model=TextResponse)
+async def sql_insert_gen(request: Request, req: TextRequest, user: User | None = Depends(get_optional_user), db: AsyncSession = Depends(get_db)):
+    """Generate SQL INSERT statements from CSV."""
+    await _enforce_tool_access(request, "sql-insert-gen", "api", user, db)
+    try:
+        return TextResponse(original=req.text, result=ts.sql_insert_gen(req.text), operation="sql-insert-gen")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 # ── Text Tools ────────────────────────────────────────────────────────────────
 
 @router.post("/reverse", response_model=TextResponse)
@@ -856,3 +1039,187 @@ async def refactor_prompt(request: Request, req: TextRequest, user: User = Depen
 async def change_format(request: Request, req: FormatRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """Change the format/structure of the input text."""
     return await _ai_endpoint(request, req, f"format-{req.format.lower()}", FormatChangerService.change_format, "Format changing failed", req.format, user=user, db=db)
+
+
+# ── New AI Writing Endpoints ─────────────────────────────────────────────────
+
+@router.post("/academic-style", response_model=TextResponse)
+async def academic_style(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "academic-style", AcademicStyleService.transform, "Academic style failed", user=user, db=db)
+
+@router.post("/creative-style", response_model=TextResponse)
+async def creative_style(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "creative-style", CreativeStyleService.transform, "Creative style failed", user=user, db=db)
+
+@router.post("/technical-style", response_model=TextResponse)
+async def technical_style(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "technical-style", TechnicalStyleService.transform, "Technical style failed", user=user, db=db)
+
+@router.post("/active-voice", response_model=TextResponse)
+async def active_voice(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "active-voice", ActiveVoiceService.transform, "Active voice conversion failed", user=user, db=db)
+
+@router.post("/redundancy-remover", response_model=TextResponse)
+async def redundancy_remover(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "redundancy-remover", RedundancyRemoverService.transform, "Redundancy removal failed", user=user, db=db)
+
+@router.post("/sentence-splitter", response_model=TextResponse)
+async def sentence_splitter(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "sentence-splitter", SentenceSplitterService.transform, "Sentence splitting failed", user=user, db=db)
+
+@router.post("/conciseness", response_model=TextResponse)
+async def conciseness(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "conciseness", ConcisenessService.transform, "Conciseness failed", user=user, db=db)
+
+@router.post("/resume-bullets", response_model=TextResponse)
+async def resume_bullets(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "resume-bullets", ResumeBulletsService.transform, "Resume bullets failed", user=user, db=db)
+
+@router.post("/meeting-notes", response_model=TextResponse)
+async def meeting_notes(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "meeting-notes", MeetingNotesService.transform, "Meeting notes failed", user=user, db=db)
+
+@router.post("/cover-letter", response_model=TextResponse)
+async def cover_letter(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "cover-letter", CoverLetterService.transform, "Cover letter failed", user=user, db=db)
+
+@router.post("/outline-to-draft", response_model=TextResponse)
+async def outline_to_draft(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "outline-to-draft", OutlineToDraftService.transform, "Outline expansion failed", user=user, db=db)
+
+@router.post("/continue-writing", response_model=TextResponse)
+async def continue_writing(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "continue-writing", ContinueWritingService.transform, "Continue writing failed", user=user, db=db)
+
+@router.post("/rewrite-unique", response_model=TextResponse)
+async def rewrite_unique(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "rewrite-unique", RewriteUniqueService.transform, "Unique rewriting failed", user=user, db=db)
+
+@router.post("/tone-analyzer", response_model=TextResponse)
+async def tone_analyzer(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "tone-analyzer", ToneAnalyzerService.transform, "Tone analysis failed", user=user, db=db)
+
+
+# ── New AI Content Endpoints ─────────────────────────────────────────────────
+
+@router.post("/linkedin-post", response_model=TextResponse)
+async def linkedin_post(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "linkedin-post", LinkedinPostService.transform, "LinkedIn post failed", user=user, db=db)
+
+@router.post("/twitter-thread", response_model=TextResponse)
+async def twitter_thread(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "twitter-thread", TwitterThreadService.transform, "Twitter thread failed", user=user, db=db)
+
+@router.post("/instagram-caption", response_model=TextResponse)
+async def instagram_caption(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "instagram-caption", InstagramCaptionService.transform, "Instagram caption failed", user=user, db=db)
+
+@router.post("/youtube-description", response_model=TextResponse)
+async def youtube_description(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "youtube-description", YoutubeDescService.transform, "YouTube description failed", user=user, db=db)
+
+@router.post("/social-bio", response_model=TextResponse)
+async def social_bio(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "social-bio", SocialBioService.transform, "Social bio failed", user=user, db=db)
+
+@router.post("/product-description", response_model=TextResponse)
+async def product_description(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "product-description", ProductDescService.transform, "Product description failed", user=user, db=db)
+
+@router.post("/cta-generator", response_model=TextResponse)
+async def cta_generator(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "cta-generator", CtaGeneratorService.transform, "CTA generation failed", user=user, db=db)
+
+@router.post("/ad-copy", response_model=TextResponse)
+async def ad_copy(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "ad-copy", AdCopyService.transform, "Ad copy failed", user=user, db=db)
+
+@router.post("/landing-headline", response_model=TextResponse)
+async def landing_headline(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "landing-headline", LandingHeadlineService.transform, "Landing headline failed", user=user, db=db)
+
+@router.post("/email-subject", response_model=TextResponse)
+async def email_subject(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "email-subject", EmailSubjectService.transform, "Email subject failed", user=user, db=db)
+
+@router.post("/content-ideas", response_model=TextResponse)
+async def content_ideas(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "content-ideas", ContentIdeasService.transform, "Content ideas failed", user=user, db=db)
+
+@router.post("/hook-generator", response_model=TextResponse)
+async def hook_generator(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "hook-generator", HookGeneratorService.transform, "Hook generation failed", user=user, db=db)
+
+@router.post("/angle-generator", response_model=TextResponse)
+async def angle_generator(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "angle-generator", AngleGeneratorService.transform, "Angle generation failed", user=user, db=db)
+
+@router.post("/faq-schema", response_model=TextResponse)
+async def faq_schema(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "faq-schema", FaqSchemaService.transform, "FAQ schema failed", user=user, db=db)
+
+
+# ── New Language Endpoints ───────────────────────────────────────────────────
+
+@router.post("/pos-tagger", response_model=TextResponse)
+async def pos_tagger(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "pos-tagger", PosTaggerService.transform, "POS tagging failed", user=user, db=db)
+
+@router.post("/sentence-type", response_model=TextResponse)
+async def sentence_type(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "sentence-type", SentenceTypeService.transform, "Sentence classification failed", user=user, db=db)
+
+@router.post("/grammar-explain", response_model=TextResponse)
+async def grammar_explain(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "grammar-explain", GrammarExplainService.transform, "Grammar explanation failed", user=user, db=db)
+
+@router.post("/synonym-finder", response_model=TextResponse)
+async def synonym_finder(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "synonym-finder", SynonymFinderService.transform, "Synonym finding failed", user=user, db=db)
+
+@router.post("/antonym-finder", response_model=TextResponse)
+async def antonym_finder(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "antonym-finder", AntonymFinderService.transform, "Antonym finding failed", user=user, db=db)
+
+@router.post("/define-words", response_model=TextResponse)
+async def define_words(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "define-words", DefineWordsService.transform, "Word definition failed", user=user, db=db)
+
+@router.post("/word-power", response_model=TextResponse)
+async def word_power(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "word-power", WordPowerService.transform, "Word power failed", user=user, db=db)
+
+@router.post("/vocab-complexity", response_model=TextResponse)
+async def vocab_complexity(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "vocab-complexity", VocabComplexityService.transform, "Vocab complexity failed", user=user, db=db)
+
+@router.post("/jargon-simplifier", response_model=TextResponse)
+async def jargon_simplifier(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "jargon-simplifier", JargonSimplifierService.transform, "Jargon simplification failed", user=user, db=db)
+
+@router.post("/formality-detector", response_model=TextResponse)
+async def formality_detector(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "formality-detector", FormalityDetectorService.transform, "Formality detection failed", user=user, db=db)
+
+@router.post("/cliche-detector", response_model=TextResponse)
+async def cliche_detector(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "cliche-detector", ClicheDetectorService.transform, "Cliche detection failed", user=user, db=db)
+
+
+# ── New Generator AI Endpoints ──────────────────────────────────────────────
+
+@router.post("/regex-generator", response_model=TextResponse)
+async def regex_generator(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "regex-generator", RegexGenService.transform, "Regex generation failed", user=user, db=db)
+
+@router.post("/writing-prompt", response_model=TextResponse)
+async def writing_prompt(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "writing-prompt", WritingPromptService.transform, "Writing prompt failed", user=user, db=db)
+
+@router.post("/team-name-generator", response_model=TextResponse)
+async def team_name_generator(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "team-name-generator", TeamNameGenService.transform, "Team name generation failed", user=user, db=db)
+
+@router.post("/mock-api-response", response_model=TextResponse)
+async def mock_api_response(request: Request, req: TextRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _ai_endpoint(request, req, "mock-api-response", MockApiResponseService.transform, "Mock API response failed", user=user, db=db)
