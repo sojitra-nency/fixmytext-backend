@@ -2,13 +2,13 @@
 
 ## Our Commitment
 
-The FixMyText backend is an open-source project built and maintained entirely online. Every interaction — pull requests, issues, code reviews, discussions, and comments — happens in digital spaces. We are committed to making these spaces welcoming, respectful, and productive for everyone, regardless of background, identity, or experience level.
+The FixMyText backend is an open-source project built and maintained entirely online. Every interaction — pull requests, issues, code reviews, discussions, and comments - happens in digital spaces. We are committed to making these spaces welcoming, respectful, and productive for everyone, regardless of background, identity, or experience level.
 
 ## Expected Behavior
 
 All participants in this project are expected to:
 
-- **Be respectful in code reviews.** Critique the code, not the person. If a service function is missing edge-case handling or an endpoint doesn't follow the project's patterns, explain what needs to change and why — don't belittle the author. Remember that contributors may be writing their first FastAPI endpoint or first open-source PR.
+- **Be respectful in code reviews.** Critique the code, not the person. If a service function is missing edge-case handling or an endpoint doesn't follow the project's patterns, explain what needs to change and why don't belittle the author. Remember that contributors may be writing their first FastAPI endpoint or first open-source PR.
 - **Write clear, considerate communication.** Tone is hard to read online. Default to kindness. Use clear language, avoid sarcasm in technical discussions, and assume good intent.
 - **Welcome newcomers.** Many contributors will be students, first-time open-source contributors, or developers learning Python/FastAPI. Be patient with questions and guide people to the right resources (README, docs, existing service functions as examples).
 - **Respect differing skill levels and perspectives.** Not everyone has deep experience with async Python, SQLAlchemy, or API design. A question that seems basic to you may be genuine for someone else.
@@ -19,7 +19,7 @@ All participants in this project are expected to:
 
 ## Unacceptable Behavior
 
-The following will not be tolerated in any project space — issues, PRs, discussions, comments, commit messages, or any other communication channel:
+The following will not be tolerated in any project space - issues, PRs, discussions, comments, commit messages, or any other communication channel:
 
 - Insulting, demeaning, or dismissive comments directed at a person (e.g., "this code is terrible," "you clearly don't understand Python")
 - Harassment, threats, or intimidation of any kind
@@ -67,7 +67,7 @@ Maintainers will respond to violations based on severity and pattern:
 
 ### 1. Reminder
 
-**For:** First-time minor issues — an unintentionally harsh code review comment, a dismissive tone, or language that could be more welcoming.
+**For:** First-time minor issues an unintentionally harsh code review comment, a dismissive tone, or language that could be more welcoming.
 
 **Action:** A private message pointing out the issue and asking the contributor to adjust their tone. No public action taken.
 
