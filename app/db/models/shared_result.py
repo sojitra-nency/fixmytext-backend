@@ -2,15 +2,15 @@
 
 import uuid
 from datetime import datetime
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import String, Text, Integer, ForeignKey
+from sqlalchemy import ForeignKey, Integer, String, Text
 from sqlalchemy import text as sa_text
-from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP
+from sqlalchemy.dialects.postgresql import TIMESTAMP, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.session import Base
 from app.core.config import settings
+from app.db.session import Base
 
 if TYPE_CHECKING:
     from app.db.models.user import User
@@ -23,7 +23,7 @@ class SharedResult(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, server_default=sa_text("gen_random_uuid()")
     )
-    user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey(f"{settings.DB_SCHEMA_AUTH}.users.id", ondelete="SET NULL"),
         nullable=True,
@@ -34,7 +34,7 @@ class SharedResult(Base):
     tool_label: Mapped[str] = mapped_column(String(200), nullable=False)
 
     # Full input + output text (input_text added in migration 0013)
-    input_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    input_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     output_text: Mapped[str] = mapped_column(Text, nullable=False)
 
     # View tracking and expiry (added in migration 0013)
@@ -44,8 +44,6 @@ class SharedResult(Base):
         nullable=False,
         server_default=sa_text("now() + INTERVAL '30 days'"),
     )
-    created_at: Mapped[datetime] = mapped_column(
-        TIMESTAMP(timezone=True), server_default=sa_text("now()"), index=True
-    )
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=sa_text("now()"), index=True)
 
     user: Mapped[Optional["User"]] = relationship()

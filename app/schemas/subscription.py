@@ -1,7 +1,6 @@
 """Pydantic schemas for subscription/billing."""
 
 from pydantic import BaseModel
-from typing import Optional
 
 
 class SubscriptionStatus(BaseModel):
@@ -11,7 +10,7 @@ class SubscriptionStatus(BaseModel):
     daily_login_bonus: bool = False
     credit_balance: int = 0
     active_passes_count: int = 0
-    region: Optional[str] = None
+    region: str | None = None
 
 
 class RazorpayProOrderResponse(BaseModel):

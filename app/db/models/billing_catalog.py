@@ -3,16 +3,16 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, String, Boolean, SmallInteger, Integer, text
+from sqlalchemy import Boolean, ForeignKey, Integer, SmallInteger, String, text
 from sqlalchemy.dialects.postgresql import TIMESTAMP
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.session import Base
 from app.core.config import settings
+from app.db.session import Base
 
 if TYPE_CHECKING:
-    from app.db.models.billing_pass import BillingUserPass
     from app.db.models.billing_credit import BillingUserCredit
+    from app.db.models.billing_pass import BillingUserPass
 
 
 class PassCatalog(Base):
@@ -29,7 +29,10 @@ class PassCatalog(Base):
     display_order: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0, server_default=text("0"))
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=text("now()"))
 
-    prices: Mapped[list["PassCatalogPrice"]] = relationship(back_populates="pass_catalog", cascade="all, delete-orphan")
+    prices: Mapped[list["PassCatalogPrice"]] = relationship(
+        back_populates="pass_catalog",
+        cascade="all, delete-orphan",
+    )
     user_passes: Mapped[list["BillingUserPass"]] = relationship(back_populates="pass_catalog")
 
 
@@ -37,7 +40,11 @@ class PassCatalogPrice(Base):
     __tablename__ = "pass_catalog_prices"
     __table_args__ = {"schema": settings.DB_SCHEMA_BILLING}
 
-    pass_id: Mapped[str] = mapped_column(String(50), ForeignKey(f"{settings.DB_SCHEMA_BILLING}.pass_catalog.id"), primary_key=True)
+    pass_id: Mapped[str] = mapped_column(
+        String(50),
+        ForeignKey(f"{settings.DB_SCHEMA_BILLING}.pass_catalog.id"),
+        primary_key=True,
+    )
     region: Mapped[str] = mapped_column(String(5), primary_key=True)
     amount_subunits: Mapped[int] = mapped_column(Integer, nullable=False)
     currency: Mapped[str] = mapped_column(String(10), nullable=False)
@@ -56,7 +63,10 @@ class CreditPackCatalog(Base):
     display_order: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0, server_default=text("0"))
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=text("now()"))
 
-    prices: Mapped[list["CreditPackPrice"]] = relationship(back_populates="pack_catalog", cascade="all, delete-orphan")
+    prices: Mapped[list["CreditPackPrice"]] = relationship(
+        back_populates="pack_catalog",
+        cascade="all, delete-orphan",
+    )
     user_credits: Mapped[list["BillingUserCredit"]] = relationship(back_populates="pack_catalog")
 
 
@@ -64,7 +74,11 @@ class CreditPackPrice(Base):
     __tablename__ = "credit_pack_prices"
     __table_args__ = {"schema": settings.DB_SCHEMA_BILLING}
 
-    pack_id: Mapped[str] = mapped_column(String(50), ForeignKey(f"{settings.DB_SCHEMA_BILLING}.credit_pack_catalog.id"), primary_key=True)
+    pack_id: Mapped[str] = mapped_column(
+        String(50),
+        ForeignKey(f"{settings.DB_SCHEMA_BILLING}.credit_pack_catalog.id"),
+        primary_key=True,
+    )
     region: Mapped[str] = mapped_column(String(5), primary_key=True)
     amount_subunits: Mapped[int] = mapped_column(Integer, nullable=False)
     currency: Mapped[str] = mapped_column(String(10), nullable=False)

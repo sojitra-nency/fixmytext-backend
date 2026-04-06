@@ -3,12 +3,12 @@
 import uuid
 from datetime import date
 
-from sqlalchemy import Date, text, ForeignKey
+from sqlalchemy import Date, ForeignKey, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.session import Base
 from app.core.config import settings
+from app.db.session import Base
 
 
 class UserDailyLogin(Base):
@@ -20,6 +20,4 @@ class UserDailyLogin(Base):
         ForeignKey(f"{settings.DB_SCHEMA_AUTH}.users.id", ondelete="CASCADE"),
         primary_key=True,
     )
-    login_date: Mapped[date] = mapped_column(
-        Date, primary_key=True, server_default=text("CURRENT_DATE")
-    )
+    login_date: Mapped[date] = mapped_column(Date, primary_key=True, server_default=text("CURRENT_DATE"))

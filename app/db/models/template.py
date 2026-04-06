@@ -2,15 +2,15 @@
 
 import uuid
 from datetime import datetime
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
-from sqlalchemy import String, Text, Boolean, ForeignKey
+from sqlalchemy import Boolean, ForeignKey, String, Text
 from sqlalchemy import text as sa_text
-from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP
+from sqlalchemy.dialects.postgresql import TIMESTAMP, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.session import Base
 from app.core.config import settings
+from app.db.session import Base
 
 if TYPE_CHECKING:
     from app.db.models.user import User
@@ -29,7 +29,7 @@ class UserTemplate(Base):
         index=True,
     )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
-    tool_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    tool_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     text: Mapped[str] = mapped_column(Text, nullable=False)
     # Soft delete added in migration 0014
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=sa_text("false"))

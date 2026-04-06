@@ -2,18 +2,18 @@
 
 import uuid
 from datetime import datetime
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import String, SmallInteger, text, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP
+from sqlalchemy import ForeignKey, SmallInteger, String, text
+from sqlalchemy.dialects.postgresql import TIMESTAMP, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.session import Base
 from app.core.config import settings
+from app.db.session import Base
 
 if TYPE_CHECKING:
-    from app.db.models.user import User
     from app.db.models.billing_catalog import CreditPackCatalog
+    from app.db.models.user import User
 
 
 class BillingUserCredit(Base):
@@ -29,7 +29,7 @@ class BillingUserCredit(Base):
         nullable=False,
         index=True,
     )
-    pack_id: Mapped[Optional[str]] = mapped_column(
+    pack_id: Mapped[str | None] = mapped_column(
         String(50),
         ForeignKey(f"{settings.DB_SCHEMA_BILLING}.credit_pack_catalog.id"),
         nullable=True,
@@ -37,7 +37,7 @@ class BillingUserCredit(Base):
     credits_total: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     credits_remaining: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     source: Mapped[str] = mapped_column(String(30), nullable=False)
-    razorpay_payment_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    razorpay_payment_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=text("now()"))
 
     user: Mapped["User"] = relationship(back_populates="billing_credits")

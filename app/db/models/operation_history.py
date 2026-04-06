@@ -4,13 +4,13 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import String, Text, Integer, Boolean, ForeignKey
+from sqlalchemy import Boolean, ForeignKey, Integer, String, Text
 from sqlalchemy import text as sa_text
-from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP
+from sqlalchemy.dialects.postgresql import TIMESTAMP, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.session import Base
 from app.core.config import settings
+from app.db.session import Base
 
 if TYPE_CHECKING:
     from app.db.models.user import User
@@ -44,8 +44,6 @@ class OperationHistory(Base):
     # Soft delete: set is_deleted=True instead of hard deleting (migration 0012)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=sa_text("false"))
 
-    created_at: Mapped[datetime] = mapped_column(
-        TIMESTAMP(timezone=True), server_default=sa_text("now()"), index=True
-    )
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=sa_text("now()"), index=True)
 
     user: Mapped["User"] = relationship(back_populates="operation_history")

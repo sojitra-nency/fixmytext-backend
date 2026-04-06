@@ -5,4 +5,4 @@ exclude = [".venv", "alembic", "__pycache__"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "S", "B", "UP"]
-ignore = ["S101"]
+ignore = ["S101", "B008"]

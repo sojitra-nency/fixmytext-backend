@@ -3,14 +3,17 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import delete, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, delete, desc
 
 from app.core.deps import get_current_user
+from app.db.models import OperationHistory, User
 from app.db.session import get_db
-from app.db.models import User, OperationHistory
 from app.schemas.history import (
-    HistoryCreate, HistoryResponse, HistoryListResponse, HistoryStatsResponse,
+    HistoryCreate,
+    HistoryListResponse,
+    HistoryResponse,
+    HistoryStatsResponse,
 )
 
 router = APIRouter(prefix="/history", tags=["History"])
@@ -35,6 +38,7 @@ def _row_to_response(row: OperationHistory) -> HistoryResponse:
 
 # ── List (paginated, newest first) ──────────────────────────────────────────
 
+
 @router.get("", response_model=HistoryListResponse)
 async def list_history(
     page: int = Query(1, ge=1),
@@ -52,11 +56,15 @@ async def list_history(
 
     total = (await db.execute(count_base)).scalar() or 0
 
-    rows = (await db.execute(
-        base.order_by(desc(OperationHistory.created_at))
-        .offset((page - 1) * page_size)
-        .limit(page_size)
-    )).scalars().all()
+    rows = (
+        (
+            await db.execute(
+                base.order_by(desc(OperationHistory.created_at)).offset((page - 1) * page_size).limit(page_size)
+            )
+        )
+        .scalars()
+        .all()
+    )
 
     return HistoryListResponse(
         items=[_row_to_response(r) for r in rows],
@@ -68,6 +76,7 @@ async def list_history(
 
 
 # ── Record a new operation ──────────────────────────────────────────────────
+
 
 @router.post("", response_model=HistoryResponse, status_code=201)
 async def record_operation(
@@ -94,29 +103,38 @@ async def record_operation(
 
 # ── Stats (must come before /{entry_id} to avoid path conflict) ─────────────
 
+
 @router.get("/stats/summary", response_model=HistoryStatsResponse)
 async def get_history_stats(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    total = (await db.execute(
-        select(func.count()).select_from(OperationHistory).where(OperationHistory.user_id == user.id)
-    )).scalar() or 0
+    total = (
+        await db.execute(select(func.count()).select_from(OperationHistory).where(OperationHistory.user_id == user.id))
+    ).scalar() or 0
 
-    breakdown_rows = (await db.execute(
-        select(OperationHistory.tool_id, func.count())
-        .where(OperationHistory.user_id == user.id)
-        .group_by(OperationHistory.tool_id)
-        .order_by(func.count().desc())
-    )).all()
+    breakdown_rows = (
+        await db.execute(
+            select(OperationHistory.tool_id, func.count())
+            .where(OperationHistory.user_id == user.id)
+            .group_by(OperationHistory.tool_id)
+            .order_by(func.count().desc())
+        )
+    ).all()
     tools_breakdown = {row[0]: row[1] for row in breakdown_rows}
 
-    recent_rows = (await db.execute(
-        select(OperationHistory.tool_id)
-        .where(OperationHistory.user_id == user.id)
-        .order_by(desc(OperationHistory.created_at))
-        .limit(50)
-    )).scalars().all()
+    recent_rows = (
+        (
+            await db.execute(
+                select(OperationHistory.tool_id)
+                .where(OperationHistory.user_id == user.id)
+                .order_by(desc(OperationHistory.created_at))
+                .limit(50)
+            )
+        )
+        .scalars()
+        .all()
+    )
     seen = []
     for tid in recent_rows:
         if tid not in seen:
@@ -133,18 +151,18 @@ async def get_history_stats(
 
 # ── Clear all history ────────────────────────────────────────────────────────
 
+
 @router.delete("", status_code=204)
 async def clear_history(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await db.execute(
-        delete(OperationHistory).where(OperationHistory.user_id == user.id)
-    )
+    await db.execute(delete(OperationHistory).where(OperationHistory.user_id == user.id))
     await db.commit()
 
 
 # ── Get single entry ────────────────────────────────────────────────────────
+
 
 @router.get("/{entry_id}", response_model=HistoryResponse)
 async def get_history_entry(
@@ -159,6 +177,7 @@ async def get_history_entry(
 
 
 # ── Delete single entry ─────────────────────────────────────────────────────
+
 
 @router.delete("/{entry_id}", status_code=204)
 async def delete_history_entry(

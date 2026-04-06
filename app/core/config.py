@@ -5,20 +5,18 @@ Create a '.env' file in /backend (copy from '.env.example') to override defaults
 """
 
 import json
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import List
 
 
 class Settings(BaseSettings):
     # ── Project metadata ──────────────────────────────────────────────────────
     PROJECT_NAME: str = "FixMyText API"
-    PROJECT_DESCRIPTION: str = (
-        "RESTful backend for the FixMyText text-manipulation application."
-    )
+    PROJECT_DESCRIPTION: str = "RESTful backend for the FixMyText text-manipulation application."
     VERSION: str = "0.1.0"
 
     # ── Server ────────────────────────────────────────────────────────────────
-    HOST: str = "0.0.0.0"
+    HOST: str = "0.0.0.0"  # noqa: S104
     PORT: int = 8000
     DEBUG: bool = False
 
@@ -54,7 +52,7 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
 
     @property
-    def allowed_origins_list(self) -> List[str]:
+    def allowed_origins_list(self) -> list[str]:
         """Parse ALLOWED_ORIGINS into a list, accepting JSON array or comma-separated."""
         v = self.ALLOWED_ORIGINS
         try:

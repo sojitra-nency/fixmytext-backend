@@ -8,10 +8,11 @@ Fallback: YAKE keyword extraction for offline / no-key usage.
 import asyncio
 import logging
 import re
-from typing import Callable
+from collections.abc import Callable
 
 import yake
-from groq import AsyncGroq, APIError, APITimeoutError
+from groq import APIError, APITimeoutError, AsyncGroq
+
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -39,7 +40,12 @@ async def close_groq_client() -> None:
         _groq_client = None
 
 
-async def _groq_chat(system_prompt: str, user_text: str, temperature: float = 0.7, max_tokens: int = 200) -> str:
+async def _groq_chat(
+    system_prompt: str,
+    user_text: str,
+    temperature: float = 0.7,
+    max_tokens: int = 200,
+) -> str:
     """Shared Groq chat helper."""
     client = _groq_client
     response = await client.chat.completions.create(
@@ -67,7 +73,7 @@ async def _ai_transform(
         try:
             async with asyncio.timeout(35):
                 return await _groq_chat(system_prompt, text, temperature, max_tokens)
-        except (APIError, APITimeoutError, asyncio.TimeoutError):
+        except (TimeoutError, APIError, APITimeoutError):
             logger.exception("Groq API call failed, using fallback")
     return await asyncio.to_thread(fallback_fn, text, *fallback_args)
 
@@ -92,6 +98,7 @@ def _yake_keywords_sync(text: str, top: int = 10) -> list[str]:
 
 # ── Fallback functions ────────────────────────────────────────────────────────
 
+
 def _hashtag_fallback(text: str) -> str:
     keywords = _yake_keywords_sync(text)
     return " ".join(f"#{kw.replace(' ', '').capitalize()}" for kw in keywords[:10])
@@ -113,7 +120,14 @@ def _meta_description_fallback(text: str) -> str:
 def _blog_outline_fallback(text: str) -> str:
     keywords = _yake_keywords_sync(text, top=5)
     topic = keywords[0].title() if keywords else "Your Topic"
-    sections = [f"# Blog Post: {topic}", "", "## Introduction", f"- Hook: Why {topic} matters", "- Brief overview of key points", ""]
+    sections = [
+        f"# Blog Post: {topic}",
+        "",
+        "## Introduction",
+        f"- Hook: Why {topic} matters",
+        "- Brief overview of key points",
+        "",
+    ]
     for i, kw in enumerate(keywords[1:5], 1):
         sections.append(f"## {i}. {kw.title()}")
         sections.append(f"- Key insight about {kw}")
@@ -132,11 +146,10 @@ def _tweet_fallback(text: str) -> str:
 
 
 def _email_fallback(text: str) -> str:
-    lines = text.strip().split('\n')
+    lines = text.strip().split("\n")
     subject = lines[0][:60] if lines else "Follow-up"
     body = text.strip()
     return f"Subject: {subject}\n\nDear recipient,\n\n{body}\n\nBest regards"
-
 
 
 def _keyword_fallback(text: str) -> str:
@@ -149,7 +162,10 @@ def _translate_fallback(text: str, target_language: str) -> str:
 
 
 def _transliterate_fallback(text: str, target_language: str) -> str:
-    return f"[Transliteration requires Groq API key. Set GROQ_API_KEY in .env to enable transliteration to {target_language}.]"
+    return (
+        "[Transliteration requires Groq API key. "
+        f"Set GROQ_API_KEY in .env to enable transliteration to {target_language}.]"
+    )
 
 
 def _emojify_fallback(text: str) -> str:
@@ -160,14 +176,13 @@ def _detect_lang_fallback(text: str) -> str:
     return "Unknown"
 
 
-
 def _summarize_fallback(text: str) -> str:
-    sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', text.strip()) if s.strip()]
+    sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", text.strip()) if s.strip()]
     return " ".join(sentences[:3]) + ("..." if len(sentences) > 3 else "")
 
 
 def _grammar_fallback(text: str) -> str:
-    result = re.sub(r'([.!?]\s+)([a-z])', lambda m: m.group(1) + m.group(2).upper(), text)
+    result = re.sub(r"([.!?]\s+)([a-z])", lambda m: m.group(1) + m.group(2).upper(), text)
     if result and result[0].islower():
         result = result[0].upper() + result[1:]
     return result
@@ -179,7 +194,6 @@ def _paraphrase_fallback(text: str) -> str:
 
 def _tone_fallback(text: str, tone: str) -> str:
     return f"[Tone changing requires Groq API key. Set GROQ_API_KEY in .env to enable {tone} tone.]"
-
 
 
 def _lengthen_fallback(text: str) -> str:
@@ -204,26 +218,114 @@ def _generate_title_fallback(text: str) -> str:
 
 
 _EMOTION_KEYWORDS = {
-    'happy':      {'happy', 'glad', 'joy', 'joyful', 'cheerful', 'delighted', 'excited',
-                   'thrilled', 'elated', 'ecstatic', 'pleased', 'wonderful', 'fantastic'},
-    'sad':        {'sad', 'unhappy', 'depressed', 'miserable', 'heartbroken', 'grief',
-                   'sorrow', 'gloomy', 'melancholy', 'lonely', 'crying', 'tears'},
-    'angry':      {'angry', 'furious', 'rage', 'mad', 'annoyed', 'frustrated', 'irritated',
-                   'outraged', 'hostile', 'livid', 'infuriated', 'hate'},
-    'fearful':    {'afraid', 'scared', 'fear', 'terrified', 'anxious', 'worried', 'nervous',
-                   'panic', 'dread', 'frightened', 'alarmed', 'uneasy'},
-    'surprised':  {'surprised', 'shocked', 'amazed', 'astonished', 'stunned', 'unexpected',
-                   'unbelievable', 'wow', 'whoa', 'incredible'},
-    'disgusted':  {'disgusted', 'gross', 'revolting', 'repulsive', 'sickening', 'vile',
-                   'nasty', 'horrible', 'appalling', 'dreadful'},
-    'hopeful':    {'hope', 'hopeful', 'optimistic', 'promising', 'encouraged', 'looking forward',
-                   'bright', 'positive', 'confident', 'inspired'},
-    'loving':     {'love', 'adore', 'cherish', 'affection', 'caring', 'devoted', 'passionate',
-                   'romantic', 'warm', 'tender', 'fond'},
-    'grateful':   {'grateful', 'thankful', 'appreciate', 'blessed', 'thank', 'thanks',
-                   'gratitude', 'indebted'},
-    'confused':   {'confused', 'puzzled', 'baffled', 'bewildered', 'perplexed', 'unclear',
-                   'lost', 'uncertain', 'unsure'},
+    "happy": {
+        "happy",
+        "glad",
+        "joy",
+        "joyful",
+        "cheerful",
+        "delighted",
+        "excited",
+        "thrilled",
+        "elated",
+        "ecstatic",
+        "pleased",
+        "wonderful",
+        "fantastic",
+    },
+    "sad": {
+        "sad",
+        "unhappy",
+        "depressed",
+        "miserable",
+        "heartbroken",
+        "grief",
+        "sorrow",
+        "gloomy",
+        "melancholy",
+        "lonely",
+        "crying",
+        "tears",
+    },
+    "angry": {
+        "angry",
+        "furious",
+        "rage",
+        "mad",
+        "annoyed",
+        "frustrated",
+        "irritated",
+        "outraged",
+        "hostile",
+        "livid",
+        "infuriated",
+        "hate",
+    },
+    "fearful": {
+        "afraid",
+        "scared",
+        "fear",
+        "terrified",
+        "anxious",
+        "worried",
+        "nervous",
+        "panic",
+        "dread",
+        "frightened",
+        "alarmed",
+        "uneasy",
+    },
+    "surprised": {
+        "surprised",
+        "shocked",
+        "amazed",
+        "astonished",
+        "stunned",
+        "unexpected",
+        "unbelievable",
+        "wow",
+        "whoa",
+        "incredible",
+    },
+    "disgusted": {
+        "disgusted",
+        "gross",
+        "revolting",
+        "repulsive",
+        "sickening",
+        "vile",
+        "nasty",
+        "horrible",
+        "appalling",
+        "dreadful",
+    },
+    "hopeful": {
+        "hope",
+        "hopeful",
+        "optimistic",
+        "promising",
+        "encouraged",
+        "looking forward",
+        "bright",
+        "positive",
+        "confident",
+        "inspired",
+    },
+    "loving": {
+        "love",
+        "adore",
+        "cherish",
+        "affection",
+        "caring",
+        "devoted",
+        "passionate",
+        "romantic",
+        "warm",
+        "tender",
+        "fond",
+    },
+    "grateful": {"grateful", "thankful", "appreciate", "blessed", "thank", "thanks", "gratitude", "indebted"},
+    "confused": {"confused", "puzzled", "baffled", "bewildered", "perplexed", "unclear", "lost", "uncertain", "unsure"},
 }
 
 
@@ -234,8 +336,8 @@ def _sentiment_fallback(text: str) -> str:
         count = len(words & keywords)
         if count > 0:
             detected[emotion] = count
-    pos_emotions = {'happy', 'hopeful', 'loving', 'grateful', 'surprised'}
-    neg_emotions = {'sad', 'angry', 'fearful', 'disgusted'}
+    pos_emotions = {"happy", "hopeful", "loving", "grateful", "surprised"}
+    neg_emotions = {"sad", "angry", "fearful", "disgusted"}
     pos_score = sum(v for k, v in detected.items() if k in pos_emotions)
     neg_score = sum(v for k, v in detected.items() if k in neg_emotions)
     if pos_score > neg_score:
@@ -247,16 +349,18 @@ def _sentiment_fallback(text: str) -> str:
     sorted_emotions = sorted(detected.items(), key=lambda x: x[1], reverse=True)
     primary = sorted_emotions[0][0].title() if sorted_emotions else "Neutral"
     secondary = ", ".join(e.title() for e, _ in sorted_emotions[1:3]) if len(sorted_emotions) > 1 else "None detected"
-    return "\n".join([
-        f"**Overall Sentiment:** {sentiment}",
-        f"**Confidence:** Low (keyword-based fallback)",
-        f"**Primary Emotion:** {primary}",
-        f"**Secondary Emotions:** {secondary}",
-        f"**Sarcasm Detected:** Cannot detect (requires AI)",
-        f"**Tone:** Cannot detect (requires AI)",
-        "",
-        "Note: Set GROQ_API_KEY for full AI-powered analysis with sarcasm detection and tone analysis.",
-    ])
+    return "\n".join(
+        [
+            f"**Overall Sentiment:** {sentiment}",
+            "**Confidence:** Low (keyword-based fallback)",
+            f"**Primary Emotion:** {primary}",
+            f"**Secondary Emotions:** {secondary}",
+            "**Sarcasm Detected:** Cannot detect (requires AI)",
+            "**Tone:** Cannot detect (requires AI)",
+            "",
+            "Note: Set GROQ_API_KEY for full AI-powered analysis with sarcasm detection and tone analysis.",
+        ]
+    )
 
 
 _FORMAT_PROMPTS = {
@@ -305,7 +409,7 @@ _FORMAT_PROMPTS = {
 
 
 def _format_fallback(text: str, fmt: str) -> str:
-    sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', text.strip()) if s.strip()]
+    sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", text.strip()) if s.strip()]
     if fmt == "bullets":
         return "\n".join(f"• {s}" for s in sentences)
     elif fmt == "numbered":
@@ -480,6 +584,7 @@ _TONE_INSTRUCTIONS = {
 
 # ── Service classes (thin wrappers for import compatibility) ──────────────────
 
+
 class HashtagService:
     @staticmethod
     async def generate_hashtags(text: str) -> str:
@@ -489,19 +594,37 @@ class HashtagService:
 class SEOTitleService:
     @staticmethod
     async def generate_seo_titles(text: str) -> str:
-        return await _ai_transform(_PROMPTS["seo_titles"], text, _seo_title_fallback, temperature=0.8, max_tokens=300)
+        return await _ai_transform(
+            _PROMPTS["seo_titles"],
+            text,
+            _seo_title_fallback,
+            temperature=0.8,
+            max_tokens=300,
+        )
 
 
 class MetaDescriptionService:
     @staticmethod
     async def generate_meta_descriptions(text: str) -> str:
-        return await _ai_transform(_PROMPTS["meta_descriptions"], text, _meta_description_fallback, temperature=0.8, max_tokens=400)
+        return await _ai_transform(
+            _PROMPTS["meta_descriptions"],
+            text,
+            _meta_description_fallback,
+            temperature=0.8,
+            max_tokens=400,
+        )
 
 
 class BlogOutlineService:
     @staticmethod
     async def generate_blog_outline(text: str) -> str:
-        return await _ai_transform(_PROMPTS["blog_outline"], text, _blog_outline_fallback, temperature=0.8, max_tokens=600)
+        return await _ai_transform(
+            _PROMPTS["blog_outline"],
+            text,
+            _blog_outline_fallback,
+            temperature=0.8,
+            max_tokens=600,
+        )
 
 
 class TweetShortenerService:
@@ -514,7 +637,6 @@ class EmailRewriterService:
     @staticmethod
     async def rewrite_email(text: str) -> str:
         return await _ai_transform(_PROMPTS["email"], text, _email_fallback, max_tokens=500)
-
 
 
 class KeywordExtractorService:
@@ -532,7 +654,14 @@ class TranslatorService:
             "Return ONLY the translated text, nothing else. "
             "Do not include any notes or explanations."
         )
-        return await _ai_transform(prompt, text, _translate_fallback, target_language, temperature=0.3, max_tokens=1000)
+        return await _ai_transform(
+            prompt,
+            text,
+            _translate_fallback,
+            target_language,
+            temperature=0.3,
+            max_tokens=1000,
+        )
 
 
 class TransliterationService:
@@ -545,26 +674,50 @@ class TransliterationService:
             "For example, English 'hello' in Hindi script becomes 'हेलो'. "
             "Return ONLY the transliterated text, nothing else."
         )
-        return await _ai_transform(prompt, text, _transliterate_fallback, target_language, temperature=0.2, max_tokens=1000)
-
+        return await _ai_transform(
+            prompt,
+            text,
+            _transliterate_fallback,
+            target_language,
+            temperature=0.2,
+            max_tokens=1000,
+        )
 
 
 class SummarizerService:
     @staticmethod
     async def summarize(text: str) -> str:
-        return await _ai_transform(_PROMPTS["summarize"], text, _summarize_fallback, temperature=0.5, max_tokens=500)
+        return await _ai_transform(
+            _PROMPTS["summarize"],
+            text,
+            _summarize_fallback,
+            temperature=0.5,
+            max_tokens=500,
+        )
 
 
 class GrammarFixerService:
     @staticmethod
     async def fix_grammar(text: str) -> str:
-        return await _ai_transform(_PROMPTS["grammar"], text, _grammar_fallback, temperature=0.3, max_tokens=1500)
+        return await _ai_transform(
+            _PROMPTS["grammar"],
+            text,
+            _grammar_fallback,
+            temperature=0.3,
+            max_tokens=1500,
+        )
 
 
 class ParaphraserService:
     @staticmethod
     async def paraphrase(text: str) -> str:
-        return await _ai_transform(_PROMPTS["paraphrase"], text, _paraphrase_fallback, temperature=0.8, max_tokens=1500)
+        return await _ai_transform(
+            _PROMPTS["paraphrase"],
+            text,
+            _paraphrase_fallback,
+            temperature=0.8,
+            max_tokens=1500,
+        )
 
 
 class ToneChangerService:
@@ -582,8 +735,13 @@ class ToneChangerService:
 class SentimentAnalyzerService:
     @staticmethod
     async def analyze_sentiment(text: str) -> str:
-        return await _ai_transform(_PROMPTS["sentiment"], text, _sentiment_fallback, temperature=0.2, max_tokens=400)
-
+        return await _ai_transform(
+            _PROMPTS["sentiment"],
+            text,
+            _sentiment_fallback,
+            temperature=0.2,
+            max_tokens=400,
+        )
 
 
 class TextLengthenerService:
@@ -601,19 +759,37 @@ class ELI5Service:
 class ProofreadService:
     @staticmethod
     async def proofread(text: str) -> str:
-        return await _ai_transform(_PROMPTS["proofread"], text, _proofread_fallback, temperature=0.3, max_tokens=2000)
+        return await _ai_transform(
+            _PROMPTS["proofread"],
+            text,
+            _proofread_fallback,
+            temperature=0.3,
+            max_tokens=2000,
+        )
 
 
 class PromptRefactorService:
     @staticmethod
     async def refactor_prompt(text: str) -> str:
-        return await _ai_transform(_PROMPTS["refactor_prompt"], text, _refactor_prompt_fallback, temperature=0.4, max_tokens=1500)
+        return await _ai_transform(
+            _PROMPTS["refactor_prompt"],
+            text,
+            _refactor_prompt_fallback,
+            temperature=0.4,
+            max_tokens=1500,
+        )
 
 
 class TitleGeneratorService:
     @staticmethod
     async def generate_title(text: str) -> str:
-        return await _ai_transform(_PROMPTS["generate_title"], text, _generate_title_fallback, temperature=0.8, max_tokens=300)
+        return await _ai_transform(
+            _PROMPTS["generate_title"],
+            text,
+            _generate_title_fallback,
+            temperature=0.8,
+            max_tokens=300,
+        )
 
 
 class FormatChangerService:
@@ -625,18 +801,29 @@ class FormatChangerService:
             "Preserve ALL original information — only change the structure/format. "
             "Return ONLY the reformatted text, nothing else."
         )
-        return await _ai_transform(prompt, text, _format_fallback, fmt, temperature=0.5, max_tokens=2000)
+        return await _ai_transform(
+            prompt,
+            text,
+            _format_fallback,
+            fmt,
+            temperature=0.5,
+            max_tokens=2000,
+        )
 
 
 class EmojifyService:
     @staticmethod
     async def emojify(text: str) -> str:
         prompt = (
-            "You are an emoji translator. Replace words and phrases in the user's text with matching emojis wherever possible. "
-            "For example: 'I am crying' → 'I am 😭', 'boom' → '💥', 'I love pizza' → 'I ❤️ 🍕', 'happy birthday' → '🎂🎉'. "
+            "You are an emoji translator. Replace words and phrases in the user's text "
+            "with matching emojis wherever possible. "
+            "For example: 'I am crying' → 'I am 😭', 'boom' → '💥', "
+            "'I love pizza' → 'I ❤️ 🍕', 'happy birthday' → '🎂🎉'. "
             "Replace the word/phrase itself with the emoji — do NOT keep both. "
-            "Keep words that have no good emoji match. Preserve sentence structure and grammar words (I, am, the, is, etc.). "
-            "Work with ANY language — understand the meaning and replace with emojis regardless of input language. "
+            "Keep words that have no good emoji match. Preserve sentence structure "
+            "and grammar words (I, am, the, is, etc.). "
+            "Work with ANY language — understand the meaning and replace with emojis "
+            "regardless of input language. "
             "Return ONLY the emojified text, nothing else."
         )
         return await _ai_transform(prompt, text, _emojify_fallback, temperature=0.7, max_tokens=1000)
@@ -654,6 +841,7 @@ class LanguageDetector:
 
 
 # ── New AI Writing Services ──────────────────────────────────────────────────
+
 
 def _passthrough_fallback(text: str, *args) -> str:
     return text
@@ -834,6 +1022,7 @@ class ToneAnalyzerService:
 
 # ── New AI Content Services ──────────────────────────────────────────────────
 
+
 class LinkedinPostService:
     @staticmethod
     async def transform(text: str) -> str:
@@ -1010,6 +1199,7 @@ class FaqSchemaService:
 
 # ── New Language Services ────────────────────────────────────────────────────
 
+
 class PosTaggerService:
     @staticmethod
     async def transform(text: str) -> str:
@@ -1148,6 +1338,7 @@ class ClicheDetectorService:
 
 
 # ── New Generator AI Services ───────────────────────────────────────────────
+
 
 class RegexGenService:
     @staticmethod

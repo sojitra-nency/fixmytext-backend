@@ -56,7 +56,16 @@ class FormatRequest(BaseModel):
         max_length=50_000,
         description="The input text to reformat.",
     )
-    format: Literal["paragraph", "bullets", "paragraph-bullets", "numbered", "qna", "table", "tldr", "headings"] = Field(
+    format: Literal[
+        "paragraph",
+        "bullets",
+        "paragraph-bullets",
+        "numbered",
+        "qna",
+        "table",
+        "tldr",
+        "headings",
+    ] = Field(
         default="paragraph",
         description="Target format: paragraph, bullets, paragraph-bullets, numbered, qna, table, tldr, headings.",
     )

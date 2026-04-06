@@ -2,14 +2,13 @@
 
 import uuid
 from datetime import datetime
-from typing import Optional
 
 from sqlalchemy import String, text
-from sqlalchemy.dialects.postgresql import UUID, INET, TIMESTAMP
+from sqlalchemy.dialects.postgresql import INET, TIMESTAMP, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.session import Base
 from app.core.config import settings
+from app.db.session import Base
 
 
 class VisitorUsage(Base):
@@ -21,6 +20,5 @@ class VisitorUsage(Base):
     )
     fingerprint: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
 
-    ip_address: Mapped[Optional[str]] = mapped_column(INET, nullable=True)
+    ip_address: Mapped[str | None] = mapped_column(INET, nullable=True)
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=text("now()"))
-

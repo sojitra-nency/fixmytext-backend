@@ -2,18 +2,18 @@
 
 import uuid
 from datetime import date, datetime
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
-from sqlalchemy import String, Boolean, SmallInteger, Date, text, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP
+from sqlalchemy import Boolean, Date, ForeignKey, SmallInteger, String, text
+from sqlalchemy.dialects.postgresql import TIMESTAMP, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.session import Base
 from app.core.config import settings
+from app.db.session import Base
 
 if TYPE_CHECKING:
-    from app.db.models.user import User
     from app.db.models.billing_catalog import PassCatalog
+    from app.db.models.user import User
 
 
 class BillingUserPass(Base):
@@ -37,12 +37,12 @@ class BillingUserPass(Base):
     tools_count: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     uses_per_day: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     source: Mapped[str] = mapped_column(String(20), nullable=False)
-    razorpay_payment_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    razorpay_payment_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     purchased_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=text("now()"))
     expires_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=text("true"))
     uses_today: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0, server_default=text("0"))
-    uses_reset_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    uses_reset_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="billing_passes")
     pass_catalog: Mapped["PassCatalog"] = relationship(back_populates="user_passes")

@@ -4,20 +4,24 @@ import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-logger = logging.getLogger(__name__)
-
 from app.core.config import settings
-from jose import JWTError
-from app.core.security import create_access_token, create_refresh_token, decode_token
 from app.core.deps import get_current_user
-from app.db.session import get_db
+from app.core.security import create_access_token, create_refresh_token, decode_token
 from app.db.models import User
+from app.db.session import get_db
 from app.schemas.auth import (
-    RegisterRequest, LoginRequest, TokenResponse, UserResponse,
+    LoginRequest,
+    RegisterRequest,
+    TokenResponse,
+    UserResponse,
 )
-from app.services.auth_service import register as do_register, authenticate
+from app.services.auth_service import authenticate
+from app.services.auth_service import register as do_register
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -29,9 +33,10 @@ async def _set_user_region(user, request: Request, db: AsyncSession):
     """Detect and store user region from IP address."""
     try:
         from app.services.region_service import resolve_user_region
+
         await resolve_user_region(user, request, db)
         await db.commit()
-    except Exception:
+    except Exception:  # noqa: S110
         pass  # non-critical, default to US
 
 
@@ -51,7 +56,8 @@ def _clear_refresh_cookie(response: Response) -> None:
     response.delete_cookie(key=REFRESH_COOKIE, path=REFRESH_COOKIE_PATH)
 
 
-# ── Register ─────────────────────────────────────────────────────────────────
+# ── Register ────────────────────────────────────
+
 
 @router.post("/register", response_model=TokenResponse)
 async def register(req: RegisterRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
@@ -74,7 +80,8 @@ async def register(req: RegisterRequest, request: Request, response: Response, d
     return TokenResponse(access_token=access)
 
 
-# ── Login ────────────────────────────────────────────────────────────────────
+# ── Login ───────────────────────────────────────
+
 
 @router.post("/login", response_model=TokenResponse)
 async def login(req: LoginRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
@@ -90,7 +97,8 @@ async def login(req: LoginRequest, request: Request, response: Response, db: Asy
     return TokenResponse(access_token=access)
 
 
-# ── Refresh ──────────────────────────────────────────────────────────────────
+# ── Refresh ─────────────────────────────────────
+
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
@@ -101,9 +109,9 @@ async def refresh(request: Request, response: Response, db: AsyncSession = Depen
 
     try:
         payload = decode_token(token)
-    except (JWTError, ValueError):
+    except (JWTError, ValueError) as e:
         _clear_refresh_cookie(response)
-        raise HTTPException(status_code=401, detail="Refresh token expired or invalid")
+        raise HTTPException(status_code=401, detail="Refresh token expired or invalid") from e
 
     if payload.get("type") != "refresh":
         _clear_refresh_cookie(response)
@@ -122,7 +130,8 @@ async def refresh(request: Request, response: Response, db: AsyncSession = Depen
     return TokenResponse(access_token=new_access)
 
 
-# ── Logout ───────────────────────────────────────────────────────────────────
+# ── Logout ──────────────────────────────────────
+
 
 @router.post("/logout")
 async def logout(response: Response, user: User = Depends(get_current_user)):
@@ -131,12 +140,14 @@ async def logout(response: Response, user: User = Depends(get_current_user)):
     return {"detail": "Logged out"}
 
 
-# ── Me ───────────────────────────────────────────────────────────────────────
+# ── Me ─────────────────────────────────────────
+
 
 @router.get("/me", response_model=UserResponse)
 async def me(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """Return the current authenticated user's profile."""
     from app.services.pass_service import get_subscription_tier
+
     return UserResponse(
         id=str(user.id),
         email=user.email,

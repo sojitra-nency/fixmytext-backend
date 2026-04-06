@@ -3,12 +3,12 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import String, text, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP
+from sqlalchemy import ForeignKey, String, text
+from sqlalchemy.dialects.postgresql import TIMESTAMP, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.session import Base
 from app.core.config import settings
+from app.db.session import Base
 
 
 class UserDiscoveredTool(Base):

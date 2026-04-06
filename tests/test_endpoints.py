@@ -2,10 +2,10 @@
 Integration tests for the /api/v1/text/* endpoints using FastAPI's TestClient.
 """
 
-import pytest
 from fastapi.testclient import TestClient
-from main import app
+
 from app.core.security import create_access_token
+from main import app
 
 client = TestClient(app)
 

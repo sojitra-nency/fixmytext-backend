@@ -1,18 +1,18 @@
 """Share endpoints — create and view shareable links for transformed text."""
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.deps import get_optional_user
-from app.db.session import get_db
 from app.db.models import User
 from app.db.models.shared_result import SharedResult
-from app.schemas.share import ShareCreate, ShareResponse, SharedResultView
-from app.core.config import settings
+from app.db.session import get_db
+from app.schemas.share import ShareCreate, SharedResultView, ShareResponse
 
 router = APIRouter(prefix="/share", tags=["Share"])
 
@@ -49,17 +49,15 @@ async def get_share(
     """View a shared result. No auth required."""
     try:
         sid = uuid.UUID(share_id)
-    except ValueError:
-        raise HTTPException(status_code=404, detail="Share not found")
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail="Share not found") from e
 
-    result = await db.execute(
-        select(SharedResult).where(SharedResult.id == sid)
-    )
+    result = await db.execute(select(SharedResult).where(SharedResult.id == sid))
     row = result.scalar_one_or_none()
     if not row:
         raise HTTPException(status_code=404, detail="Share not found")
 
-    if row.created_at < datetime.now(timezone.utc) - timedelta(days=SHARE_EXPIRE_DAYS):
+    if row.created_at < datetime.now(UTC) - timedelta(days=SHARE_EXPIRE_DAYS):
         raise HTTPException(status_code=410, detail="This share has expired")
 
     return SharedResultView(

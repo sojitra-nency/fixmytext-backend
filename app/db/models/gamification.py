@@ -1,15 +1,15 @@
 """UserGamification ORM model — lives in the 'activity' schema."""
 
-from datetime import date, datetime
-from typing import Optional, TYPE_CHECKING
 import uuid
+from datetime import date, datetime
+from typing import TYPE_CHECKING
 
-from sqlalchemy import String, Boolean, Integer, BigInteger, Date, text, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID, JSONB, TIMESTAMP
+from sqlalchemy import BigInteger, Boolean, Date, ForeignKey, Integer, String, text
+from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.session import Base
 from app.core.config import settings
+from app.db.session import Base
 
 if TYPE_CHECKING:
     from app.db.models.user import User
@@ -27,8 +27,8 @@ class UserGamification(Base):
     xp: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     streak_current: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
 
-    streak_last_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
-    daily_quest_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    streak_last_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    daily_quest_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     total_ops: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     total_chars: Mapped[int] = mapped_column(BigInteger, default=0, server_default=text("0"))
@@ -37,7 +37,7 @@ class UserGamification(Base):
     achievements: Mapped[list] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
     completed_quests: Mapped[list] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
 
-    daily_quest_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    daily_quest_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
     daily_quest_completed: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     updated_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), server_default=text("now()"), onupdate=datetime.now

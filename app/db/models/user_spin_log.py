@@ -2,14 +2,13 @@
 
 import uuid
 from datetime import date, datetime
-from typing import Optional
 
-from sqlalchemy import SmallInteger, Date, String, text, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP
+from sqlalchemy import Date, ForeignKey, SmallInteger, String, text
+from sqlalchemy.dialects.postgresql import TIMESTAMP, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.session import Base
 from app.core.config import settings
+from app.db.session import Base
 
 
 class UserSpinLog(Base):
@@ -26,5 +25,5 @@ class UserSpinLog(Base):
     iso_week: Mapped[int] = mapped_column(SmallInteger, primary_key=True)
     spin_date: Mapped[date] = mapped_column(Date, nullable=False)
     reward_type: Mapped[str] = mapped_column(String(20), nullable=False)
-    reward_ref: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    reward_ref: Mapped[str | None] = mapped_column(String(50), nullable=True)
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=text("now()"))

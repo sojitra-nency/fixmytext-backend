@@ -2,7 +2,6 @@
 Tests for text_service — pure unit tests, no HTTP needed.
 """
 
-import pytest
 import app.services.text_service as ts
 
 
