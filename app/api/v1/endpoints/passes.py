@@ -265,7 +265,9 @@ async def verify_pass_payment(
         await grant_pass(
             user, req.item_id, tool_ids, "razorpay", db, razorpay_payment_id=req.razorpay_payment_id, auto_commit=False
         )
-        logger.info("Pass granted: user=%s pass=%s payment=%s", user.id, req.item_id, req.razorpay_payment_id)
+        safe_item_id = str(req.item_id).replace("\r", "").replace("\n", "")
+        safe_payment_id = str(req.razorpay_payment_id).replace("\r", "").replace("\n", "")
+        logger.info("Pass granted: user=%s pass=%s payment=%s", user.id, safe_item_id, safe_payment_id)
 
     elif req.item_type == "credit":
         pack = get_credit_pack(req.item_id)
@@ -274,12 +276,14 @@ async def verify_pass_payment(
         await grant_credits(
             user, pack["credits"], "purchase", db, razorpay_payment_id=req.razorpay_payment_id, auto_commit=False
         )
+        safe_item_id = str(req.item_id).replace("\r", "").replace("\n", "")
+        safe_payment_id = str(req.razorpay_payment_id).replace("\r", "").replace("\n", "")
         logger.info(
             "Credits granted: user=%s pack=%s credits=%d payment=%s",
             user.id,
-            req.item_id,
+            safe_item_id,
             pack["credits"],
-            req.razorpay_payment_id,
+            safe_payment_id,
         )
 
     # First purchase welcome gift (idempotent — user row already locked above)

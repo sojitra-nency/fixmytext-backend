@@ -7,7 +7,11 @@ on:
       - '**/*.py'
       - 'requirements.txt'
       - 'pyproject.toml'
+      - 'pytest.ini'
+      - 'Dockerfile*'
+      - 'docker-compose.yml'
       - '.github/workflows/ci.yml'
+      - '.github/workflows/codeql.yml'
   push:
     branches: [main, master]
 
@@ -33,17 +37,18 @@ jobs:
   security-scan:
     name: CodeQL Analysis
     runs-on: ubuntu-latest
+    if: ${{ !github.event.pull_request.head.repo.fork }}
     permissions:
       security-events: write
       actions: read
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - uses: github/codeql-action/init@v3
+      - uses: github/codeql-action/init@v4
         with:
           languages: python
           queries: security-and-quality
-      - uses: github/codeql-action/analyze@v3
+      - uses: github/codeql-action/analyze@v4
         with:
           category: "/language:python"
 
@@ -61,7 +66,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U test -d test_db"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
