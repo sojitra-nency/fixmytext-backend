@@ -141,12 +141,13 @@ async def _enforce_tool_access(request: Request, tool_id: str, tool_type: str, u
         result = await check_visitor_access(fingerprint, ip, tool_id, tool_type, db)
 
     if not result["allowed"]:
+        _safe = lambda s: str(s).replace("\n", " ").replace("\r", " ")
         logger.warning(
             "ACCESS DENIED tool=%s type=%s user=%s reason=%s",
-            tool_id,
-            tool_type,
+            _safe(tool_id),
+            _safe(tool_type),
             str(user.id) if user else "visitor",
-            result.get("message", "limit reached"),
+            _safe(result.get("message", "limit reached")),
         )
         raise HTTPException(
             status_code=429,
@@ -169,20 +170,21 @@ async def _ai_endpoint(
     db: AsyncSession = None,
 ) -> TextResponse:
     """Shared handler for all AI-powered endpoints."""
+    _safe = lambda s: str(s).replace("\n", " ").replace("\r", " ")
     client_ip = request.client.host if request.client else "unknown"
     user_id = str(user.id) if user else "visitor"
-    logger.info("AI     op=%s user=%s ip=%s chars=%d", operation, user_id, client_ip, len(req.text))
+    logger.info("AI     op=%s user=%s ip=%s chars=%d", _safe(operation), user_id, client_ip, len(req.text))
     ai_limiter.check(request)
     if db:
         await _enforce_tool_access(request, operation, "ai", user, db)
     try:
         result = await service_fn(req.text, *extra_args)
-        logger.info("AI     op=%s -> OK (%d chars)", operation, len(result))
+        logger.info("AI     op=%s -> OK (%d chars)", _safe(operation), len(result))
         return TextResponse(original=req.text, result=result, operation=operation)
     except HTTPException:
         raise
     except Exception as exc:
-        logger.exception("AI     op=%s -> FAILED: %s", operation, exc)
+        logger.exception("AI     op=%s -> FAILED: %s", _safe(operation), _safe(exc))
         raise HTTPException(status_code=500, detail=error_detail) from exc
 
 

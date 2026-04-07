@@ -324,8 +324,8 @@ def fix_line_endings(text: str) -> str:
 def strip_markdown(text: str) -> str:
     s = text
     s = re.sub(r"^#{1,6}\s+", "", s, flags=re.MULTILINE)
-    s = re.sub(r"\!\[([^\]]*)\]\([^\)]+\)", r"\1", s)
-    s = re.sub(r"\[([^\]]+)\]\([^\)]+\)", r"\1", s)
+    s = re.sub(r"\!\[([^\]]*)\]\([^)]*\)", r"\1", s)
+    s = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", s)
     s = re.sub(r"\*\*(.*?)\*\*", r"\1", s)
     s = re.sub(r"__(.*?)__", r"\1", s)
     s = re.sub(r"\*(.*?)\*", r"\1", s)
@@ -355,12 +355,12 @@ def strip_urls(text: str) -> str:
 
 
 def strip_emails(text: str) -> str:
-    s = re.sub(r"[\w.+-]+@[\w-]+\.[\w.-]+", "", text)
+    s = re.sub(r"[\w.+-]+@[\w-]+\.[\w]+(?:\.[\w]+)*", "", text)
     return re.sub(r"  +", " ", s).strip()
 
 
 def normalize_punctuation(text: str) -> str:
-    s = re.sub(r"\s+([.,;:!?])", r"\1", text)
+    s = re.sub(r"[ \t\n\r]+([.,;:!?])", r"\1", text)
     s = re.sub(r"([.,;:!?])([^\s.,;:!?\'\"\)\]\}0-9])", r"\1 \2", s)
     s = re.sub(r"\(\s+", "(", s)
     s = re.sub(r"\s+\)", ")", s)
