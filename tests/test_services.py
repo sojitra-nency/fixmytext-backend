@@ -1,13 +1,11 @@
 """Unit tests for service-layer functions (pass_service, region_service, razorpay_service)."""
 
 import uuid
-from datetime import UTC, date, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from tests.conftest import make_mock_db, make_user
-
 
 # ── pass_service.get_subscription_tier ───────────────────────────────────────
 
@@ -308,7 +306,7 @@ def test_is_local_ip_localhost():
 
     assert _is_local_ip("127.0.0.1") is True
     assert _is_local_ip("localhost") is True
-    assert _is_local_ip("0.0.0.0") is True
+    assert _is_local_ip("0.0.0.0") is True  # noqa: S104
 
 
 def test_is_local_ip_private():
@@ -362,7 +360,7 @@ def test_verify_webhook_signature_correct():
 
     # Override webhook secret temporarily
     original_secret = settings.RAZORPAY_WEBHOOK_SECRET
-    settings.RAZORPAY_WEBHOOK_SECRET = "test-secret"
+    settings.RAZORPAY_WEBHOOK_SECRET = "test-secret"  # noqa: S105
 
     body = b'{"event": "payment.captured"}'
     expected = hmac.new(b"test-secret", body, hashlib.sha256).hexdigest()
@@ -377,7 +375,7 @@ def test_verify_webhook_signature_wrong():
     from app.services.razorpay_service import verify_webhook_signature
 
     original_secret = settings.RAZORPAY_WEBHOOK_SECRET
-    settings.RAZORPAY_WEBHOOK_SECRET = "test-secret"
+    settings.RAZORPAY_WEBHOOK_SECRET = "test-secret"  # noqa: S105
 
     body = b'{"event": "payment.captured"}'
     result = verify_webhook_signature(body, "wrong-signature")

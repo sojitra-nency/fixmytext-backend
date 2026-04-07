@@ -4,11 +4,6 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
-import pytest
-
-from tests.conftest import make_mock_db
-
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 

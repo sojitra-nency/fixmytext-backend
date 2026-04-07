@@ -2,10 +2,7 @@
 Extended tests for text_service — covering the many functions not yet tested.
 """
 
-import pytest
-
 import app.services.text_service as ts
-
 
 # ── Additional case transformations ─────────────────────────────────────────
 
@@ -93,7 +90,7 @@ def test_remove_accents():
 
 
 def test_toggle_smart_quotes():
-    result = ts.toggle_smart_quotes('"Hello" and \'World\'')
+    result = ts.toggle_smart_quotes("\"Hello\" and 'World'")
     assert isinstance(result, str)
 
 
@@ -308,7 +305,7 @@ def test_json_to_yaml():
 
 def test_json_escape():
     result = ts.json_escape('hello "world"')
-    assert '\\"' in result or "\\\"" in result
+    assert '\\"' in result or '\\"' in result
 
 
 def test_json_unescape():

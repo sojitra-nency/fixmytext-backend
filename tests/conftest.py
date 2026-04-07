@@ -17,7 +17,6 @@ from app.db.models import User
 from app.db.session import get_db
 from main import app
 
-
 # ── User factory ─────────────────────────────────────────────────────────────
 
 

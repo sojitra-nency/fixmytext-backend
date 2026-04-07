@@ -6,8 +6,6 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from app.core.security import create_access_token
-
 _ALLOW = {"allowed": True, "reason": "free"}
 
 

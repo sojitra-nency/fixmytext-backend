@@ -3,27 +3,26 @@
 import uuid
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
 from fastapi.testclient import TestClient
 
 from app.core.security import create_access_token, create_refresh_token
-from app.db.models import User
 from app.db.session import get_db
 from main import app
 from tests.conftest import make_mock_db, make_user
-
 
 # ── get_current_user (real implementation) ────────────────────────────────────
 
 
 def _make_client_with_db(mock_db):
     """Return TestClient with only get_db overridden (not get_current_user)."""
+
     async def _get_db():
         yield mock_db
 
     app.dependency_overrides[get_db] = _get_db
 
     from app.core.deps import get_optional_user
+
     app.dependency_overrides[get_optional_user] = lambda: None
 
     client = TestClient(app, raise_server_exceptions=False)
@@ -131,7 +130,7 @@ def test_get_current_user_not_in_db():
 
 def test_get_optional_user_no_credentials():
     """No credentials → no user (None), public endpoint still works."""
-    from unittest.mock import AsyncMock, patch
+    from unittest.mock import patch
 
     mock_db = make_mock_db()
 
@@ -154,7 +153,7 @@ def test_get_optional_user_no_credentials():
 
 def test_get_optional_user_invalid_token_returns_none():
     """Invalid token for optional auth → treated as anonymous (None)."""
-    from unittest.mock import AsyncMock, patch
+    from unittest.mock import patch
 
     mock_db = make_mock_db()
 
@@ -181,7 +180,7 @@ def test_get_optional_user_invalid_token_returns_none():
 
 def test_get_optional_user_valid_token_wrong_type():
     """Refresh token for optional auth → treated as anonymous."""
-    from unittest.mock import AsyncMock, patch
+    from unittest.mock import patch
 
     user = make_user()
     mock_db = make_mock_db()

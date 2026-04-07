@@ -9,7 +9,6 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
 
@@ -309,16 +308,12 @@ def test_summarize_requires_auth(unauth_client):
 
 
 def test_translate_requires_auth(unauth_client):
-    resp = unauth_client.post(
-        "/api/v1/text/translate", json={"text": "hello", "target_language": "Spanish"}
-    )
+    resp = unauth_client.post("/api/v1/text/translate", json={"text": "hello", "target_language": "Spanish"})
     assert resp.status_code == 401
 
 
 def test_change_tone_requires_auth(unauth_client):
-    resp = unauth_client.post(
-        "/api/v1/text/change-tone", json={"text": "hello", "tone": "formal"}
-    )
+    resp = unauth_client.post("/api/v1/text/change-tone", json={"text": "hello", "tone": "formal"})
     assert resp.status_code == 401
 
 
@@ -382,8 +377,14 @@ def test_change_format_invalid_format(client):
 
 def test_text_endpoint_access_denied_returns_429(client, mock_db):
     with (
-        patch("app.api.v1.endpoints.text.check_tool_access", AsyncMock(return_value={"allowed": False, "message": "Daily limit reached"})),
-        patch("app.api.v1.endpoints.text.check_visitor_access", AsyncMock(return_value={"allowed": False, "message": "Daily limit reached"})),
+        patch(
+            "app.api.v1.endpoints.text.check_tool_access",
+            AsyncMock(return_value={"allowed": False, "message": "Daily limit reached"}),
+        ),
+        patch(
+            "app.api.v1.endpoints.text.check_visitor_access",
+            AsyncMock(return_value={"allowed": False, "message": "Daily limit reached"}),
+        ),
     ):
         resp = client.post("/api/v1/text/uppercase", json={"text": "hello"})
     assert resp.status_code == 429

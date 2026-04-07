@@ -1,17 +1,16 @@
 """Tests for /api/v1/auth/* endpoints and auth_service functions."""
 
 import uuid
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app.core.deps import get_current_user, get_optional_user
+from app.core.deps import get_current_user
 from app.core.security import create_access_token, create_refresh_token, hash_password
 from app.db.session import get_db
 from main import app
 from tests.conftest import make_mock_db, make_user
-
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -88,6 +87,7 @@ def test_register_missing_password(empty_db):
 
 def test_register_duplicate_email(db_with_user):
     """When email already exists, auth_service raises 409."""
+
     async def _get_db():
         yield db_with_user
 
@@ -132,7 +132,7 @@ def test_login_success(db_with_user):
     assert resp.status_code == 200
     data = resp.json()
     assert "access_token" in data
-    assert data["token_type"] == "bearer"
+    assert data["token_type"] == "bearer"  # noqa: S105
 
 
 def test_login_wrong_password(db_with_user):
