@@ -60,6 +60,9 @@ def make_mock_db() -> AsyncMock:
     # db.get(Model, pk) returns None by default
     db.get.return_value = None
 
+    # db.add() is synchronous in SQLAlchemy (not awaited); db.delete() is awaited
+    db.add = MagicMock()
+
     # db.refresh(obj) — populate server_default fields (UUID, timestamps)
     async def _smart_refresh(obj):
         # Ensure primary key UUID is set
