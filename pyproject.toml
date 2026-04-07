@@ -1,8 +1,0 @@
-[tool.ruff]
-target-version = "py312"
-line-length = 120
-exclude = [".venv", "alembic", "__pycache__"]
-
-[tool.ruff.lint]
-select = ["E", "F", "W", "I", "S", "B", "UP"]
-ignore = ["S101", "B008"]

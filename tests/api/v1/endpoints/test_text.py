@@ -1,9 +1,4 @@
-"""
-Tests for /api/v1/text/* endpoints.
-
-Local (non-AI) endpoints are tested with a mocked tool-access check.
-AI endpoints are verified to require authentication.
-"""
+"""Tests for API endpoints: app/api/v1/endpoints/text.py"""
 
 from unittest.mock import AsyncMock, patch
 

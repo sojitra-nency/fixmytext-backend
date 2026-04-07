@@ -29,6 +29,7 @@ htmlcov/
 .coverage
 .coverage.*
 coverage.xml
+coverage.json
 *.coveragerc
 
 # ── Type checking ─────────────────────────────────────────────────────────────

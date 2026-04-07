@@ -2,7 +2,6 @@
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import ForeignKey, SmallInteger, String, text
 from sqlalchemy.dialects.postgresql import TIMESTAMP, UUID
@@ -10,10 +9,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.config import settings
 from app.db.session import Base
-
-if TYPE_CHECKING:
-    from app.db.models.billing_catalog import CreditPackCatalog
-    from app.db.models.user import User
 
 
 class BillingUserCredit(Base):
@@ -41,4 +36,4 @@ class BillingUserCredit(Base):
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=text("now()"))
 
     user: Mapped["User"] = relationship(back_populates="billing_credits")
-    pack_catalog: Mapped[Optional["CreditPackCatalog"]] = relationship(back_populates="user_credits")
+    pack_catalog: Mapped["CreditPackCatalog | None"] = relationship(back_populates="user_credits")

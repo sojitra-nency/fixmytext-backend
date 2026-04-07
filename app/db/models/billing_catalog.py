@@ -1,7 +1,6 @@
 """Billing catalog ORM models — pass_catalog, pass_catalog_prices, credit_pack_catalog, credit_pack_prices."""
 
 from datetime import datetime
-from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, ForeignKey, Integer, SmallInteger, String, text
 from sqlalchemy.dialects.postgresql import TIMESTAMP
@@ -9,10 +8,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.config import settings
 from app.db.session import Base
-
-if TYPE_CHECKING:
-    from app.db.models.billing_credit import BillingUserCredit
-    from app.db.models.billing_pass import BillingUserPass
 
 
 class PassCatalog(Base):

@@ -48,7 +48,7 @@ def test_register_success(empty_db):
 
     app.dependency_overrides[get_db] = _get_db
 
-    with patch("app.services.auth_service.do_register" if False else "app.api.v1.endpoints.auth._set_user_region"):
+    with patch("app.api.v1.endpoints.auth._set_user_region"):
         with patch("app.services.region_service.resolve_user_region"):
             resp = TestClient(app, raise_server_exceptions=True).post(
                 "/api/v1/auth/register",

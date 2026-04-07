@@ -141,7 +141,10 @@ async def _enforce_tool_access(request: Request, tool_id: str, tool_type: str, u
         result = await check_visitor_access(fingerprint, ip, tool_id, tool_type, db)
 
     if not result["allowed"]:
-        _safe = lambda s: str(s).replace("\n", " ").replace("\r", " ")
+
+        def _safe(s: object) -> str:
+            return str(s).replace("\n", " ").replace("\r", " ")
+
         logger.warning(
             "ACCESS DENIED tool=%s type=%s user=%s reason=%s",
             _safe(tool_id),
@@ -170,7 +173,10 @@ async def _ai_endpoint(
     db: AsyncSession = None,
 ) -> TextResponse:
     """Shared handler for all AI-powered endpoints."""
-    _safe = lambda s: str(s).replace("\n", " ").replace("\r", " ")
+
+    def _safe(s: object) -> str:
+        return str(s).replace("\n", " ").replace("\r", " ")
+
     client_ip = request.client.host if request.client else "unknown"
     user_id = str(user.id) if user else "visitor"
     logger.info("AI     op=%s user=%s ip=%s chars=%d", _safe(operation), user_id, client_ip, len(req.text))

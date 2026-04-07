@@ -324,8 +324,8 @@ def fix_line_endings(text: str) -> str:
 def strip_markdown(text: str) -> str:
     s = text
     s = re.sub(r"^#{1,6}\s+", "", s, flags=re.MULTILINE)
-    s = re.sub(r"\!\[([^\]]*)\]\([^)]*\)", r"\1", s)
-    s = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", s)
+    s = re.sub(r"!\[([^\[\]]*)\]\(([^()]*)\)", r"\1", s)
+    s = re.sub(r"\[([^\[\]]*)\]\(([^()]*)\)", r"\1", s)
     s = re.sub(r"\*\*(.*?)\*\*", r"\1", s)
     s = re.sub(r"__(.*?)__", r"\1", s)
     s = re.sub(r"\*(.*?)\*", r"\1", s)
@@ -355,15 +355,21 @@ def strip_urls(text: str) -> str:
 
 
 def strip_emails(text: str) -> str:
-    s = re.sub(r"[\w.+-]+@[\w-]+\.[\w]+(?:\.[\w]+)*", "", text)
+    s = re.sub(r"[a-zA-Z0-9][a-zA-Z0-9.+\-]*@[a-zA-Z0-9\-]+(?:\.[a-zA-Z0-9\-]+)*\.[a-zA-Z]{2,}", "", text)
     return re.sub(r"  +", " ", s).strip()
 
 
 def normalize_punctuation(text: str) -> str:
-    s = re.sub(r"[ \t\n\r]+([.,;:!?])", r"\1", text)
+    # Two-pass space removal before punctuation: each pass uses a single
+    # character type in the quantified class, avoiding polynomial backtracking.
+    s = re.sub(r"[ ]+([.,;:!?])", r"\1", text)
+    s = re.sub(r"[\t\n\r]+([.,;:!?])", r"\1", s)
     s = re.sub(r"([.,;:!?])([^\s.,;:!?\'\"\)\]\}0-9])", r"\1 \2", s)
-    s = re.sub(r"\(\s+", "(", s)
-    s = re.sub(r"\s+\)", ")", s)
+    # Two-pass whitespace removal inside parentheses (same reason).
+    s = re.sub(r"\([ ]+", "(", s)
+    s = re.sub(r"\([\t\n\r]+", "(", s)
+    s = re.sub(r"[ ]+\)", ")", s)
+    s = re.sub(r"[\t\n\r]+\)", ")", s)
     s = re.sub(r"\.{2}(?!\.)", ".", s)
     return s
 
@@ -697,10 +703,20 @@ def wrap_lines(text: str, prefix: str = "", suffix: str = "") -> str:
 
 
 def _line_matches(line: str, pattern: str, case_sensitive: bool, use_regex: bool) -> bool:
+    """Match a line against a pattern.
+
+    When use_regex=True the pattern is an intentional user-supplied regular
+    expression (exposed as a feature to callers).  A length guard and
+    re.compile are used to limit worst-case ReDoS exposure; the caller is
+    responsible for deciding whether to allow arbitrary regex input.
+    """
     if use_regex:
+        if len(pattern) > 500:
+            return False
         flags = 0 if case_sensitive else re.IGNORECASE
         try:
-            return bool(re.search(pattern, line, flags))
+            compiled = re.compile(pattern, flags)
+            return bool(compiled.search(line))
         except re.error:
             return False
     if case_sensitive:

@@ -2,7 +2,6 @@
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import ForeignKey, Integer, String, text
 from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP, UUID
@@ -10,9 +9,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.config import settings
 from app.db.session import Base
-
-if TYPE_CHECKING:
-    from app.db.models.user import User
 
 
 class Subscription(Base):
@@ -71,4 +67,4 @@ class PaymentEvent(Base):
     processed_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=text("now()"))
 
-    user: Mapped[Optional["User"]] = relationship(back_populates="payment_events")
+    user: Mapped["User | None"] = relationship(back_populates="payment_events")
