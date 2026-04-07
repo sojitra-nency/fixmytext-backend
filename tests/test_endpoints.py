@@ -1,78 +1,77 @@
 """
-Integration tests for the /api/v1/text/* endpoints using FastAPI's TestClient.
+Legacy integration tests for text endpoints — now uses mock DB like the rest of the suite.
 """
 
-from fastapi.testclient import TestClient
+from unittest.mock import AsyncMock, patch
+
+import pytest
 
 from app.core.security import create_access_token
-from main import app
 
-client = TestClient(app)
-
-# Create a test token for AI endpoint tests (user ID doesn't need to exist for validation tests)
-_test_token = create_access_token("test-user-id")
-_auth_headers = {"Authorization": f"Bearer {_test_token}"}
+_ALLOW = {"allowed": True, "reason": "free"}
 
 
-def test_health_check():
+@pytest.fixture(autouse=True)
+def patch_access_checks():
+    with (
+        patch("app.api.v1.endpoints.text.check_tool_access", AsyncMock(return_value=_ALLOW)),
+        patch("app.api.v1.endpoints.text.check_visitor_access", AsyncMock(return_value=_ALLOW)),
+        patch("app.api.v1.endpoints.text.record_tool_discovery", AsyncMock()),
+    ):
+        yield
+
+
+def test_health_check(client):
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
 
 
-def test_uppercase_endpoint():
+def test_uppercase_endpoint(client):
     response = client.post("/api/v1/text/uppercase", json={"text": "hello"})
     assert response.status_code == 200
     assert response.json()["result"] == "HELLO"
 
 
-def test_lowercase_endpoint():
+def test_lowercase_endpoint(client):
     response = client.post("/api/v1/text/lowercase", json={"text": "HELLO"})
     assert response.status_code == 200
     assert response.json()["result"] == "hello"
 
 
-def test_reverse_endpoint():
+def test_reverse_endpoint(client):
     response = client.post("/api/v1/text/reverse", json={"text": "hello"})
     assert response.status_code == 200
     assert response.json()["result"] == "olleh"
 
 
-def test_base64_encode_endpoint():
+def test_base64_encode_endpoint(client):
     response = client.post("/api/v1/text/base64-encode", json={"text": "hello"})
     assert response.status_code == 200
     assert response.json()["result"] == "aGVsbG8="
 
 
-def test_empty_text_returns_422():
-    """Backend should reject empty strings (min_length=1 on TextRequest)."""
+def test_empty_text_returns_422(client):
     response = client.post("/api/v1/text/uppercase", json={"text": ""})
     assert response.status_code == 422
 
 
-def test_ai_endpoint_requires_auth():
-    """AI endpoints should return 401 without a token."""
-    response = client.post("/api/v1/text/change-tone", json={"text": "hello", "tone": "formal"})
+def test_ai_endpoint_requires_auth(unauth_client):
+    response = unauth_client.post("/api/v1/text/change-tone", json={"text": "hello", "tone": "formal"})
     assert response.status_code == 401
 
 
-def test_invalid_tone_returns_422():
-    """Invalid tone value should be rejected by Literal validation (with auth)."""
+def test_invalid_tone_returns_422(client):
     response = client.post(
         "/api/v1/text/change-tone",
         json={"text": "hello", "tone": "invalid"},
-        headers=_auth_headers,
     )
-    # Auth passes but the user lookup fails (test user not in DB) — returns 401
-    # In a full integration test with DB, this would return 422
-    assert response.status_code in (401, 422)
+    assert response.status_code == 422
 
 
-def test_invalid_format_returns_422():
-    """Invalid format value should be rejected by Literal validation (with auth)."""
+def test_invalid_format_returns_422(client):
     response = client.post(
         "/api/v1/text/change-format",
         json={"text": "hello", "format": "invalid"},
-        headers=_auth_headers,
     )
-    assert response.status_code in (401, 422)
+    assert response.status_code == 422
