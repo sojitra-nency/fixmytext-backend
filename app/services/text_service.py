@@ -85,7 +85,9 @@ def to_inverse_word_case(text: str) -> str:
     result = []
     for word in text.split(" "):
         if word:
-            result.append(word[:-1].lower() + word[-1].upper() if len(word) > 1 else word.upper())
+            result.append(
+                word[:-1].lower() + word[-1].upper() if len(word) > 1 else word.upper()
+            )
         else:
             result.append(word)
     return " ".join(result)
@@ -285,7 +287,12 @@ def toggle_smart_quotes(text: str) -> str:
         open_single = True
         for i, ch in enumerate(text):
             if ch == "'":
-                if i > 0 and i < len(text) - 1 and text[i - 1].isalpha() and text[i + 1].isalpha():
+                if (
+                    i > 0
+                    and i < len(text) - 1
+                    and text[i - 1].isalpha()
+                    and text[i + 1].isalpha()
+                ):
                     result.append("\u2019")
                 else:
                     result.append("\u2018" if open_single else "\u2019")
@@ -355,21 +362,35 @@ def strip_urls(text: str) -> str:
 
 
 def strip_emails(text: str) -> str:
-    s = re.sub(r"[a-zA-Z0-9][a-zA-Z0-9.+\-]*@[a-zA-Z0-9\-]+(?:\.[a-zA-Z0-9\-]+)*\.[a-zA-Z]{2,}", "", text)
-    return re.sub(r"  +", " ", s).strip()
+    # Remove whitespace-delimited tokens that contain "@".
+    # Token-based approach avoids polynomial regex backtracking on user input.
+    cleaned = " ".join(t for t in text.split() if "@" not in t)
+    return re.sub(r"  +", " ", cleaned).strip()
+
+
+_WS = frozenset(" \t\n\r")
+_PUNCT_CLOSE = frozenset(".,;:!?)")
 
 
 def normalize_punctuation(text: str) -> str:
-    # Two-pass space removal before punctuation: each pass uses a single
-    # character type in the quantified class, avoiding polynomial backtracking.
-    s = re.sub(r"[ ]+([.,;:!?])", r"\1", text)
-    s = re.sub(r"[\t\n\r]+([.,;:!?])", r"\1", s)
+    # Linear-scan approach instead of re.sub with `+` quantifiers, which can
+    # exhibit O(n²) behavior on user-provided strings.
+
+    # Pass 1: strip whitespace immediately before ".,;:!?" and ")"
+    # and immediately after "(".
+    buf: list[str] = []
+    skip_open_ws = False
+    for ch in text:
+        if ch in _PUNCT_CLOSE:
+            while buf and buf[-1] in _WS:
+                buf.pop()
+        if skip_open_ws and ch in _WS:
+            continue
+        skip_open_ws = ch == "("
+        buf.append(ch)
+
+    s = "".join(buf)
     s = re.sub(r"([.,;:!?])([^\s.,;:!?\'\"\)\]\}0-9])", r"\1 \2", s)
-    # Two-pass whitespace removal inside parentheses (same reason).
-    s = re.sub(r"\([ ]+", "(", s)
-    s = re.sub(r"\([\t\n\r]+", "(", s)
-    s = re.sub(r"[ ]+\)", ")", s)
-    s = re.sub(r"[\t\n\r]+\)", ")", s)
     s = re.sub(r"\.{2}(?!\.)", ".", s)
     return s
 
@@ -588,7 +609,9 @@ def brainfuck_decode(code: str) -> str:
     while ip < len(code):
         steps += 1
         if steps > max_steps:
-            raise ValueError("Execution exceeded maximum step limit (possible infinite loop)")
+            raise ValueError(
+                "Execution exceeded maximum step limit (possible infinite loop)"
+            )
         ch = code[ip]
         if ch == ">":
             ptr += 1
@@ -620,7 +643,9 @@ def brainfuck_decode(code: str) -> str:
 
 
 def unicode_escape(text: str) -> str:
-    return "".join(f"\\u{ord(ch):04x}" if ord(ch) <= 0xFFFF else f"\\U{ord(ch):08x}" for ch in text)
+    return "".join(
+        f"\\u{ord(ch):04x}" if ord(ch) <= 0xFFFF else f"\\U{ord(ch):08x}" for ch in text
+    )
 
 
 def unicode_unescape(text: str) -> str:
@@ -702,7 +727,9 @@ def wrap_lines(text: str, prefix: str = "", suffix: str = "") -> str:
     return "\n".join(f"{prefix}{line}{suffix}" for line in text.splitlines())
 
 
-def _line_matches(line: str, pattern: str, case_sensitive: bool, use_regex: bool) -> bool:
+def _line_matches(
+    line: str, pattern: str, case_sensitive: bool, use_regex: bool
+) -> bool:
     """Match a line against a pattern.
 
     When use_regex=True the pattern is an intentional user-supplied regular
@@ -716,7 +743,9 @@ def _line_matches(line: str, pattern: str, case_sensitive: bool, use_regex: bool
         flags = 0 if case_sensitive else re.IGNORECASE
         try:
             compiled = re.compile(pattern, flags)
-            return bool(compiled.search(line))
+            # Cap line length to limit worst-case backtracking on large inputs.
+            search_text = line if len(line) <= 10_000 else line[:10_000]
+            return bool(compiled.search(search_text))
         except re.error:
             return False
     if case_sensitive:
@@ -724,12 +753,24 @@ def _line_matches(line: str, pattern: str, case_sensitive: bool, use_regex: bool
     return pattern.lower() in line.lower()
 
 
-def filter_lines_contain(text: str, pattern: str, case_sensitive: bool = False, use_regex: bool = False) -> str:
-    return "\n".join(line for line in text.splitlines() if _line_matches(line, pattern, case_sensitive, use_regex))
+def filter_lines_contain(
+    text: str, pattern: str, case_sensitive: bool = False, use_regex: bool = False
+) -> str:
+    return "\n".join(
+        line
+        for line in text.splitlines()
+        if _line_matches(line, pattern, case_sensitive, use_regex)
+    )
 
 
-def remove_lines_contain(text: str, pattern: str, case_sensitive: bool = False, use_regex: bool = False) -> str:
-    return "\n".join(line for line in text.splitlines() if not _line_matches(line, pattern, case_sensitive, use_regex))
+def remove_lines_contain(
+    text: str, pattern: str, case_sensitive: bool = False, use_regex: bool = False
+) -> str:
+    return "\n".join(
+        line
+        for line in text.splitlines()
+        if not _line_matches(line, pattern, case_sensitive, use_regex)
+    )
 
 
 def truncate_lines(text: str, max_length: int = 80) -> str:
@@ -1119,7 +1160,11 @@ def csv_to_table(text: str) -> str:
     # Build markdown table
     lines = []
     # Header
-    header = "| " + " | ".join(cell.strip().ljust(widths[i]) for i, cell in enumerate(rows[0])) + " |"
+    header = (
+        "| "
+        + " | ".join(cell.strip().ljust(widths[i]) for i, cell in enumerate(rows[0]))
+        + " |"
+    )
     lines.append(header)
     # Separator
     sep = "| " + " | ".join("-" * widths[i] for i in range(len(rows[0]))) + " |"
@@ -1128,7 +1173,10 @@ def csv_to_table(text: str) -> str:
     for row in rows[1:]:
         data = (
             "| "
-            + " | ".join((row[i].strip() if i < len(row) else "").ljust(widths[i]) for i in range(len(rows[0])))
+            + " | ".join(
+                (row[i].strip() if i < len(row) else "").ljust(widths[i])
+                for i in range(len(rows[0]))
+            )
             + " |"
         )
         lines.append(data)
@@ -1152,5 +1200,7 @@ def sql_insert_gen(text: str) -> str:
                 values.append(cell)
             except ValueError:
                 values.append(f"'{cell}'")
-        lines.append(f"INSERT INTO {table_name} ({', '.join(headers)}) VALUES ({', '.join(values)});")  # noqa: S608
+        lines.append(
+            f"INSERT INTO {table_name} ({', '.join(headers)}) VALUES ({', '.join(values)});"
+        )  # noqa: S608
     return "\n".join(lines)
