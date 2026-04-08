@@ -2,7 +2,6 @@
 
 import uuid
 from datetime import date, datetime
-from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, Date, ForeignKey, SmallInteger, String, text
 from sqlalchemy.dialects.postgresql import TIMESTAMP, UUID
@@ -10,10 +9,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.config import settings
 from app.db.session import Base
-
-if TYPE_CHECKING:
-    from app.db.models.billing_catalog import PassCatalog
-    from app.db.models.user import User
 
 
 class BillingUserPass(Base):

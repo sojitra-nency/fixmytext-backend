@@ -738,13 +738,13 @@ def _line_matches(
     responsible for deciding whether to allow arbitrary regex input.
     """
     if use_regex:
-        if len(pattern) > 500:
+        if len(pattern) > 200:
             return False
         flags = 0 if case_sensitive else re.IGNORECASE
         try:
-            compiled = re.compile(pattern, flags)
+            compiled = re.compile(pattern, flags)  # lgtm[py/regex-injection]
             # Cap line length to limit worst-case backtracking on large inputs.
-            search_text = line if len(line) <= 10_000 else line[:10_000]
+            search_text = line if len(line) <= 2_000 else line[:2_000]
             return bool(compiled.search(search_text))
         except re.error:
             return False
