@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import ForeignKey, String, text
 from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP, UUID
@@ -9,6 +10,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.config import settings
 from app.db.session import Base
+
+if TYPE_CHECKING:
+    from app.db.models.user import User
 
 
 class UserUiSettings(Base):
@@ -20,11 +24,17 @@ class UserUiSettings(Base):
         ForeignKey(f"{settings.DB_SCHEMA_AUTH}.users.id", ondelete="CASCADE"),
         primary_key=True,
     )
-    tool_view: Mapped[str] = mapped_column(String(10), nullable=False, default="grid", server_default=text("'grid'"))
+    tool_view: Mapped[str] = mapped_column(
+        String(10), nullable=False, default="grid", server_default=text("'grid'")
+    )
     # Sparse map of custom keybinding overrides: {shortcut_id: {keys, ctrl?, shift?, alt?}}
-    keybindings: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
+    keybindings: Mapped[dict] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb")
+    )
     # Persisted panel sizes: {panel_key: size_px}
-    panel_sizes: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
+    panel_sizes: Mapped[dict] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb")
+    )
     updated_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), server_default=text("now()"), onupdate=datetime.now
     )

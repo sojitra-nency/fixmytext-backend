@@ -21,7 +21,10 @@ class OperationHistory(Base):
     __table_args__ = {"schema": settings.DB_SCHEMA_ACTIVITY}
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, server_default=sa_text("gen_random_uuid()")
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=sa_text("gen_random_uuid()"),
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -32,7 +35,9 @@ class OperationHistory(Base):
     # Tool identification
     tool_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     tool_label: Mapped[str] = mapped_column(String(200), nullable=False)
-    tool_type: Mapped[str] = mapped_column(String(20), nullable=False)  # api, ai, local, select, action, drawer
+    tool_type: Mapped[str] = mapped_column(
+        String(20), nullable=False
+    )  # api, ai, local, select, action, drawer
 
     # Text snapshots (truncated to 500 chars to avoid bloating)
     input_preview: Mapped[str] = mapped_column(Text, nullable=False)
@@ -40,10 +45,16 @@ class OperationHistory(Base):
     input_length: Mapped[int] = mapped_column(Integer, nullable=False)
     output_length: Mapped[int] = mapped_column(Integer, nullable=False)
 
-    status: Mapped[str] = mapped_column(String(20), nullable=False, server_default=sa_text("'success'"))
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, server_default=sa_text("'success'")
+    )
     # Soft delete: set is_deleted=True instead of hard deleting (migration 0012)
-    is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=sa_text("false"))
+    is_deleted: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=sa_text("false")
+    )
 
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=sa_text("now()"), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=sa_text("now()"), index=True
+    )
 
     user: Mapped["User"] = relationship(back_populates="operation_history")

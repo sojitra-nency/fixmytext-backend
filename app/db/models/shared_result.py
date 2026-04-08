@@ -21,7 +21,10 @@ class SharedResult(Base):
     __table_args__ = {"schema": settings.DB_SCHEMA_ACTIVITY}
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, server_default=sa_text("gen_random_uuid()")
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=sa_text("gen_random_uuid()"),
     )
     user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
@@ -38,12 +41,16 @@ class SharedResult(Base):
     output_text: Mapped[str] = mapped_column(Text, nullable=False)
 
     # View tracking and expiry (added in migration 0013)
-    view_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=sa_text("0"))
+    view_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sa_text("0")
+    )
     expires_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=False,
         server_default=sa_text("now() + INTERVAL '30 days'"),
     )
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=sa_text("now()"), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=sa_text("now()"), index=True
+    )
 
     user: Mapped[Optional["User"]] = relationship()

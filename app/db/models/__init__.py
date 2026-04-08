@@ -2,7 +2,12 @@
 
 # ── Core auth models ──────────────────────────────────────────────────────────
 # ── Billing models ────────────────────────────────────────────────────────────
-from app.db.models.billing_catalog import CreditPackCatalog, CreditPackPrice, PassCatalog, PassCatalogPrice
+from app.db.models.billing_catalog import (
+    CreditPackCatalog,
+    CreditPackPrice,
+    PassCatalog,
+    PassCatalogPrice,
+)
 from app.db.models.billing_credit import BillingUserCredit
 from app.db.models.billing_pass import BillingUserPass, UserPassTool
 from app.db.models.billing_subscription import PaymentEvent, Subscription

@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, ForeignKey, String, Text
 from sqlalchemy import text as sa_text
@@ -11,13 +12,19 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.config import settings
 from app.db.session import Base
 
+if TYPE_CHECKING:
+    from app.db.models.user import User
+
 
 class UserTemplate(Base):
     __tablename__ = "user_templates"
     __table_args__ = {"schema": settings.DB_SCHEMA_ACTIVITY}
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, server_default=sa_text("gen_random_uuid()")
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=sa_text("gen_random_uuid()"),
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -28,8 +35,12 @@ class UserTemplate(Base):
     tool_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     text: Mapped[str] = mapped_column(Text, nullable=False)
     # Soft delete added in migration 0014
-    is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=sa_text("false"))
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=sa_text("now()"))
+    is_deleted: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=sa_text("false")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=sa_text("now()")
+    )
     updated_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), server_default=sa_text("now()"), onupdate=datetime.now
     )

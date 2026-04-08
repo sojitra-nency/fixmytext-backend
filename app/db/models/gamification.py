@@ -25,20 +25,30 @@ class UserGamification(Base):
         primary_key=True,
     )
     xp: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
-    streak_current: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    streak_current: Mapped[int] = mapped_column(
+        Integer, default=0, server_default=text("0")
+    )
 
     streak_last_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     daily_quest_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     total_ops: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
-    total_chars: Mapped[int] = mapped_column(BigInteger, default=0, server_default=text("0"))
+    total_chars: Mapped[int] = mapped_column(
+        BigInteger, default=0, server_default=text("0")
+    )
 
     # ── JSONB kept: bounded append-only sets, only need membership checks via GIN ──
-    achievements: Mapped[list] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
-    completed_quests: Mapped[list] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
+    achievements: Mapped[list] = mapped_column(
+        JSONB, default=list, server_default=text("'[]'::jsonb")
+    )
+    completed_quests: Mapped[list] = mapped_column(
+        JSONB, default=list, server_default=text("'[]'::jsonb")
+    )
 
     daily_quest_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    daily_quest_completed: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    daily_quest_completed: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
     updated_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), server_default=text("now()"), onupdate=datetime.now
     )

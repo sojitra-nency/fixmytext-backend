@@ -21,5 +21,9 @@ class UserFavoriteTool(Base):
         primary_key=True,
     )
     tool_id: Mapped[str] = mapped_column(String(100), primary_key=True)
-    sort_order: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0, server_default=text("0"))
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=text("now()"))
+    sort_order: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, default=0, server_default=text("0")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=text("now()")
+    )

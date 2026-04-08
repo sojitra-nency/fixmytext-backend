@@ -1,6 +1,7 @@
 """Billing catalog ORM models — pass_catalog, pass_catalog_prices, credit_pack_catalog, credit_pack_prices."""
 
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, ForeignKey, Integer, SmallInteger, String, text
 from sqlalchemy.dialects.postgresql import TIMESTAMP
@@ -8,6 +9,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.config import settings
 from app.db.session import Base
+
+if TYPE_CHECKING:
+    from app.db.models.billing_credit import BillingUserCredit
+    from app.db.models.billing_pass import BillingUserPass
 
 
 class PassCatalog(Base):
@@ -20,15 +25,23 @@ class PassCatalog(Base):
     tools_count: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     uses_per_day: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     duration_days: Mapped[int] = mapped_column(SmallInteger, nullable=False)
-    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=text("true"))
-    display_order: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0, server_default=text("0"))
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=text("now()"))
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=text("true")
+    )
+    display_order: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, default=0, server_default=text("0")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=text("now()")
+    )
 
     prices: Mapped[list["PassCatalogPrice"]] = relationship(
         back_populates="pass_catalog",
         cascade="all, delete-orphan",
     )
-    user_passes: Mapped[list["BillingUserPass"]] = relationship(back_populates="pass_catalog")
+    user_passes: Mapped[list["BillingUserPass"]] = relationship(
+        back_populates="pass_catalog"
+    )
 
 
 class PassCatalogPrice(Base):
@@ -54,15 +67,23 @@ class CreditPackCatalog(Base):
     id: Mapped[str] = mapped_column(String(50), primary_key=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     credits: Mapped[int] = mapped_column(SmallInteger, nullable=False)
-    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=text("true"))
-    display_order: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0, server_default=text("0"))
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=text("now()"))
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=text("true")
+    )
+    display_order: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, default=0, server_default=text("0")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=text("now()")
+    )
 
     prices: Mapped[list["CreditPackPrice"]] = relationship(
         back_populates="pack_catalog",
         cascade="all, delete-orphan",
     )
-    user_credits: Mapped[list["BillingUserCredit"]] = relationship(back_populates="pack_catalog")
+    user_credits: Mapped[list["BillingUserCredit"]] = relationship(
+        back_populates="pack_catalog"
+    )
 
 
 class CreditPackPrice(Base):

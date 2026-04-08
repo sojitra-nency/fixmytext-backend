@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import ForeignKey, String, text
 from sqlalchemy.dialects.postgresql import TIMESTAMP, UUID
@@ -9,6 +10,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.config import settings
 from app.db.session import Base
+
+if TYPE_CHECKING:
+    from app.db.models.user import User
 
 
 class UserPreferences(Base):
@@ -20,7 +24,9 @@ class UserPreferences(Base):
         ForeignKey(f"{settings.DB_SCHEMA_AUTH}.users.id", ondelete="CASCADE"),
         primary_key=True,
     )
-    theme: Mapped[str] = mapped_column(String(10), default="dark", server_default=text("'dark'"))
+    theme: Mapped[str] = mapped_column(
+        String(10), default="dark", server_default=text("'dark'")
+    )
     persona: Mapped[str | None] = mapped_column(String(50), nullable=True)
     theme_skin: Mapped[str | None] = mapped_column(String(50), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(

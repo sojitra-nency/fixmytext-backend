@@ -21,4 +21,6 @@ class UserDiscoveredTool(Base):
         primary_key=True,
     )
     tool_id: Mapped[str] = mapped_column(String(100), primary_key=True)
-    discovered_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=text("now()"))
+    discovered_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=text("now()")
+    )

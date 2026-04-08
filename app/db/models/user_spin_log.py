@@ -26,4 +26,6 @@ class UserSpinLog(Base):
     spin_date: Mapped[date] = mapped_column(Date, nullable=False)
     reward_type: Mapped[str] = mapped_column(String(20), nullable=False)
     reward_ref: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=text("now()"))
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=text("now()")
+    )

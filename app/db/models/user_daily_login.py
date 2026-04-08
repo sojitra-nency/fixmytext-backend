@@ -20,4 +20,6 @@ class UserDailyLogin(Base):
         ForeignKey(f"{settings.DB_SCHEMA_AUTH}.users.id", ondelete="CASCADE"),
         primary_key=True,
     )
-    login_date: Mapped[date] = mapped_column(Date, primary_key=True, server_default=text("CURRENT_DATE"))
+    login_date: Mapped[date] = mapped_column(
+        Date, primary_key=True, server_default=text("CURRENT_DATE")
+    )

@@ -21,5 +21,9 @@ class UserToolUsage(Base):
         primary_key=True,
     )
     tool_id: Mapped[str] = mapped_column(String(100), primary_key=True)
-    usage_date: Mapped[date] = mapped_column(Date, primary_key=True, server_default=text("CURRENT_DATE"))
-    use_count: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=1, server_default=text("1"))
+    usage_date: Mapped[date] = mapped_column(
+        Date, primary_key=True, server_default=text("CURRENT_DATE")
+    )
+    use_count: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, default=1, server_default=text("1")
+    )
