@@ -1,4 +1,9 @@
-"""Declarative base, async engine, and session factory for PostgreSQL."""
+"""
+Declarative base, async engine, and session factory for PostgreSQL.
+
+Configures connection pooling via settings (pool_size, max_overflow,
+pool_recycle) to control resource usage and connection lifetime.
+"""
 
 from sqlalchemy import MetaData
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -21,7 +26,12 @@ class Base(DeclarativeBase):
 
 
 engine = create_async_engine(
-    settings.DATABASE_URL, echo=settings.DEBUG, pool_pre_ping=True
+    settings.DATABASE_URL,
+    echo=settings.DEBUG,
+    pool_size=settings.DB_POOL_SIZE,
+    max_overflow=settings.DB_MAX_OVERFLOW,
+    pool_recycle=settings.DB_POOL_RECYCLE,
+    pool_pre_ping=True,
 )
 AsyncSessionLocal = async_sessionmaker(
     engine, class_=AsyncSession, expire_on_commit=False

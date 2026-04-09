@@ -4,6 +4,8 @@ from pydantic import BaseModel
 
 
 class SubscriptionStatus(BaseModel):
+    """Current subscription status and usage summary for the user."""
+
     tier: str
     tool_uses_today: dict = {}
     free_uses_per_tool: int = 3
@@ -14,6 +16,8 @@ class SubscriptionStatus(BaseModel):
 
 
 class RazorpayProOrderResponse(BaseModel):
+    """Response after creating a Razorpay order for Pro subscription."""
+
     order_id: str
     amount: int
     currency: str
@@ -23,6 +27,8 @@ class RazorpayProOrderResponse(BaseModel):
 
 
 class RazorpayProVerifyRequest(BaseModel):
+    """Request to verify a Razorpay payment for Pro subscription."""
+
     razorpay_order_id: str
     razorpay_payment_id: str
     razorpay_signature: str

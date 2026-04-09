@@ -1,7 +1,10 @@
 """
-Text transformations — pure functions, no I/O or side effects.
+Local text transformation functions.
 
-Keeps endpoint handlers thin and makes the logic easily testable.
+All functions are pure and synchronous.  The API layer wraps them in
+``asyncio.to_thread()`` to avoid blocking the event loop.  Adding a
+new local tool only requires writing the function here and registering
+it in ``app.core.tool_registry``.
 """
 
 import base64

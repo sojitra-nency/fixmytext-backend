@@ -23,6 +23,10 @@ from app.services.auth_service import register as do_register
 
 logger = logging.getLogger(__name__)
 
+# Cookie configuration sourced from settings (with safe fallbacks)
+REFRESH_COOKIE = getattr(settings, "COOKIE_NAME", "refresh_token")
+REFRESH_COOKIE_PATH = getattr(settings, "COOKIE_PATH", "/api/v1/auth")
+
 
 def _s(value: object) -> str:
     """Sanitize a value for log output — strips CR/LF to prevent log injection."""
@@ -31,29 +35,31 @@ def _s(value: object) -> str:
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
-REFRESH_COOKIE = "refresh_token"
-REFRESH_COOKIE_PATH = "/api/v1/auth"
-
 
 async def _set_user_region(user, request: Request, db: AsyncSession):
-    """Detect and store user region from IP address."""
+    """Detect and store the user's region from their IP address.
+
+    This is non-critical — failures are logged but do not block the request.
+    The user will default to the US region if detection fails.
+    """
     try:
         from app.services.region_service import resolve_user_region
 
         await resolve_user_region(user, request, db)
         await db.commit()
-    except Exception:  # noqa: S110
-        pass  # non-critical, default to US
+    except Exception:
+        logger.warning("Failed to set user region, defaulting to US", exc_info=True)
 
 
 def _set_refresh_cookie(
     response: Response, token: str, *, persistent: bool = True
 ) -> None:
+    """Set the refresh token as an HTTP-only secure cookie on the response."""
     response.set_cookie(
         key=REFRESH_COOKIE,
         value=token,
         httponly=True,
-        secure=not settings.DEBUG,
+        secure=getattr(settings, "COOKIE_SECURE", True),
         samesite="lax",
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400 if persistent else None,
         path=REFRESH_COOKIE_PATH,
@@ -61,6 +67,7 @@ def _set_refresh_cookie(
 
 
 def _clear_refresh_cookie(response: Response) -> None:
+    """Remove the refresh token cookie from the client."""
     response.delete_cookie(key=REFRESH_COOKIE, path=REFRESH_COOKIE_PATH)
 
 
@@ -74,7 +81,11 @@ async def register(
     response: Response,
     db: AsyncSession = Depends(get_db),
 ):
-    """Create a new account and return tokens."""
+    """Create a new user account and return an access token pair.
+
+    The refresh token is set as an HTTP-only cookie; only the access token
+    is returned in the response body.
+    """
     logger.info(
         "REGISTER attempt email=%s display_name=%s", _s(req.email), _s(req.display_name)
     )
@@ -107,7 +118,11 @@ async def login(
     response: Response,
     db: AsyncSession = Depends(get_db),
 ):
-    """Authenticate with email + password and return tokens."""
+    """Authenticate with email and password and return an access token.
+
+    On success the refresh token is stored as an HTTP-only cookie. If
+    ``remember_me`` is false the cookie is a session cookie (no max_age).
+    """
     logger.info("LOGIN attempt email=%s", _s(req.email))
     user = await authenticate(db, req.email, req.password)
     # Detect region from IP if not set yet
@@ -126,7 +141,11 @@ async def login(
 async def refresh(
     request: Request, response: Response, db: AsyncSession = Depends(get_db)
 ):
-    """Exchange a valid refresh token (from cookie) for a new access token."""
+    """Exchange a valid refresh token (from cookie) for a new access/refresh pair.
+
+    Implements token rotation: a new refresh token replaces the old one on
+    every successful refresh.
+    """
     token = request.cookies.get(REFRESH_COOKIE)
     if not token:
         raise HTTPException(status_code=401, detail="No refresh token")
@@ -161,7 +180,7 @@ async def refresh(
 
 @router.post("/logout")
 async def logout(response: Response, user: User = Depends(get_current_user)):
-    """Clear the refresh token cookie."""
+    """Log out by clearing the refresh token cookie."""
     _clear_refresh_cookie(response)
     return {"detail": "Logged out"}
 
@@ -173,7 +192,7 @@ async def logout(response: Response, user: User = Depends(get_current_user)):
 async def me(
     user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
 ):
-    """Return the current authenticated user's profile."""
+    """Return the current authenticated user's profile and subscription tier."""
     from app.services.pass_service import get_subscription_tier
 
     return UserResponse(

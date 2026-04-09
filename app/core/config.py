@@ -27,11 +27,24 @@ class Settings(BaseSettings):
 
     # ── AI / Groq ─────────────────────────────────────────────────────────────
     GROQ_API_KEY: str = ""
+    GROQ_MODEL: str = "llama-3.3-70b-versatile"  # Default Groq model for AI endpoints
+
+    # ── Rate limiting ────────────────────────────────────────────────────────
+    RATE_LIMIT_MAX_REQUESTS: int = 25  # Max requests per window (default)
+    RATE_LIMIT_WINDOW_SECONDS: int = 60  # Sliding window duration in seconds
+    AUTH_RATE_LIMIT_MAX: int = 50  # Higher limit for authenticated users
+    VISITOR_RATE_LIMIT_MAX: int = 25  # Limit for unauthenticated visitors
 
     # ── Auth / JWT ────────────────────────────────────────────────────────────
     SECRET_KEY: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
+    # ── Auth / Cookies ───────────────────────────────────────────────────────
+    ENVIRONMENT: str = "development"  # "development", "staging", "production"
+    COOKIE_SECURE: bool = True  # Set to False for local dev without HTTPS
+    COOKIE_NAME: str = "refresh_token"
+    COOKIE_PATH: str = "/api/v1/auth"
 
     # ── Razorpay ───────────────────────────────────────────────────────────
     RAZORPAY_KEY_ID: str = ""
@@ -41,13 +54,28 @@ class Settings(BaseSettings):
     DAILY_LOGIN_BONUS: int = 1
     FRONTEND_URL: str = "http://localhost:3000"
 
+    # ── Share ─────────────────────────────────────────────────────────────────
+    SHARE_EXPIRE_DAYS: int = 30  # Days before shared links expire
+    MAX_SHARE_TEXT_LENGTH: int = 50_000  # Max characters for shared text
+
+    # ── History ───────────────────────────────────────────────────────────────
+    HISTORY_PREVIEW_MAX_LENGTH: int = 500  # Truncation limit for history previews
+
     # ── Database ─────────────────────────────────────────────────────────────
     DATABASE_URL: str
+
+    # ── Database pool ────────────────────────────────────────────────────────
+    DB_POOL_SIZE: int = 20  # Number of persistent connections in the pool
+    DB_MAX_OVERFLOW: int = 10  # Extra connections allowed beyond pool_size
+    DB_POOL_RECYCLE: int = 3600  # Seconds before a connection is recycled
 
     # ── PostgreSQL schemas ───────────────────────────────────────────────────
     DB_SCHEMA_AUTH: str = "auth"
     DB_SCHEMA_ACTIVITY: str = "activity"
     DB_SCHEMA_BILLING: str = "billing"
+
+    # ── Redis (optional — for distributed rate limiting, caching, etc.) ──────
+    REDIS_URL: str = ""
 
     # ── CORS ──────────────────────────────────────────────────────────────────
     # Accepts JSON array or comma-separated string in .env

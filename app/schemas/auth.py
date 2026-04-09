@@ -1,12 +1,12 @@
 """Pydantic schemas for authentication requests and responses."""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 
 
 class RegisterRequest(BaseModel):
-    email: str = Field(
-        ..., pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$", description="User email"
-    )
+    """Request schema for user registration."""
+
+    email: EmailStr = Field(..., description="User email address")
     password: str = Field(
         ..., min_length=8, max_length=128, description="Password (8-128 chars)"
     )
@@ -16,7 +16,9 @@ class RegisterRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    email: str = Field(..., description="User email")
+    """Request schema for user login."""
+
+    email: EmailStr = Field(..., description="User email address")
     password: str = Field(..., description="User password")
     remember_me: bool = Field(
         False, description="Persist session across browser restarts"
@@ -24,11 +26,15 @@ class LoginRequest(BaseModel):
 
 
 class TokenResponse(BaseModel):
+    """Response containing a JWT access token."""
+
     access_token: str
     token_type: str = "bearer"  # noqa: S105
 
 
 class UserResponse(BaseModel):
+    """Response containing the authenticated user's profile."""
+
     id: str
     email: str
     display_name: str
