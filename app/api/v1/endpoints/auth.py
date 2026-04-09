@@ -23,6 +23,12 @@ from app.services.auth_service import register as do_register
 
 logger = logging.getLogger(__name__)
 
+
+def _s(value: object) -> str:
+    """Sanitize a value for log output — strips CR/LF to prevent log injection."""
+    return str(value).replace("\r", " ").replace("\n", " ")
+
+
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
 REFRESH_COOKIE = "refresh_token"
@@ -70,17 +76,17 @@ async def register(
 ):
     """Create a new account and return tokens."""
     logger.info(
-        "REGISTER attempt email=%s display_name=%s", req.email, req.display_name
+        "REGISTER attempt email=%s display_name=%s", _s(req.email), _s(req.display_name)
     )
     try:
         user = await do_register(db, req.email, req.password, req.display_name)
     except HTTPException:
         logger.warning(
-            "REGISTER failed email=%s (duplicate or validation error)", req.email
+            "REGISTER failed email=%s (duplicate or validation error)", _s(req.email)
         )
         raise
     except Exception:
-        logger.exception("REGISTER unexpected error email=%s", req.email)
+        logger.exception("REGISTER unexpected error email=%s", _s(req.email))
         raise
     # Detect region from IP
     await _set_user_region(user, request, db)
@@ -102,7 +108,7 @@ async def login(
     db: AsyncSession = Depends(get_db),
 ):
     """Authenticate with email + password and return tokens."""
-    logger.info("LOGIN attempt email=%s", req.email)
+    logger.info("LOGIN attempt email=%s", _s(req.email))
     user = await authenticate(db, req.email, req.password)
     # Detect region from IP if not set yet
     if not user.region:

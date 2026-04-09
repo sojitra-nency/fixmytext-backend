@@ -37,6 +37,12 @@ from app.services.region_service import resolve_user_region
 
 logger = logging.getLogger(__name__)
 
+
+def _s(value: object) -> str:
+    """Sanitize a value for log output — strips CR/LF to prevent log injection."""
+    return str(value).replace("\r", " ").replace("\n", " ")
+
+
 router = APIRouter(prefix="/subscription", tags=["Subscription"])
 
 
@@ -164,8 +170,8 @@ async def verify_pro_payment(
     logger.info(
         "Pro activated: user=%s order=%s payment=%s",
         user.id,
-        req.razorpay_order_id,
-        req.razorpay_payment_id,
+        _s(req.razorpay_order_id),
+        _s(req.razorpay_payment_id),
     )
     return {"status": "success", "tier": "pro"}
 

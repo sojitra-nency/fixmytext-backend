@@ -16,6 +16,14 @@ revision: str = "0016"
 down_revision: Union[str, None] = "0015"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
+__all__ = [
+    "revision",
+    "down_revision",
+    "branch_labels",
+    "depends_on",
+    "upgrade",
+    "downgrade",
+]
 
 
 def upgrade() -> None:
