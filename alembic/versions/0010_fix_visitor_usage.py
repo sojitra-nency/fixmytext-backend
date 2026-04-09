@@ -9,11 +9,13 @@ Revises: 0009
 Create Date: 2026-03-26
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
+from typing import Union
+
+import sqlalchemy as sa
+from sqlalchemy.dialects.postgresql import INET, TIMESTAMP, UUID
 
 from alembic import op
-import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import UUID, INET, TIMESTAMP
 
 revision: str = "0010"
 down_revision: Union[str, None] = "0009"

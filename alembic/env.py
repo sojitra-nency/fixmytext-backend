@@ -10,16 +10,15 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
-
 from app.core.config import settings
-from app.db.session import Base
+from app.db.models.gamification import UserGamification  # noqa: F401
+from app.db.models.preferences import UserPreferences  # noqa: F401
+from app.db.models.template import UserTemplate  # noqa: F401
 
 # Register all models for autogenerate support
 from app.db.models.user import User  # noqa: F401
-from app.db.models.preferences import UserPreferences  # noqa: F401
-from app.db.models.gamification import UserGamification  # noqa: F401
-from app.db.models.template import UserTemplate  # noqa: F401
 from app.db.models.visitor_usage import VisitorUsage  # noqa: F401
+from app.db.session import Base
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
@@ -104,11 +103,12 @@ def process_revision_directives(_context, _revision, directives):
             if hasattr(directive, "rev_id"):
                 directive.rev_id = get_next_revision_number()
 
-            if hasattr(directive, "upgrade_ops") and directive.upgrade_ops:
-                if not directive.message or directive.message.strip() == "":
-                    directive.message = generate_slug_from_operations(
-                        directive.upgrade_ops
-                    )
+            if (
+                hasattr(directive, "upgrade_ops")
+                and directive.upgrade_ops
+                and (not directive.message or directive.message.strip() == "")
+            ):
+                directive.message = generate_slug_from_operations(directive.upgrade_ops)
 
 
 # ── Migration runners ─────────────────────────────────────────────────────────

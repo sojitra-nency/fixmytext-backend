@@ -8,11 +8,13 @@ Revises: 0010
 Create Date: 2026-03-26
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
+from typing import Union
+
+import sqlalchemy as sa
+from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP, UUID
 
 from alembic import op
-import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import UUID, JSONB, TIMESTAMP
 
 revision: str = "0011"
 down_revision: Union[str, None] = "0010"
@@ -245,7 +247,7 @@ def upgrade() -> None:
         sa.Column("streak_last_date_new", sa.Date(), nullable=True),
         schema="activity",
     )
-    op.execute("""
+    op.execute(r"""
         UPDATE activity.user_gamification
         SET streak_last_date_new = streak_last_date::date
         WHERE streak_last_date IS NOT NULL
@@ -258,7 +260,7 @@ def upgrade() -> None:
         sa.Column("daily_quest_date_new", sa.Date(), nullable=True),
         schema="activity",
     )
-    op.execute("""
+    op.execute(r"""
         UPDATE activity.user_gamification
         SET daily_quest_date_new = daily_quest_date::date
         WHERE daily_quest_date IS NOT NULL

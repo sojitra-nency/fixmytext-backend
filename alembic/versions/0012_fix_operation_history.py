@@ -5,10 +5,12 @@ Revises: 0011
 Create Date: 2026-03-26
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
+from typing import Union
+
+import sqlalchemy as sa
 
 from alembic import op
-import sqlalchemy as sa
 
 revision: str = "0012"
 down_revision: Union[str, None] = "0011"

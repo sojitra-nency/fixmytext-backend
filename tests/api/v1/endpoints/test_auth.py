@@ -50,16 +50,18 @@ def test_register_success(empty_db):
 
     app.dependency_overrides[get_db] = _get_db
 
-    with patch("app.api.v1.endpoints.auth._set_user_region"):
-        with patch("app.services.region_service.resolve_user_region"):
-            resp = TestClient(app, raise_server_exceptions=True).post(
-                "/api/v1/auth/register",
-                json={
-                    "email": "new@example.com",
-                    "password": "password123",
-                    "display_name": "New User",
-                },
-            )
+    with (
+        patch("app.api.v1.endpoints.auth._set_user_region"),
+        patch("app.services.region_service.resolve_user_region"),
+    ):
+        resp = TestClient(app, raise_server_exceptions=True).post(
+            "/api/v1/auth/register",
+            json={
+                "email": "new@example.com",
+                "password": "password123",
+                "display_name": "New User",
+            },
+        )
     app.dependency_overrides.clear()
     # May succeed or hit issues with the mock — we test the request reaches the endpoint
     assert resp.status_code in (200, 201, 500)

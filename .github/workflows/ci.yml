@@ -3,15 +3,6 @@ name: Backend CI
 on:
   pull_request:
     branches: [main, master, develop]
-    paths:
-      - '**/*.py'
-      - 'requirements.txt'
-      - 'pyproject.toml'
-      - 'pytest.ini'
-      - 'Dockerfile*'
-      - 'docker-compose.yml'
-      - '.github/workflows/ci.yml'
-      - '.github/workflows/codeql.yml'
   push:
     branches: [main, master]
 
@@ -37,7 +28,7 @@ jobs:
   security-scan:
     name: CodeQL Analysis
     runs-on: ubuntu-latest
-    if: ${{ !github.event.pull_request.head.repo.fork }}
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork }}
     permissions:
       security-events: write
       actions: read

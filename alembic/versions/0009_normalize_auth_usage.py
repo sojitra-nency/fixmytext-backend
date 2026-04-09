@@ -12,11 +12,13 @@ Revises: 0008
 Create Date: 2026-03-26
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
+from typing import Union
+
+import sqlalchemy as sa
+from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP, UUID
 
 from alembic import op
-import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import UUID, JSONB, TIMESTAMP
 
 revision: str = "0009"
 down_revision: Union[str, None] = "0008"
@@ -124,7 +126,7 @@ def upgrade() -> None:
     )
 
     # Migrate last spin date (only users who spun this week, reward_type unknown — default 'credits')
-    op.execute("""
+    op.execute(r"""
         INSERT INTO auth.user_spin_log (user_id, iso_year, iso_week, spin_date, reward_type)
         SELECT
             id,

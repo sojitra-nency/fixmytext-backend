@@ -11,7 +11,7 @@ def make_shared_result(**kwargs):
     from app.db.models.shared_result import SharedResult
 
     row = SharedResult(
-        user_id=kwargs.get("user_id", None),
+        user_id=kwargs.get("user_id"),
         tool_id=kwargs.get("tool_id", "uppercase"),
         tool_label=kwargs.get("tool_label", "Uppercase"),
         output_text=kwargs.get("output_text", "HELLO WORLD"),

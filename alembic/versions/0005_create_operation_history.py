@@ -5,11 +5,13 @@ Revises: 0004
 Create Date: 2026-03-23 10:00:00.000000
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
+from typing import Union
+
+import sqlalchemy as sa
+from sqlalchemy.dialects.postgresql import TIMESTAMP, UUID
 
 from alembic import op
-import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP
 
 revision: str = "0005"
 down_revision: Union[str, None] = "0004"

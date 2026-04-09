@@ -4,7 +4,7 @@
 
 ## Prerequisites
 
-- Python 3.11+
+- Python 3.12+
 - PostgreSQL 16 (or Docker)
 - Groq API key (free at [console.groq.com](https://console.groq.com) — for AI tools)
 - Razorpay keys (for billing features — optional for development)

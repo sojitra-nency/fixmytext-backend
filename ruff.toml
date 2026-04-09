@@ -1,4 +1,0 @@
-[lint.per-file-ignores]
-# SQLAlchemy ORM models use string forward references in Mapped["Type"] annotations.
-# These resolve via the mapper registry at runtime — F821 (undefined name) is expected.
-"app/db/models/*.py" = ["F821"]

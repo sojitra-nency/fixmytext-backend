@@ -10,11 +10,13 @@ Revises: 0007
 Create Date: 2026-03-26
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
+from typing import Union
+
+import sqlalchemy as sa
+from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP, UUID
 
 from alembic import op
-import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import UUID, JSONB, TIMESTAMP
 
 revision: str = "0008"
 down_revision: Union[str, None] = "0007"
@@ -210,7 +212,7 @@ def upgrade() -> None:
 
     # ── Migrate auth.user_passes → billing.user_passes + billing.user_pass_tools
     # uses_reset_date: cast the VARCHAR(10) date string to DATE (NULL-safe)
-    op.execute("""
+    op.execute(r"""
         WITH inserted AS (
             INSERT INTO billing.user_passes
                 (id, user_id, pass_id, tools_count, uses_per_day, source,

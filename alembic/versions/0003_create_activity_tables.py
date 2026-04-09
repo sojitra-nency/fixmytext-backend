@@ -4,10 +4,13 @@ Revision ID: 0003
 Create Date: 2026-03-17
 """
 
-from typing import Sequence, Union
-from alembic import op
+from collections.abc import Sequence
+from typing import Union
+
 import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import UUID, JSONB, TIMESTAMP
+from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP, UUID
+
+from alembic import op
 
 # revision identifiers
 revision: str = "0003"
