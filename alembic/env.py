@@ -11,14 +11,17 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 from app.core.config import settings
-from app.db.models.gamification import UserGamification  # noqa: F401
-from app.db.models.preferences import UserPreferences  # noqa: F401
-from app.db.models.template import UserTemplate  # noqa: F401
-
-# Register all models for autogenerate support
-from app.db.models.user import User  # noqa: F401
-from app.db.models.visitor_usage import VisitorUsage  # noqa: F401
+from app.db.models.gamification import UserGamification
+from app.db.models.preferences import UserPreferences
+from app.db.models.template import UserTemplate
+from app.db.models.user import User
+from app.db.models.visitor_usage import VisitorUsage
 from app.db.session import Base
+
+# Explicitly reference every model so static analysers (CodeQL, ruff) recognise
+# these imports as intentional.  They are imported for their side-effect of
+# registering each table with Base.metadata so Alembic autogenerate works.
+_MODELS = [User, UserGamification, UserPreferences, UserTemplate, VisitorUsage]
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
