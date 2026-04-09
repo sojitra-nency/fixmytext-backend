@@ -2,8 +2,8 @@
 PyYAML==6.0.1  # PyYAML: used by app/services/text_service.py
 
 # FastAPI + ASGI server
-fastapi==0.110.0
-uvicorn[standard]==0.29.0
+fastapi==0.115.12
+uvicorn[standard]==0.34.0
 
 # Settings management
 pydantic-settings==2.2.0
@@ -24,13 +24,13 @@ asyncpg==0.29.0
 alembic==1.13.0
 
 # Authentication
-python-jose[cryptography]==3.3.0
+PyJWT[crypto]==2.9.0
 passlib[bcrypt]==1.7.4
 bcrypt==4.0.1
-python-multipart==0.0.9
+python-multipart==0.0.22
 
 # Payments
-setuptools==75.8.0  # pinned <78: razorpay uses pkg_resources, removed in setuptools>=78
+setuptools==78.1.1
 razorpay==1.4.2
 
 # Structured logging

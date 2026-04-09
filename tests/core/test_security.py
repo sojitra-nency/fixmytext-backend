@@ -3,8 +3,9 @@
 import time
 import uuid
 
+import jwt
 import pytest
-from jose import JWTError, jwt
+from jwt.exceptions import PyJWTError as JWTError
 
 from app.core.config import settings
 from app.core.security import (

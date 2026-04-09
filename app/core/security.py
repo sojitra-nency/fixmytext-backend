@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime, timedelta
 
-from jose import jwt
+import jwt
 from passlib.context import CryptContext
 
 from app.core.config import settings
@@ -55,5 +55,5 @@ def create_refresh_token(user_id) -> str:
 
 
 def decode_token(token: str) -> dict:
-    """Decode and validate a JWT. Raises JWTError on invalid/expired tokens."""
+    """Decode and validate a JWT. Raises jwt.PyJWTError on invalid/expired tokens."""
     return jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])

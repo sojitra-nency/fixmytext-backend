@@ -4,8 +4,10 @@ import random
 import secrets
 from datetime import UTC, date, datetime, timedelta
 
-from sqlalchemy import and_, cast as sa_cast, func, or_, select
-from sqlalchemy.dialects.postgresql import INET, insert as pg_insert
+from sqlalchemy import and_, func, or_, select
+from sqlalchemy import cast as sa_cast
+from sqlalchemy.dialects.postgresql import INET
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -369,9 +371,7 @@ async def check_visitor_access(
     if fingerprint:
         conditions.append(VisitorUsage.fingerprint == fingerprint)
     if ip_address:
-        conditions.append(
-            VisitorUsage.ip_address == sa_cast(ip_address, INET)
-        )
+        conditions.append(VisitorUsage.ip_address == sa_cast(ip_address, INET))
 
     if conditions:
         result = await db.execute(
