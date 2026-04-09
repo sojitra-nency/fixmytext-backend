@@ -119,7 +119,9 @@ COVERAGE_CASES = [
     (ts.csv_to_json, ("name,age\nAlice,30",), {}),
     (ts.json_to_csv, ('[{"name":"Alice","age":30}]',), {}),
     pytest.param(
-        ts.xml_to_json, ("<root><item>hello</item></root>",), {},
+        ts.xml_to_json,
+        ("<root><item>hello</item></root>",),
+        {},
         marks=pytest.mark.xfail(reason="parser-dependent"),
     ),
     (ts.csv_to_table, ("name,age\nAlice,30",), {}),
