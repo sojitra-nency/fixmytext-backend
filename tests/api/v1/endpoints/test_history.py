@@ -184,28 +184,19 @@ def test_record_operation_requires_auth(unauth_client):
 # ── GET /history/stats/summary ────────────────────────────────────────────────
 
 
+def _make_stats_row(tool_id, count, last_used):
+    """Build a mock row matching the grouped stats query (tool_id, count, last_used)."""
+    row = MagicMock()
+    row.tool_id = tool_id
+    row.count = count
+    row.last_used = last_used
+    return row
+
+
 def test_get_stats_empty(client, mock_db):
-    count_result = MagicMock()
-    count_result.scalar.return_value = 0
-
-    breakdown_result = MagicMock()
-    breakdown_result.all.return_value = []
-
-    recent_result = MagicMock()
-    recent_result.scalars.return_value.all.return_value = []
-
-    call_count = 0
-
-    async def execute_side_effect(stmt):
-        nonlocal call_count
-        call_count += 1
-        if call_count == 1:
-            return count_result
-        if call_count == 2:
-            return breakdown_result
-        return recent_result
-
-    mock_db.execute.side_effect = execute_side_effect
+    stats_result = MagicMock()
+    stats_result.all.return_value = []
+    mock_db.execute.return_value = stats_result
 
     resp = client.get("/api/v1/history/stats/summary")
     assert resp.status_code == 200
@@ -216,33 +207,20 @@ def test_get_stats_empty(client, mock_db):
 
 
 def test_get_stats_with_data(client, mock_db):
-    count_result = MagicMock()
-    count_result.scalar.return_value = 10
-
-    breakdown_result = MagicMock()
-    breakdown_result.all.return_value = [("uppercase", 7), ("lowercase", 3)]
-
-    recent_result = MagicMock()
-    recent_result.scalars.return_value.all.return_value = ["uppercase", "lowercase"]
-
-    call_count = 0
-
-    async def execute_side_effect(stmt):
-        nonlocal call_count
-        call_count += 1
-        if call_count == 1:
-            return count_result
-        if call_count == 2:
-            return breakdown_result
-        return recent_result
-
-    mock_db.execute.side_effect = execute_side_effect
+    stats_result = MagicMock()
+    stats_result.all.return_value = [
+        _make_stats_row("uppercase", 7, datetime(2026, 4, 9, 12, 0, tzinfo=UTC)),
+        _make_stats_row("lowercase", 3, datetime(2026, 4, 9, 11, 0, tzinfo=UTC)),
+    ]
+    mock_db.execute.return_value = stats_result
 
     resp = client.get("/api/v1/history/stats/summary")
     assert resp.status_code == 200
     data = resp.json()
     assert data["total_operations"] == 10
-    assert "uppercase" in data["tools_breakdown"]
+    assert data["tools_breakdown"]["uppercase"] == 7
+    assert data["tools_breakdown"]["lowercase"] == 3
+    assert data["recent_tools"][0] == "uppercase"
 
 
 def test_get_stats_requires_auth(unauth_client):
@@ -310,11 +288,12 @@ def test_get_single_entry_requires_auth(unauth_client):
 def test_delete_entry_success(client, mock_db, fake_user):
     entry_id = uuid.uuid4()
     row = make_history_row(id=entry_id, user_id=fake_user.id)
+    row.is_deleted = False
     mock_db.get.return_value = row
 
     resp = client.delete(f"/api/v1/history/{entry_id}")
     assert resp.status_code == 204
-    mock_db.delete.assert_awaited_once_with(row)
+    assert row.is_deleted is True  # soft-delete sets the flag
     mock_db.commit.assert_awaited()
 
 

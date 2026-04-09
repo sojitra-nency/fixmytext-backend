@@ -208,8 +208,7 @@ class TestGroqClientLifecycle:
 
         original = ai_service._groq_client
         ai_service._groq_client = None
-        with patch("app.core.config.settings") as mock_settings:
-            mock_settings.GROQ_API_KEY = ""
+        with patch.object(ai_service.settings, "GROQ_API_KEY", ""):
             ai_service.init_groq_client()
         assert ai_service._groq_client is None
         ai_service._groq_client = original

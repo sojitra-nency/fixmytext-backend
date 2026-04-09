@@ -481,7 +481,7 @@ class TestAiEndpointsWithMock:
     def test_generate_hashtags(self, client):
         """Mocked hashtag generation returns result."""
         with patch(
-            "app.services.ai_service.HashtagService.generate_hashtags",
+            "app.services.ai_service.run_ai_tool",
             AsyncMock(return_value="#TestTag #AI"),
         ):
             resp = client.post(
@@ -493,7 +493,7 @@ class TestAiEndpointsWithMock:
     def test_generate_seo_titles(self, client):
         """Mocked SEO title generation returns result."""
         with patch(
-            "app.services.ai_service.SEOTitleService.generate_seo_titles",
+            "app.services.ai_service.run_ai_tool",
             AsyncMock(return_value="SEO Title 1\nSEO Title 2"),
         ):
             resp = client.post(
@@ -504,7 +504,7 @@ class TestAiEndpointsWithMock:
     def test_extract_keywords(self, client):
         """Mocked keyword extraction returns result."""
         with patch(
-            "app.services.ai_service.KeywordExtractorService.extract_keywords",
+            "app.services.ai_service.run_ai_tool",
             AsyncMock(return_value="keyword1\nkeyword2"),
         ):
             resp = client.post(
@@ -515,7 +515,7 @@ class TestAiEndpointsWithMock:
     def test_emojify(self, client):
         """Mocked emojify returns result."""
         with patch(
-            "app.services.ai_service.EmojifyService.emojify",
+            "app.services.ai_service.run_ai_tool",
             AsyncMock(return_value="Hello world! :)"),
         ):
             resp = client.post("/api/v1/text/emojify", json={"text": "Hello world"})
@@ -524,7 +524,7 @@ class TestAiEndpointsWithMock:
     def test_rewrite_email(self, client):
         """Mocked email rewrite returns result."""
         with patch(
-            "app.services.ai_service.EmailRewriterService.rewrite_email",
+            "app.services.ai_service.run_ai_tool",
             AsyncMock(return_value="Dear Sir, ..."),
         ):
             resp = client.post(
