@@ -6,10 +6,13 @@ import logging
 import sys
 
 # razorpay 1.x uses pkg_resources (removed from setuptools>=78).
-# Shim it with importlib.metadata so the import succeeds.
+# Ensure it is loadable before importing razorpay; shim with
+# importlib.metadata if the real package is missing.
 if "pkg_resources" not in sys.modules:
+    import importlib
+
     try:
-        import pkg_resources  # noqa: F401
+        importlib.import_module("pkg_resources")
     except ImportError:
         import importlib.metadata as _md
         import types

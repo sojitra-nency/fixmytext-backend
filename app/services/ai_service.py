@@ -414,8 +414,7 @@ def _sentiment_fallback(text: str) -> str:
             "**Sarcasm Detected:** Cannot detect (requires AI)",
             "**Tone:** Cannot detect (requires AI)",
             "",
-            "Note: Set GROQ_API_KEY for full AI-powered analysis "
-            "with sarcasm detection and tone analysis.",
+            "Note: Set GROQ_API_KEY for full AI-powered analysis with sarcasm detection and tone analysis.",
         ]
     )
 

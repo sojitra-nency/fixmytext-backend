@@ -56,7 +56,8 @@ async def verify_razorpay_payment(
     try:
         order = fetch_order(razorpay_order_id)
     except Exception as e:
-        logger.exception("Failed to fetch Razorpay order %s", razorpay_order_id)
+        sanitized_id = razorpay_order_id.replace("\n", "").replace("\r", "")[:64]
+        logger.exception("Failed to fetch Razorpay order %s", sanitized_id)
         raise HTTPException(
             502, "Could not verify order details with payment provider"
         ) from e

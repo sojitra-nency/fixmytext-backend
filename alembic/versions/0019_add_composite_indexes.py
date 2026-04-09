@@ -15,10 +15,11 @@ from typing import Union
 
 from alembic import op
 
-revision: str = "0019"
-down_revision: Union[str, None] = "0018"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+# Alembic reads these module-level variables by convention
+revision: str = "0019"  # noqa: F841
+down_revision: Union[str, None] = "0018"  # noqa: F841
+branch_labels: Union[str, Sequence[str], None] = None  # noqa: F841
+depends_on: Union[str, Sequence[str], None] = None  # noqa: F841
 
 
 def upgrade() -> None:
