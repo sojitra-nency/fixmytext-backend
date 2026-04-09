@@ -2,17 +2,13 @@
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING
 
-from sqlalchemy import String, text, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID, JSONB, TIMESTAMP
+from sqlalchemy import ForeignKey, String, text
+from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.session import Base
 from app.core.config import settings
-
-if TYPE_CHECKING:
-    from app.db.models.user import User
+from app.db.session import Base
 
 
 class UserUiSettings(Base):

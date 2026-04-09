@@ -8,10 +8,11 @@ Fallback: YAKE keyword extraction for offline / no-key usage.
 import asyncio
 import logging
 import re
-from typing import Callable
+from collections.abc import Callable
 
 import yake
-from groq import AsyncGroq, APIError, APITimeoutError
+from groq import APIError, APITimeoutError, AsyncGroq
+
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -39,7 +40,12 @@ async def close_groq_client() -> None:
         _groq_client = None
 
 
-async def _groq_chat(system_prompt: str, user_text: str, temperature: float = 0.7, max_tokens: int = 200) -> str:
+async def _groq_chat(
+    system_prompt: str,
+    user_text: str,
+    temperature: float = 0.7,
+    max_tokens: int = 200,
+) -> str:
     """Shared Groq chat helper."""
     client = _groq_client
     response = await client.chat.completions.create(
@@ -67,7 +73,7 @@ async def _ai_transform(
         try:
             async with asyncio.timeout(35):
                 return await _groq_chat(system_prompt, text, temperature, max_tokens)
-        except (APIError, APITimeoutError, asyncio.TimeoutError):
+        except (TimeoutError, APIError, APITimeoutError):
             logger.exception("Groq API call failed, using fallback")
     return await asyncio.to_thread(fallback_fn, text, *fallback_args)
 
@@ -92,6 +98,7 @@ def _yake_keywords_sync(text: str, top: int = 10) -> list[str]:
 
 # ── Fallback functions ────────────────────────────────────────────────────────
 
+
 def _hashtag_fallback(text: str) -> str:
     keywords = _yake_keywords_sync(text)
     return " ".join(f"#{kw.replace(' ', '').capitalize()}" for kw in keywords[:10])
@@ -99,7 +106,9 @@ def _hashtag_fallback(text: str) -> str:
 
 def _seo_title_fallback(text: str) -> str:
     keywords = _yake_keywords_sync(text, top=5)
-    return "\n".join(f"{i}. {kw.title()} — A Complete Guide" for i, kw in enumerate(keywords[:5], 1))
+    return "\n".join(
+        f"{i}. {kw.title()} — A Complete Guide" for i, kw in enumerate(keywords[:5], 1)
+    )
 
 
 def _meta_description_fallback(text: str) -> str:
@@ -113,7 +122,14 @@ def _meta_description_fallback(text: str) -> str:
 def _blog_outline_fallback(text: str) -> str:
     keywords = _yake_keywords_sync(text, top=5)
     topic = keywords[0].title() if keywords else "Your Topic"
-    sections = [f"# Blog Post: {topic}", "", "## Introduction", f"- Hook: Why {topic} matters", "- Brief overview of key points", ""]
+    sections = [
+        f"# Blog Post: {topic}",
+        "",
+        "## Introduction",
+        f"- Hook: Why {topic} matters",
+        "- Brief overview of key points",
+        "",
+    ]
     for i, kw in enumerate(keywords[1:5], 1):
         sections.append(f"## {i}. {kw.title()}")
         sections.append(f"- Key insight about {kw}")
@@ -132,11 +148,10 @@ def _tweet_fallback(text: str) -> str:
 
 
 def _email_fallback(text: str) -> str:
-    lines = text.strip().split('\n')
+    lines = text.strip().split("\n")
     subject = lines[0][:60] if lines else "Follow-up"
     body = text.strip()
     return f"Subject: {subject}\n\nDear recipient,\n\n{body}\n\nBest regards"
-
 
 
 def _keyword_fallback(text: str) -> str:
@@ -149,7 +164,10 @@ def _translate_fallback(text: str, target_language: str) -> str:
 
 
 def _transliterate_fallback(text: str, target_language: str) -> str:
-    return f"[Transliteration requires Groq API key. Set GROQ_API_KEY in .env to enable transliteration to {target_language}.]"
+    return (
+        "[Transliteration requires Groq API key. "
+        f"Set GROQ_API_KEY in .env to enable transliteration to {target_language}.]"
+    )
 
 
 def _emojify_fallback(text: str) -> str:
@@ -160,14 +178,17 @@ def _detect_lang_fallback(text: str) -> str:
     return "Unknown"
 
 
-
 def _summarize_fallback(text: str) -> str:
-    sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', text.strip()) if s.strip()]
+    sentences = [
+        s.strip() for s in re.split(r"(?<=[.!?])\s+", text.strip()) if s.strip()
+    ]
     return " ".join(sentences[:3]) + ("..." if len(sentences) > 3 else "")
 
 
 def _grammar_fallback(text: str) -> str:
-    result = re.sub(r'([.!?]\s+)([a-z])', lambda m: m.group(1) + m.group(2).upper(), text)
+    result = re.sub(
+        r"([.!?]\s+)([a-z])", lambda m: m.group(1) + m.group(2).upper(), text
+    )
     if result and result[0].islower():
         result = result[0].upper() + result[1:]
     return result
@@ -181,9 +202,10 @@ def _tone_fallback(text: str, tone: str) -> str:
     return f"[Tone changing requires Groq API key. Set GROQ_API_KEY in .env to enable {tone} tone.]"
 
 
-
 def _lengthen_fallback(text: str) -> str:
-    return "[Text lengthening requires Groq API key. Set GROQ_API_KEY in .env to enable.]"
+    return (
+        "[Text lengthening requires Groq API key. Set GROQ_API_KEY in .env to enable.]"
+    )
 
 
 def _eli5_fallback(text: str) -> str:
@@ -204,26 +226,133 @@ def _generate_title_fallback(text: str) -> str:
 
 
 _EMOTION_KEYWORDS = {
-    'happy':      {'happy', 'glad', 'joy', 'joyful', 'cheerful', 'delighted', 'excited',
-                   'thrilled', 'elated', 'ecstatic', 'pleased', 'wonderful', 'fantastic'},
-    'sad':        {'sad', 'unhappy', 'depressed', 'miserable', 'heartbroken', 'grief',
-                   'sorrow', 'gloomy', 'melancholy', 'lonely', 'crying', 'tears'},
-    'angry':      {'angry', 'furious', 'rage', 'mad', 'annoyed', 'frustrated', 'irritated',
-                   'outraged', 'hostile', 'livid', 'infuriated', 'hate'},
-    'fearful':    {'afraid', 'scared', 'fear', 'terrified', 'anxious', 'worried', 'nervous',
-                   'panic', 'dread', 'frightened', 'alarmed', 'uneasy'},
-    'surprised':  {'surprised', 'shocked', 'amazed', 'astonished', 'stunned', 'unexpected',
-                   'unbelievable', 'wow', 'whoa', 'incredible'},
-    'disgusted':  {'disgusted', 'gross', 'revolting', 'repulsive', 'sickening', 'vile',
-                   'nasty', 'horrible', 'appalling', 'dreadful'},
-    'hopeful':    {'hope', 'hopeful', 'optimistic', 'promising', 'encouraged', 'looking forward',
-                   'bright', 'positive', 'confident', 'inspired'},
-    'loving':     {'love', 'adore', 'cherish', 'affection', 'caring', 'devoted', 'passionate',
-                   'romantic', 'warm', 'tender', 'fond'},
-    'grateful':   {'grateful', 'thankful', 'appreciate', 'blessed', 'thank', 'thanks',
-                   'gratitude', 'indebted'},
-    'confused':   {'confused', 'puzzled', 'baffled', 'bewildered', 'perplexed', 'unclear',
-                   'lost', 'uncertain', 'unsure'},
+    "happy": {
+        "happy",
+        "glad",
+        "joy",
+        "joyful",
+        "cheerful",
+        "delighted",
+        "excited",
+        "thrilled",
+        "elated",
+        "ecstatic",
+        "pleased",
+        "wonderful",
+        "fantastic",
+    },
+    "sad": {
+        "sad",
+        "unhappy",
+        "depressed",
+        "miserable",
+        "heartbroken",
+        "grief",
+        "sorrow",
+        "gloomy",
+        "melancholy",
+        "lonely",
+        "crying",
+        "tears",
+    },
+    "angry": {
+        "angry",
+        "furious",
+        "rage",
+        "mad",
+        "annoyed",
+        "frustrated",
+        "irritated",
+        "outraged",
+        "hostile",
+        "livid",
+        "infuriated",
+        "hate",
+    },
+    "fearful": {
+        "afraid",
+        "scared",
+        "fear",
+        "terrified",
+        "anxious",
+        "worried",
+        "nervous",
+        "panic",
+        "dread",
+        "frightened",
+        "alarmed",
+        "uneasy",
+    },
+    "surprised": {
+        "surprised",
+        "shocked",
+        "amazed",
+        "astonished",
+        "stunned",
+        "unexpected",
+        "unbelievable",
+        "wow",
+        "whoa",
+        "incredible",
+    },
+    "disgusted": {
+        "disgusted",
+        "gross",
+        "revolting",
+        "repulsive",
+        "sickening",
+        "vile",
+        "nasty",
+        "horrible",
+        "appalling",
+        "dreadful",
+    },
+    "hopeful": {
+        "hope",
+        "hopeful",
+        "optimistic",
+        "promising",
+        "encouraged",
+        "looking forward",
+        "bright",
+        "positive",
+        "confident",
+        "inspired",
+    },
+    "loving": {
+        "love",
+        "adore",
+        "cherish",
+        "affection",
+        "caring",
+        "devoted",
+        "passionate",
+        "romantic",
+        "warm",
+        "tender",
+        "fond",
+    },
+    "grateful": {
+        "grateful",
+        "thankful",
+        "appreciate",
+        "blessed",
+        "thank",
+        "thanks",
+        "gratitude",
+        "indebted",
+    },
+    "confused": {
+        "confused",
+        "puzzled",
+        "baffled",
+        "bewildered",
+        "perplexed",
+        "unclear",
+        "lost",
+        "uncertain",
+        "unsure",
+    },
 }
 
 
@@ -234,8 +363,8 @@ def _sentiment_fallback(text: str) -> str:
         count = len(words & keywords)
         if count > 0:
             detected[emotion] = count
-    pos_emotions = {'happy', 'hopeful', 'loving', 'grateful', 'surprised'}
-    neg_emotions = {'sad', 'angry', 'fearful', 'disgusted'}
+    pos_emotions = {"happy", "hopeful", "loving", "grateful", "surprised"}
+    neg_emotions = {"sad", "angry", "fearful", "disgusted"}
     pos_score = sum(v for k, v in detected.items() if k in pos_emotions)
     neg_score = sum(v for k, v in detected.items() if k in neg_emotions)
     if pos_score > neg_score:
@@ -246,17 +375,23 @@ def _sentiment_fallback(text: str) -> str:
         sentiment = "Neutral"
     sorted_emotions = sorted(detected.items(), key=lambda x: x[1], reverse=True)
     primary = sorted_emotions[0][0].title() if sorted_emotions else "Neutral"
-    secondary = ", ".join(e.title() for e, _ in sorted_emotions[1:3]) if len(sorted_emotions) > 1 else "None detected"
-    return "\n".join([
-        f"**Overall Sentiment:** {sentiment}",
-        f"**Confidence:** Low (keyword-based fallback)",
-        f"**Primary Emotion:** {primary}",
-        f"**Secondary Emotions:** {secondary}",
-        f"**Sarcasm Detected:** Cannot detect (requires AI)",
-        f"**Tone:** Cannot detect (requires AI)",
-        "",
-        "Note: Set GROQ_API_KEY for full AI-powered analysis with sarcasm detection and tone analysis.",
-    ])
+    secondary = (
+        ", ".join(e.title() for e, _ in sorted_emotions[1:3])
+        if len(sorted_emotions) > 1
+        else "None detected"
+    )
+    return "\n".join(
+        [
+            f"**Overall Sentiment:** {sentiment}",
+            "**Confidence:** Low (keyword-based fallback)",
+            f"**Primary Emotion:** {primary}",
+            f"**Secondary Emotions:** {secondary}",
+            "**Sarcasm Detected:** Cannot detect (requires AI)",
+            "**Tone:** Cannot detect (requires AI)",
+            "",
+            "Note: Set GROQ_API_KEY for full AI-powered analysis with sarcasm detection and tone analysis.",
+        ]
+    )
 
 
 _FORMAT_PROMPTS = {
@@ -305,7 +440,9 @@ _FORMAT_PROMPTS = {
 
 
 def _format_fallback(text: str, fmt: str) -> str:
-    sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', text.strip()) if s.strip()]
+    sentences = [
+        s.strip() for s in re.split(r"(?<=[.!?])\s+", text.strip()) if s.strip()
+    ]
     if fmt == "bullets":
         return "\n".join(f"• {s}" for s in sentences)
     elif fmt == "numbered":
@@ -480,6 +617,7 @@ _TONE_INSTRUCTIONS = {
 
 # ── Service classes (thin wrappers for import compatibility) ──────────────────
 
+
 class HashtagService:
     @staticmethod
     async def generate_hashtags(text: str) -> str:
@@ -489,38 +627,61 @@ class HashtagService:
 class SEOTitleService:
     @staticmethod
     async def generate_seo_titles(text: str) -> str:
-        return await _ai_transform(_PROMPTS["seo_titles"], text, _seo_title_fallback, temperature=0.8, max_tokens=300)
+        return await _ai_transform(
+            _PROMPTS["seo_titles"],
+            text,
+            _seo_title_fallback,
+            temperature=0.8,
+            max_tokens=300,
+        )
 
 
 class MetaDescriptionService:
     @staticmethod
     async def generate_meta_descriptions(text: str) -> str:
-        return await _ai_transform(_PROMPTS["meta_descriptions"], text, _meta_description_fallback, temperature=0.8, max_tokens=400)
+        return await _ai_transform(
+            _PROMPTS["meta_descriptions"],
+            text,
+            _meta_description_fallback,
+            temperature=0.8,
+            max_tokens=400,
+        )
 
 
 class BlogOutlineService:
     @staticmethod
     async def generate_blog_outline(text: str) -> str:
-        return await _ai_transform(_PROMPTS["blog_outline"], text, _blog_outline_fallback, temperature=0.8, max_tokens=600)
+        return await _ai_transform(
+            _PROMPTS["blog_outline"],
+            text,
+            _blog_outline_fallback,
+            temperature=0.8,
+            max_tokens=600,
+        )
 
 
 class TweetShortenerService:
     @staticmethod
     async def shorten_for_tweet(text: str) -> str:
-        return await _ai_transform(_PROMPTS["tweet"], text, _tweet_fallback, max_tokens=100)
+        return await _ai_transform(
+            _PROMPTS["tweet"], text, _tweet_fallback, max_tokens=100
+        )
 
 
 class EmailRewriterService:
     @staticmethod
     async def rewrite_email(text: str) -> str:
-        return await _ai_transform(_PROMPTS["email"], text, _email_fallback, max_tokens=500)
-
+        return await _ai_transform(
+            _PROMPTS["email"], text, _email_fallback, max_tokens=500
+        )
 
 
 class KeywordExtractorService:
     @staticmethod
     async def extract_keywords(text: str) -> str:
-        return await _ai_transform(_PROMPTS["keywords"], text, _keyword_fallback, temperature=0.3)
+        return await _ai_transform(
+            _PROMPTS["keywords"], text, _keyword_fallback, temperature=0.3
+        )
 
 
 class TranslatorService:
@@ -532,7 +693,14 @@ class TranslatorService:
             "Return ONLY the translated text, nothing else. "
             "Do not include any notes or explanations."
         )
-        return await _ai_transform(prompt, text, _translate_fallback, target_language, temperature=0.3, max_tokens=1000)
+        return await _ai_transform(
+            prompt,
+            text,
+            _translate_fallback,
+            target_language,
+            temperature=0.3,
+            max_tokens=1000,
+        )
 
 
 class TransliterationService:
@@ -545,26 +713,50 @@ class TransliterationService:
             "For example, English 'hello' in Hindi script becomes 'हेलो'. "
             "Return ONLY the transliterated text, nothing else."
         )
-        return await _ai_transform(prompt, text, _transliterate_fallback, target_language, temperature=0.2, max_tokens=1000)
-
+        return await _ai_transform(
+            prompt,
+            text,
+            _transliterate_fallback,
+            target_language,
+            temperature=0.2,
+            max_tokens=1000,
+        )
 
 
 class SummarizerService:
     @staticmethod
     async def summarize(text: str) -> str:
-        return await _ai_transform(_PROMPTS["summarize"], text, _summarize_fallback, temperature=0.5, max_tokens=500)
+        return await _ai_transform(
+            _PROMPTS["summarize"],
+            text,
+            _summarize_fallback,
+            temperature=0.5,
+            max_tokens=500,
+        )
 
 
 class GrammarFixerService:
     @staticmethod
     async def fix_grammar(text: str) -> str:
-        return await _ai_transform(_PROMPTS["grammar"], text, _grammar_fallback, temperature=0.3, max_tokens=1500)
+        return await _ai_transform(
+            _PROMPTS["grammar"],
+            text,
+            _grammar_fallback,
+            temperature=0.3,
+            max_tokens=1500,
+        )
 
 
 class ParaphraserService:
     @staticmethod
     async def paraphrase(text: str) -> str:
-        return await _ai_transform(_PROMPTS["paraphrase"], text, _paraphrase_fallback, temperature=0.8, max_tokens=1500)
+        return await _ai_transform(
+            _PROMPTS["paraphrase"],
+            text,
+            _paraphrase_fallback,
+            temperature=0.8,
+            max_tokens=1500,
+        )
 
 
 class ToneChangerService:
@@ -582,38 +774,65 @@ class ToneChangerService:
 class SentimentAnalyzerService:
     @staticmethod
     async def analyze_sentiment(text: str) -> str:
-        return await _ai_transform(_PROMPTS["sentiment"], text, _sentiment_fallback, temperature=0.2, max_tokens=400)
-
+        return await _ai_transform(
+            _PROMPTS["sentiment"],
+            text,
+            _sentiment_fallback,
+            temperature=0.2,
+            max_tokens=400,
+        )
 
 
 class TextLengthenerService:
     @staticmethod
     async def lengthen(text: str) -> str:
-        return await _ai_transform(_PROMPTS["lengthen"], text, _lengthen_fallback, max_tokens=2000)
+        return await _ai_transform(
+            _PROMPTS["lengthen"], text, _lengthen_fallback, max_tokens=2000
+        )
 
 
 class ELI5Service:
     @staticmethod
     async def eli5(text: str) -> str:
-        return await _ai_transform(_PROMPTS["eli5"], text, _eli5_fallback, temperature=0.7, max_tokens=1500)
+        return await _ai_transform(
+            _PROMPTS["eli5"], text, _eli5_fallback, temperature=0.7, max_tokens=1500
+        )
 
 
 class ProofreadService:
     @staticmethod
     async def proofread(text: str) -> str:
-        return await _ai_transform(_PROMPTS["proofread"], text, _proofread_fallback, temperature=0.3, max_tokens=2000)
+        return await _ai_transform(
+            _PROMPTS["proofread"],
+            text,
+            _proofread_fallback,
+            temperature=0.3,
+            max_tokens=2000,
+        )
 
 
 class PromptRefactorService:
     @staticmethod
     async def refactor_prompt(text: str) -> str:
-        return await _ai_transform(_PROMPTS["refactor_prompt"], text, _refactor_prompt_fallback, temperature=0.4, max_tokens=1500)
+        return await _ai_transform(
+            _PROMPTS["refactor_prompt"],
+            text,
+            _refactor_prompt_fallback,
+            temperature=0.4,
+            max_tokens=1500,
+        )
 
 
 class TitleGeneratorService:
     @staticmethod
     async def generate_title(text: str) -> str:
-        return await _ai_transform(_PROMPTS["generate_title"], text, _generate_title_fallback, temperature=0.8, max_tokens=300)
+        return await _ai_transform(
+            _PROMPTS["generate_title"],
+            text,
+            _generate_title_fallback,
+            temperature=0.8,
+            max_tokens=300,
+        )
 
 
 class FormatChangerService:
@@ -625,21 +844,34 @@ class FormatChangerService:
             "Preserve ALL original information — only change the structure/format. "
             "Return ONLY the reformatted text, nothing else."
         )
-        return await _ai_transform(prompt, text, _format_fallback, fmt, temperature=0.5, max_tokens=2000)
+        return await _ai_transform(
+            prompt,
+            text,
+            _format_fallback,
+            fmt,
+            temperature=0.5,
+            max_tokens=2000,
+        )
 
 
 class EmojifyService:
     @staticmethod
     async def emojify(text: str) -> str:
         prompt = (
-            "You are an emoji translator. Replace words and phrases in the user's text with matching emojis wherever possible. "
-            "For example: 'I am crying' → 'I am 😭', 'boom' → '💥', 'I love pizza' → 'I ❤️ 🍕', 'happy birthday' → '🎂🎉'. "
+            "You are an emoji translator. Replace words and phrases in the user's text "
+            "with matching emojis wherever possible. "
+            "For example: 'I am crying' → 'I am 😭', 'boom' → '💥', "
+            "'I love pizza' → 'I ❤️ 🍕', 'happy birthday' → '🎂🎉'. "
             "Replace the word/phrase itself with the emoji — do NOT keep both. "
-            "Keep words that have no good emoji match. Preserve sentence structure and grammar words (I, am, the, is, etc.). "
-            "Work with ANY language — understand the meaning and replace with emojis regardless of input language. "
+            "Keep words that have no good emoji match. Preserve sentence structure "
+            "and grammar words (I, am, the, is, etc.). "
+            "Work with ANY language — understand the meaning and replace with emojis "
+            "regardless of input language. "
             "Return ONLY the emojified text, nothing else."
         )
-        return await _ai_transform(prompt, text, _emojify_fallback, temperature=0.7, max_tokens=1000)
+        return await _ai_transform(
+            prompt, text, _emojify_fallback, temperature=0.7, max_tokens=1000
+        )
 
 
 class LanguageDetector:
@@ -650,10 +882,13 @@ class LanguageDetector:
             "Return ONLY the language name in English (e.g., 'English', 'Hindi', 'Spanish', 'French'). "
             "Nothing else."
         )
-        return await _ai_transform(prompt, text, _detect_lang_fallback, temperature=0.1, max_tokens=20)
+        return await _ai_transform(
+            prompt, text, _detect_lang_fallback, temperature=0.1, max_tokens=20
+        )
 
 
 # ── New AI Writing Services ──────────────────────────────────────────────────
+
 
 def _passthrough_fallback(text: str, *args) -> str:
     return text
@@ -668,7 +903,9 @@ class AcademicStyleService:
             "and appropriate academic register. Do not add citations but use citation-ready phrasing. "
             "Return ONLY the rewritten text, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.5, max_tokens=1500)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.5, max_tokens=1500
+        )
 
 
 class CreativeStyleService:
@@ -680,7 +917,9 @@ class CreativeStyleService:
             "Make it more expressive and evocative while preserving the core meaning. "
             "Return ONLY the rewritten text, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.9, max_tokens=1500)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.9, max_tokens=1500
+        )
 
 
 class TechnicalStyleService:
@@ -692,7 +931,9 @@ class TechnicalStyleService:
             "step-by-step structure where applicable, and technical precision. "
             "Return ONLY the rewritten text, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.3, max_tokens=1500)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.3, max_tokens=1500
+        )
 
 
 class ActiveVoiceService:
@@ -704,7 +945,9 @@ class ActiveVoiceService:
             "Preserve the original meaning completely. "
             "Return ONLY the rewritten text, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.3, max_tokens=1500)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.3, max_tokens=1500
+        )
 
 
 class RedundancyRemoverService:
@@ -716,7 +959,9 @@ class RedundancyRemoverService:
             "Also remove unnecessary qualifiers and filler words. Preserve the original meaning. "
             "Return ONLY the cleaned text, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.3, max_tokens=1500)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.3, max_tokens=1500
+        )
 
 
 class SentenceSplitterService:
@@ -728,7 +973,9 @@ class SentenceSplitterService:
             "Preserve the original meaning and all information. "
             "Return ONLY the rewritten text, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.3, max_tokens=1500)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.3, max_tokens=1500
+        )
 
 
 class ConcisenessService:
@@ -741,7 +988,9 @@ class ConcisenessService:
             "'due to the fact that' → 'because'. "
             "Return ONLY the tightened text, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.3, max_tokens=1500)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.3, max_tokens=1500
+        )
 
 
 class ResumeBulletsService:
@@ -753,7 +1002,9 @@ class ResumeBulletsService:
             "Quantify achievements where possible. Use past tense. "
             "Return ONLY the bullet points (prefixed with •), nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.6, max_tokens=500)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.6, max_tokens=500
+        )
 
 
 class MeetingNotesService:
@@ -765,7 +1016,9 @@ class MeetingNotesService:
             "## Next Steps. Use concise bullet points. "
             "Return ONLY the structured notes, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.4, max_tokens=800)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.4, max_tokens=800
+        )
 
 
 class CoverLetterService:
@@ -778,7 +1031,9 @@ class CoverLetterService:
             "closing with call to action, sign-off. Keep it under 400 words. "
             "Return ONLY the cover letter, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.7, max_tokens=800)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.7, max_tokens=800
+        )
 
 
 class OutlineToDraftService:
@@ -790,7 +1045,9 @@ class OutlineToDraftService:
             "Add transitions between sections. Maintain the outline's structure and order. "
             "Return ONLY the expanded prose, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.7, max_tokens=1500)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.7, max_tokens=1500
+        )
 
 
 class ContinueWritingService:
@@ -802,7 +1059,9 @@ class ContinueWritingService:
             "Write 2-3 additional paragraphs that naturally follow from the content. "
             "Return ONLY the continuation (do NOT repeat the original text), nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.8, max_tokens=800)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.8, max_tokens=800
+        )
 
 
 class RewriteUniqueService:
@@ -815,7 +1074,9 @@ class RewriteUniqueService:
             "The result should read as a completely different text saying the same thing. "
             "Return ONLY the rewritten text, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.9, max_tokens=1500)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.9, max_tokens=1500
+        )
 
 
 class ToneAnalyzerService:
@@ -829,10 +1090,13 @@ class ToneAnalyzerService:
             "Key emotional words found. "
             "Format as a brief analysis report. Return ONLY the analysis, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.3, max_tokens=400)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.3, max_tokens=400
+        )
 
 
 # ── New AI Content Services ──────────────────────────────────────────────────
+
 
 class LinkedinPostService:
     @staticmethod
@@ -844,7 +1108,9 @@ class LinkedinPostService:
             "Do NOT include hashtags. Keep under 1300 characters. "
             "Return ONLY the LinkedIn post, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.7, max_tokens=600)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.7, max_tokens=600
+        )
 
 
 class TwitterThreadService:
@@ -857,7 +1123,9 @@ class TwitterThreadService:
             "End with a summary or CTA tweet. Aim for 4-8 tweets. "
             "Return ONLY the thread, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.7, max_tokens=800)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.7, max_tokens=800
+        )
 
 
 class InstagramCaptionService:
@@ -870,7 +1138,9 @@ class InstagramCaptionService:
             "and 10-15 relevant hashtags on a separate line. "
             "Return ONLY the caption, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.8, max_tokens=600)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.8, max_tokens=600
+        )
 
 
 class YoutubeDescService:
@@ -883,7 +1153,9 @@ class YoutubeDescService:
             "and a brief bio placeholder. "
             "Return ONLY the description, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.6, max_tokens=600)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.6, max_tokens=600
+        )
 
 
 class SocialBioService:
@@ -895,7 +1167,9 @@ class SocialBioService:
             "punchy, and use pipe separators or emojis for structure. "
             "Return ONLY the 5 bios, numbered 1-5, one per line."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.8, max_tokens=400)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.8, max_tokens=400
+        )
 
 
 class ProductDescService:
@@ -908,7 +1182,9 @@ class ProductDescService:
             "and a persuasive closing line. "
             "Return ONLY the product description, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.7, max_tokens=600)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.7, max_tokens=600
+        )
 
 
 class CtaGeneratorService:
@@ -920,7 +1196,9 @@ class CtaGeneratorService:
             "and urgency-driven CTAs. Number them 1-10. "
             "Return ONLY the CTAs, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.8, max_tokens=400)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.8, max_tokens=400
+        )
 
 
 class AdCopyService:
@@ -933,7 +1211,9 @@ class AdCopyService:
             "Format for Google Ads style. Number them 1-3. "
             "Return ONLY the ad copies, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.8, max_tokens=500)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.8, max_tokens=500
+        )
 
 
 class LandingHeadlineService:
@@ -945,7 +1225,9 @@ class LandingHeadlineService:
             "benefit-driven, curiosity-driven, social proof, urgency, and question-based. "
             "Number them 1-5. Return ONLY the headlines, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.8, max_tokens=300)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.8, max_tokens=300
+        )
 
 
 class EmailSubjectService:
@@ -957,7 +1239,9 @@ class EmailSubjectService:
             "question, and number-based approaches. Keep each under 60 characters. "
             "Number them 1-8. Return ONLY the subject lines, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.8, max_tokens=400)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.8, max_tokens=400
+        )
 
 
 class ContentIdeasService:
@@ -969,7 +1253,9 @@ class ContentIdeasService:
             "and a one-line angle. Number them 1-10. "
             "Return ONLY the ideas, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.9, max_tokens=600)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.9, max_tokens=600
+        )
 
 
 class HookGeneratorService:
@@ -981,7 +1267,9 @@ class HookGeneratorService:
             "bold statement, story opener, and contrarian take. Number them 1-5. "
             "Return ONLY the hooks, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.8, max_tokens=400)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.8, max_tokens=400
+        )
 
 
 class AngleGeneratorService:
@@ -993,7 +1281,9 @@ class AngleGeneratorService:
             "Think: contrarian, data-driven, personal story, industry insider, beginner-friendly. "
             "Number them 1-5. Return ONLY the angles, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.9, max_tokens=500)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.9, max_tokens=500
+        )
 
 
 class FaqSchemaService:
@@ -1005,10 +1295,13 @@ class FaqSchemaService:
             "Return valid JSON-LD with @context, @type: FAQPage, and mainEntity array. "
             "Return ONLY the JSON-LD code, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.3, max_tokens=800)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.3, max_tokens=800
+        )
 
 
 # ── New Language Services ────────────────────────────────────────────────────
+
 
 class PosTaggerService:
     @staticmethod
@@ -1019,7 +1312,9 @@ class PosTaggerService:
             "Use standard POS tags: NOUN, VERB, ADJ, ADV, DET, PRON, PREP, CONJ, INTJ. "
             "Return ONLY the tagged text, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.2, max_tokens=1500)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.2, max_tokens=1500
+        )
 
 
 class SentenceTypeService:
@@ -1031,7 +1326,9 @@ class SentenceTypeService:
             "or Exclamatory (exclamation). Format: 'sentence' → Type. "
             "Return ONLY the classifications, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.2, max_tokens=800)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.2, max_tokens=800
+        )
 
 
 class GrammarExplainService:
@@ -1044,7 +1341,9 @@ class GrammarExplainService:
             "If no errors found, say 'No grammar errors found!' "
             "Return ONLY the corrections and explanations, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.3, max_tokens=800)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.3, max_tokens=800
+        )
 
 
 class SynonymFinderService:
@@ -1056,7 +1355,9 @@ class SynonymFinderService:
             "Skip common words (the, is, a, and, etc.). "
             "Return ONLY the synonym list, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.5, max_tokens=800)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.5, max_tokens=800
+        )
 
 
 class AntonymFinderService:
@@ -1068,7 +1369,9 @@ class AntonymFinderService:
             "Skip words that don't have clear antonyms. "
             "Return ONLY the antonym list, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.5, max_tokens=800)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.5, max_tokens=800
+        )
 
 
 class DefineWordsService:
@@ -1080,7 +1383,9 @@ class DefineWordsService:
             "Skip very common words. Include pronunciation hints for difficult words. "
             "Return ONLY the definitions, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.3, max_tokens=800)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.3, max_tokens=800
+        )
 
 
 class WordPowerService:
@@ -1093,7 +1398,9 @@ class WordPowerService:
             "Return the full text with replacements made. "
             "Return ONLY the improved text, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.6, max_tokens=1500)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.6, max_tokens=1500
+        )
 
 
 class VocabComplexityService:
@@ -1106,7 +1413,9 @@ class VocabComplexityService:
             "Vocabulary diversity ratio, Suggested reading level. "
             "Return ONLY the analysis, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.3, max_tokens=600)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.3, max_tokens=600
+        )
 
 
 class JargonSimplifierService:
@@ -1118,7 +1427,9 @@ class JargonSimplifierService:
             "Make the text accessible to a general audience with no specialized knowledge. "
             "Return ONLY the simplified text, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.4, max_tokens=1500)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.4, max_tokens=1500
+        )
 
 
 class FormalityDetectorService:
@@ -1131,7 +1442,9 @@ class FormalityDetectorService:
             "Suggestions to adjust formality if needed. "
             "Return ONLY the analysis, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.3, max_tokens=400)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.3, max_tokens=400
+        )
 
 
 class ClicheDetectorService:
@@ -1144,10 +1457,13 @@ class ClicheDetectorService:
             "If no cliches found, say 'No cliches detected — your writing is fresh!' "
             "Return ONLY the findings, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.5, max_tokens=600)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.5, max_tokens=600
+        )
 
 
 # ── New Generator AI Services ───────────────────────────────────────────────
+
 
 class RegexGenService:
     @staticmethod
@@ -1160,7 +1476,9 @@ class RegexGenService:
             "Examples: 2-3 example matches\n"
             "Return ONLY the pattern, explanation, and examples."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.3, max_tokens=400)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.3, max_tokens=400
+        )
 
 
 class WritingPromptService:
@@ -1173,7 +1491,9 @@ class WritingPromptService:
             "Mix genres: fiction, creative nonfiction, poetry, flash fiction, dialogue. "
             "Number them 1-5. Return ONLY the prompts, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.9, max_tokens=400)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.9, max_tokens=400
+        )
 
 
 class TeamNameGenService:
@@ -1185,7 +1505,9 @@ class TeamNameGenService:
             "and memorable options. Number them 1-10. "
             "Return ONLY the names, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.9, max_tokens=300)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.9, max_tokens=300
+        )
 
 
 class MockApiResponseService:
@@ -1198,4 +1520,6 @@ class MockApiResponseService:
             "Add pagination metadata if appropriate. Return valid, properly formatted JSON. "
             "Return ONLY the JSON response, nothing else."
         )
-        return await _ai_transform(prompt, text, _passthrough_fallback, temperature=0.6, max_tokens=800)
+        return await _ai_transform(
+            prompt, text, _passthrough_fallback, temperature=0.6, max_tokens=800
+        )

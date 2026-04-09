@@ -1,10 +1,11 @@
 """Razorpay integration service for payments."""
 
-import hmac
 import hashlib
+import hmac
 import logging
 
 import razorpay
+
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -13,10 +14,10 @@ _client: razorpay.Client | None = None
 
 # Pro pricing per region (used by checkout endpoint)
 PRO_PLAN_PRICES = {
-    "IN": {"amount": 39900, "currency": "INR"},   # ₹399/mo
-    "US": {"amount": 500,   "currency": "USD"},    # $5/mo
-    "GB": {"amount": 400,   "currency": "GBP"},    # £4/mo
-    "EU": {"amount": 450,   "currency": "EUR"},    # €4.50/mo
+    "IN": {"amount": 39900, "currency": "INR"},  # ₹399/mo
+    "US": {"amount": 500, "currency": "USD"},  # $5/mo
+    "GB": {"amount": 400, "currency": "GBP"},  # £4/mo
+    "EU": {"amount": 450, "currency": "EUR"},  # €4.50/mo
 }
 
 
@@ -25,7 +26,9 @@ def init_razorpay():
     global _client
     if not settings.RAZORPAY_KEY_ID:
         return
-    _client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+    _client = razorpay.Client(
+        auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
+    )
 
 
 def get_client() -> razorpay.Client:
@@ -37,17 +40,20 @@ def get_client() -> razorpay.Client:
 
 # ── Orders (one-time payments: passes, credits, Pro) ──────────────────────
 
+
 def create_order(amount: int, currency: str, receipt: str, notes: dict) -> dict:
     """Create a Razorpay order for a one-time payment.
     amount: in smallest currency unit (paise for INR, cents for USD).
     Returns order dict with 'id', 'amount', 'currency'.
     """
-    return get_client().order.create({
-        "amount": amount,
-        "currency": currency.upper(),
-        "receipt": receipt,
-        "notes": notes,
-    })
+    return get_client().order.create(
+        {
+            "amount": amount,
+            "currency": currency.upper(),
+            "receipt": receipt,
+            "notes": notes,
+        }
+    )
 
 
 def fetch_order(order_id: str) -> dict:
@@ -58,17 +64,20 @@ def fetch_order(order_id: str) -> dict:
 def verify_payment_signature(order_id: str, payment_id: str, signature: str) -> bool:
     """Verify Razorpay payment signature. Returns True if valid."""
     try:
-        get_client().utility.verify_payment_signature({
-            "razorpay_order_id": order_id,
-            "razorpay_payment_id": payment_id,
-            "razorpay_signature": signature,
-        })
+        get_client().utility.verify_payment_signature(
+            {
+                "razorpay_order_id": order_id,
+                "razorpay_payment_id": payment_id,
+                "razorpay_signature": signature,
+            }
+        )
         return True
     except razorpay.errors.SignatureVerificationError:
         return False
 
 
 # ── Webhook ──────────────────────────────────────────────────────────────
+
 
 def verify_webhook_signature(body: bytes, signature: str) -> bool:
     """Verify Razorpay webhook signature."""

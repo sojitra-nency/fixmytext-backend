@@ -10,16 +10,18 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
-
 from app.core.config import settings
+from app.db.models.gamification import UserGamification
+from app.db.models.preferences import UserPreferences
+from app.db.models.template import UserTemplate
+from app.db.models.user import User
+from app.db.models.visitor_usage import VisitorUsage
 from app.db.session import Base
 
-# Register all models for autogenerate support
-from app.db.models.user import User  # noqa: F401
-from app.db.models.preferences import UserPreferences  # noqa: F401
-from app.db.models.gamification import UserGamification  # noqa: F401
-from app.db.models.template import UserTemplate  # noqa: F401
-from app.db.models.visitor_usage import VisitorUsage  # noqa: F401
+# Explicitly reference every model so static analysers (CodeQL, ruff) recognise
+# these imports as intentional.  They are imported for their side-effect of
+# registering each table with Base.metadata so Alembic autogenerate works.
+_MODELS = [User, UserGamification, UserPreferences, UserTemplate, VisitorUsage]
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
@@ -32,6 +34,7 @@ target_metadata = Base.metadata
 
 # ── Django-style sequential revision numbering ────────────────────────────────
 
+
 def get_next_revision_number() -> str:
     """Generate Django-style sequential revision number (0001, 0002, etc.)."""
     versions_dir = Path(__file__).parent / "versions"
@@ -41,7 +44,7 @@ def get_next_revision_number() -> str:
 
     existing_numbers = []
     for file in versions_dir.glob("*.py"):
-        match = re.match(r'^(\d{4})_', file.name)
+        match = re.match(r"^(\d{4})_", file.name)
         if match:
             existing_numbers.append(int(match.group(1)))
 
@@ -91,8 +94,8 @@ def generate_slug_from_operations(upgrade_ops) -> str:
     if len(actions) > 3:
         slug += "_and_more"
 
-    slug = re.sub(r'[^a-z0-9_]', '_', slug.lower())
-    slug = re.sub(r'_+', '_', slug).strip('_')
+    slug = re.sub(r"[^a-z0-9_]", "_", slug.lower())
+    slug = re.sub(r"_+", "_", slug).strip("_")
     return slug[:50] if len(slug) > 50 else slug
 
 
@@ -100,15 +103,19 @@ def process_revision_directives(_context, _revision, directives):
     """Replace random hash with sequential number and auto-generate slug."""
     if directives:
         for directive in directives:
-            if hasattr(directive, 'rev_id'):
+            if hasattr(directive, "rev_id"):
                 directive.rev_id = get_next_revision_number()
 
-            if hasattr(directive, 'upgrade_ops') and directive.upgrade_ops:
-                if not directive.message or directive.message.strip() == "":
-                    directive.message = generate_slug_from_operations(directive.upgrade_ops)
+            if (
+                hasattr(directive, "upgrade_ops")
+                and directive.upgrade_ops
+                and (not directive.message or directive.message.strip() == "")
+            ):
+                directive.message = generate_slug_from_operations(directive.upgrade_ops)
 
 
 # ── Migration runners ─────────────────────────────────────────────────────────
+
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""

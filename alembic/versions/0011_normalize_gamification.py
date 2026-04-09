@@ -7,11 +7,14 @@ Revision ID: 0011
 Revises: 0010
 Create Date: 2026-03-26
 """
-from typing import Sequence, Union
+
+from collections.abc import Sequence
+from typing import Union
+
+import sqlalchemy as sa
+from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP, UUID
 
 from alembic import op
-import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import UUID, JSONB, TIMESTAMP
 
 revision: str = "0011"
 down_revision: Union[str, None] = "0010"
@@ -26,8 +29,15 @@ def upgrade() -> None:
         "user_tool_stats",
         sa.Column("user_id", UUID(as_uuid=True), nullable=False),
         sa.Column("tool_id", sa.String(100), nullable=False),
-        sa.Column("total_uses", sa.Integer(), nullable=False, server_default=sa.text("1")),
-        sa.Column("last_used_at", TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "total_uses", sa.Integer(), nullable=False, server_default=sa.text("1")
+        ),
+        sa.Column(
+            "last_used_at",
+            TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.ForeignKeyConstraint(["user_id"], ["auth.users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("user_id", "tool_id"),
         sa.CheckConstraint("total_uses > 0", name="ck_user_tool_stats_uses_positive"),
@@ -60,12 +70,22 @@ def upgrade() -> None:
         "user_discovered_tools",
         sa.Column("user_id", UUID(as_uuid=True), nullable=False),
         sa.Column("tool_id", sa.String(100), nullable=False),
-        sa.Column("discovered_at", TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "discovered_at",
+            TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.ForeignKeyConstraint(["user_id"], ["auth.users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("user_id", "tool_id"),
         schema="activity",
     )
-    op.create_index("ix_user_discovered_tools_user_id", "user_discovered_tools", ["user_id"], schema="activity")
+    op.create_index(
+        "ix_user_discovered_tools_user_id",
+        "user_discovered_tools",
+        ["user_id"],
+        schema="activity",
+    )
 
     # Migrate discovered_tools JSONB array → rows
     # discovered_at defaults to now() since historical timestamps are not available
@@ -85,13 +105,25 @@ def upgrade() -> None:
         "user_favorite_tools",
         sa.Column("user_id", UUID(as_uuid=True), nullable=False),
         sa.Column("tool_id", sa.String(100), nullable=False),
-        sa.Column("sort_order", sa.SmallInteger(), nullable=False, server_default=sa.text("0")),
-        sa.Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "sort_order", sa.SmallInteger(), nullable=False, server_default=sa.text("0")
+        ),
+        sa.Column(
+            "created_at",
+            TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.ForeignKeyConstraint(["user_id"], ["auth.users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("user_id", "tool_id"),
         schema="activity",
     )
-    op.create_index("ix_user_favorite_tools_user_id", "user_favorite_tools", ["user_id"], schema="activity")
+    op.create_index(
+        "ix_user_favorite_tools_user_id",
+        "user_favorite_tools",
+        ["user_id"],
+        schema="activity",
+    )
 
     # Migrate favorites JSONB array → rows (preserve array order as sort_order)
     op.execute("""
@@ -108,13 +140,30 @@ def upgrade() -> None:
     # Replaces saved_pipelines JSONB array on user_gamification
     op.create_table(
         "user_pipelines",
-        sa.Column("id", UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), nullable=False),
+        sa.Column(
+            "id",
+            UUID(as_uuid=True),
+            server_default=sa.text("gen_random_uuid()"),
+            nullable=False,
+        ),
         sa.Column("user_id", UUID(as_uuid=True), nullable=False),
         sa.Column("name", sa.String(200), nullable=False),
         sa.Column("description", sa.String(500), nullable=True),
-        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("true")),
-        sa.Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
-        sa.Column("updated_at", TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "is_active", sa.Boolean(), nullable=False, server_default=sa.text("true")
+        ),
+        sa.Column(
+            "created_at",
+            TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
+        sa.Column(
+            "updated_at",
+            TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.ForeignKeyConstraint(["user_id"], ["auth.users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         schema="activity",
@@ -127,13 +176,20 @@ def upgrade() -> None:
     # ── activity.user_pipeline_steps ─────────────────────────────────────────
     op.create_table(
         "user_pipeline_steps",
-        sa.Column("id", UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), nullable=False),
+        sa.Column(
+            "id",
+            UUID(as_uuid=True),
+            server_default=sa.text("gen_random_uuid()"),
+            nullable=False,
+        ),
         sa.Column("pipeline_id", UUID(as_uuid=True), nullable=False),
         sa.Column("step_order", sa.SmallInteger(), nullable=False),
         sa.Column("tool_id", sa.String(100), nullable=False),
         sa.Column("tool_label", sa.String(200), nullable=False),
         sa.Column("config", JSONB, nullable=True),
-        sa.ForeignKeyConstraint(["pipeline_id"], ["activity.user_pipelines.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(
+            ["pipeline_id"], ["activity.user_pipelines.id"], ondelete="CASCADE"
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("pipeline_id", "step_order", name="uq_pipeline_step_order"),
         schema="activity",
@@ -191,7 +247,7 @@ def upgrade() -> None:
         sa.Column("streak_last_date_new", sa.Date(), nullable=True),
         schema="activity",
     )
-    op.execute("""
+    op.execute(r"""
         UPDATE activity.user_gamification
         SET streak_last_date_new = streak_last_date::date
         WHERE streak_last_date IS NOT NULL
@@ -204,7 +260,7 @@ def upgrade() -> None:
         sa.Column("daily_quest_date_new", sa.Date(), nullable=True),
         schema="activity",
     )
-    op.execute("""
+    op.execute(r"""
         UPDATE activity.user_gamification
         SET daily_quest_date_new = daily_quest_date::date
         WHERE daily_quest_date IS NOT NULL
@@ -248,16 +304,22 @@ def downgrade() -> None:
     op.drop_column("user_gamification", "daily_quest_date_new", schema="activity")
     op.drop_column("user_gamification", "streak_last_date_new", schema="activity")
 
-    op.drop_index("ix_user_pipeline_steps_pipeline", "user_pipeline_steps", schema="activity")
+    op.drop_index(
+        "ix_user_pipeline_steps_pipeline", "user_pipeline_steps", schema="activity"
+    )
     op.drop_table("user_pipeline_steps", schema="activity")
 
     op.execute("DROP INDEX IF EXISTS ix_user_pipelines_user_active")
     op.drop_table("user_pipelines", schema="activity")
 
-    op.drop_index("ix_user_favorite_tools_user_id", "user_favorite_tools", schema="activity")
+    op.drop_index(
+        "ix_user_favorite_tools_user_id", "user_favorite_tools", schema="activity"
+    )
     op.drop_table("user_favorite_tools", schema="activity")
 
-    op.drop_index("ix_user_discovered_tools_user_id", "user_discovered_tools", schema="activity")
+    op.drop_index(
+        "ix_user_discovered_tools_user_id", "user_discovered_tools", schema="activity"
+    )
     op.drop_table("user_discovered_tools", schema="activity")
 
     op.execute("DROP INDEX IF EXISTS activity.ix_user_tool_stats_user_uses")

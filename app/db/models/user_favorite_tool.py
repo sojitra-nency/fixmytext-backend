@@ -3,12 +3,12 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import SmallInteger, String, text, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP
+from sqlalchemy import ForeignKey, SmallInteger, String, text
+from sqlalchemy.dialects.postgresql import TIMESTAMP, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.session import Base
 from app.core.config import settings
+from app.db.session import Base
 
 
 class UserFavoriteTool(Base):
@@ -21,5 +21,9 @@ class UserFavoriteTool(Base):
         primary_key=True,
     )
     tool_id: Mapped[str] = mapped_column(String(100), primary_key=True)
-    sort_order: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0, server_default=text("0"))
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=text("now()"))
+    sort_order: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, default=0, server_default=text("0")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=text("now()")
+    )

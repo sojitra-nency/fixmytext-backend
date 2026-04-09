@@ -3,12 +3,12 @@
 import uuid
 from datetime import date
 
-from sqlalchemy import String, SmallInteger, Date, text, ForeignKey
+from sqlalchemy import Date, ForeignKey, SmallInteger, String, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.session import Base
 from app.core.config import settings
+from app.db.session import Base
 
 
 class UserToolUsage(Base):

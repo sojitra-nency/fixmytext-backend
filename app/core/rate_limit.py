@@ -9,7 +9,7 @@ import logging
 import time
 from collections import defaultdict
 
-from fastapi import Request, HTTPException
+from fastapi import HTTPException, Request
 
 logger = logging.getLogger(__name__)
 
@@ -27,8 +27,13 @@ class InMemoryRateLimiter:
         # Purge expired entries
         self._hits[key] = [t for t in self._hits[key] if now - t < self.window]
         if len(self._hits[key]) >= self.max_requests:
-            logger.warning("RATE LIMIT hit for %s (%d/%d in %ds)",
-                           key, len(self._hits[key]), self.max_requests, self.window)
+            logger.warning(
+                "RATE LIMIT hit for %s (%d/%d in %ds)",
+                key,
+                len(self._hits[key]),
+                self.max_requests,
+                self.window,
+            )
             raise HTTPException(
                 status_code=429,
                 detail="Rate limit exceeded. Please try again shortly.",

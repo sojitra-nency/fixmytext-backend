@@ -4,10 +4,13 @@ Revision ID: 0014
 Revises: 0013
 Create Date: 2026-03-26
 """
-from typing import Sequence, Union
+
+from collections.abc import Sequence
+from typing import Union
+
+import sqlalchemy as sa
 
 from alembic import op
-import sqlalchemy as sa
 
 revision: str = "0014"
 down_revision: Union[str, None] = "0013"
@@ -18,7 +21,9 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     op.add_column(
         "user_templates",
-        sa.Column("is_deleted", sa.Boolean(), nullable=False, server_default=sa.text("false")),
+        sa.Column(
+            "is_deleted", sa.Boolean(), nullable=False, server_default=sa.text("false")
+        ),
         schema="activity",
     )
 

@@ -4,34 +4,54 @@ import uuid
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
 from app.core.deps import get_current_user
-from app.db.session import get_db
 from app.db.models import (
-    User, UserPreferences, UserGamification, UserTemplate,
-    UserUiSettings, UserFavoriteTool, UserToolStats,
-    UserPipeline, UserPipelineStep,
-    UserDiscoveredTool, UserSpinLog,
+    User,
+    UserDiscoveredTool,
+    UserFavoriteTool,
+    UserGamification,
+    UserPipeline,
+    UserPipelineStep,
+    UserPreferences,
+    UserSpinLog,
+    UserTemplate,
+    UserToolStats,
+    UserUiSettings,
 )
+from app.db.session import get_db
 from app.schemas.user_data import (
-    PreferencesResponse, PreferencesUpdate,
-    GamificationResponse, GamificationUpdate,
-    TemplateResponse, TemplateCreate, TemplateUpdate,
-    UiSettingsResponse, UiSettingsUpdate,
-    FavoriteToolItem, FavoritesResponse,
-    ToolStatItem, ToolStatsResponse,
-    PipelineStepResponse, PipelineResponse, PipelineCreate, PipelineUpdate,
-    DiscoveredToolItem, DiscoveredToolsResponse,
-    SpinHistoryItem, SpinHistoryResponse,
+    DiscoveredToolItem,
+    DiscoveredToolsResponse,
+    FavoritesResponse,
+    FavoriteToolItem,
+    GamificationResponse,
+    GamificationUpdate,
+    PipelineCreate,
+    PipelineResponse,
+    PipelineStepResponse,
+    PipelineUpdate,
+    PreferencesResponse,
+    PreferencesUpdate,
+    SpinHistoryItem,
+    SpinHistoryResponse,
+    TemplateCreate,
+    TemplateResponse,
+    TemplateUpdate,
+    ToolStatItem,
+    ToolStatsResponse,
+    UiSettingsResponse,
+    UiSettingsUpdate,
 )
 
 router = APIRouter(prefix="/user", tags=["User Data"])
 
 
 # ── Preferences ──────────────────────────────────────────────────────────────
+
 
 @router.get("/preferences", response_model=PreferencesResponse)
 async def get_preferences(
@@ -41,7 +61,9 @@ async def get_preferences(
     prefs = await db.get(UserPreferences, user.id)
     if not prefs:
         return PreferencesResponse()
-    return PreferencesResponse(theme=prefs.theme, persona=prefs.persona, theme_skin=prefs.theme_skin)
+    return PreferencesResponse(
+        theme=prefs.theme, persona=prefs.persona, theme_skin=prefs.theme_skin
+    )
 
 
 @router.put("/preferences", response_model=PreferencesResponse)
@@ -61,16 +83,25 @@ async def update_preferences(
 
     await db.commit()
     await db.refresh(prefs)
-    return PreferencesResponse(theme=prefs.theme, persona=prefs.persona, theme_skin=prefs.theme_skin)
+    return PreferencesResponse(
+        theme=prefs.theme, persona=prefs.persona, theme_skin=prefs.theme_skin
+    )
 
 
 # ── Gamification ─────────────────────────────────────────────────────────────
 
-async def _gam_to_response(gam: UserGamification, db: AsyncSession) -> GamificationResponse:
+
+async def _gam_to_response(
+    gam: UserGamification, db: AsyncSession
+) -> GamificationResponse:
     """Convert ORM model to response schema — reads from normalized tables."""
     # Date columns: use new Date columns, format as ISO string
-    streak_last_date = gam.streak_last_date.isoformat() if gam.streak_last_date else None
-    daily_quest_date = gam.daily_quest_date.isoformat() if gam.daily_quest_date else None
+    streak_last_date = (
+        gam.streak_last_date.isoformat() if gam.streak_last_date else None
+    )
+    daily_quest_date = (
+        gam.daily_quest_date.isoformat() if gam.daily_quest_date else None
+    )
 
     return GamificationResponse(
         xp=gam.xp,
@@ -124,19 +155,26 @@ async def update_gamification(
 
 # ── Templates ────────────────────────────────────────────────────────────────
 
+
 @router.get("/templates", response_model=list[TemplateResponse])
 async def list_templates(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(UserTemplate).where(UserTemplate.user_id == user.id).order_by(UserTemplate.created_at)
+        select(UserTemplate)
+        .where(UserTemplate.user_id == user.id)
+        .order_by(UserTemplate.created_at)
     )
     templates = result.scalars().all()
     return [
         TemplateResponse(
-            id=str(t.id), name=t.name, text=t.text, tool_id=t.tool_id,
-            created_at=t.created_at.isoformat(), updated_at=t.updated_at.isoformat(),
+            id=str(t.id),
+            name=t.name,
+            text=t.text,
+            tool_id=t.tool_id,
+            created_at=t.created_at.isoformat(),
+            updated_at=t.updated_at.isoformat(),
         )
         for t in templates
     ]
@@ -148,13 +186,19 @@ async def create_template(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    template = UserTemplate(user_id=user.id, name=body.name, text=body.text, tool_id=body.tool_id)
+    template = UserTemplate(
+        user_id=user.id, name=body.name, text=body.text, tool_id=body.tool_id
+    )
     db.add(template)
     await db.commit()
     await db.refresh(template)
     return TemplateResponse(
-        id=str(template.id), name=template.name, text=template.text, tool_id=template.tool_id,
-        created_at=template.created_at.isoformat(), updated_at=template.updated_at.isoformat(),
+        id=str(template.id),
+        name=template.name,
+        text=template.text,
+        tool_id=template.tool_id,
+        created_at=template.created_at.isoformat(),
+        updated_at=template.updated_at.isoformat(),
     )
 
 
@@ -176,8 +220,12 @@ async def update_template(
     await db.commit()
     await db.refresh(template)
     return TemplateResponse(
-        id=str(template.id), name=template.name, text=template.text, tool_id=template.tool_id,
-        created_at=template.created_at.isoformat(), updated_at=template.updated_at.isoformat(),
+        id=str(template.id),
+        name=template.name,
+        text=template.text,
+        tool_id=template.tool_id,
+        created_at=template.created_at.isoformat(),
+        updated_at=template.updated_at.isoformat(),
     )
 
 
@@ -196,6 +244,7 @@ async def delete_template(
 
 
 # ── UI Settings ───────────────────────────────────────────────────────────────
+
 
 @router.get("/ui-settings", response_model=UiSettingsResponse)
 async def get_ui_settings(
@@ -238,6 +287,7 @@ async def update_ui_settings(
 
 # ── Favorites ─────────────────────────────────────────────────────────────────
 
+
 @router.get("/favorites", response_model=FavoritesResponse)
 async def get_favorites(
     user: User = Depends(get_current_user),
@@ -250,7 +300,9 @@ async def get_favorites(
     )
     rows = result.scalars().all()
     return FavoritesResponse(
-        favorites=[FavoriteToolItem(tool_id=r.tool_id, sort_order=r.sort_order) for r in rows]
+        favorites=[
+            FavoriteToolItem(tool_id=r.tool_id, sort_order=r.sort_order) for r in rows
+        ]
     )
 
 
@@ -265,8 +317,9 @@ async def add_favorite(
         return {"tool_id": tool_id, "sort_order": existing.sort_order}
 
     max_result = await db.execute(
-        select(func.max(UserFavoriteTool.sort_order))
-        .where(UserFavoriteTool.user_id == user.id)
+        select(func.max(UserFavoriteTool.sort_order)).where(
+            UserFavoriteTool.user_id == user.id
+        )
     )
     max_order = max_result.scalar() or -1
 
@@ -289,6 +342,7 @@ async def remove_favorite(
 
 
 # ── Tool Stats ────────────────────────────────────────────────────────────────
+
 
 @router.get("/tool-stats", response_model=ToolStatsResponse)
 async def get_tool_stats(
@@ -314,6 +368,7 @@ async def get_tool_stats(
 
 
 # ── Pipelines ─────────────────────────────────────────────────────────────────
+
 
 def _pipeline_to_response(p: UserPipeline) -> PipelineResponse:
     return PipelineResponse(
@@ -342,7 +397,7 @@ async def list_pipelines(
 ):
     result = await db.execute(
         select(UserPipeline)
-        .where(UserPipeline.user_id == user.id, UserPipeline.is_active == True)
+        .where(UserPipeline.user_id == user.id, UserPipeline.is_active.is_(True))
         .options(selectinload(UserPipeline.steps))
         .order_by(UserPipeline.created_at)
     )
@@ -355,18 +410,22 @@ async def create_pipeline(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    pipeline = UserPipeline(user_id=user.id, name=body.name, description=body.description)
+    pipeline = UserPipeline(
+        user_id=user.id, name=body.name, description=body.description
+    )
     db.add(pipeline)
     await db.flush()
 
     for step_in in body.steps:
-        db.add(UserPipelineStep(
-            pipeline_id=pipeline.id,
-            step_order=step_in.step_order,
-            tool_id=step_in.tool_id,
-            tool_label=step_in.tool_label,
-            config=step_in.config,
-        ))
+        db.add(
+            UserPipelineStep(
+                pipeline_id=pipeline.id,
+                step_order=step_in.step_order,
+                tool_id=step_in.tool_id,
+                tool_label=step_in.tool_label,
+                config=step_in.config,
+            )
+        )
 
     await db.commit()
     result = await db.execute(
@@ -403,13 +462,15 @@ async def update_pipeline(
             await db.delete(step)
         await db.flush()
         for step_in in body.steps:
-            db.add(UserPipelineStep(
-                pipeline_id=pipeline.id,
-                step_order=step_in.step_order,
-                tool_id=step_in.tool_id,
-                tool_label=step_in.tool_label,
-                config=step_in.config,
-            ))
+            db.add(
+                UserPipelineStep(
+                    pipeline_id=pipeline.id,
+                    step_order=step_in.step_order,
+                    tool_id=step_in.tool_id,
+                    tool_label=step_in.tool_label,
+                    config=step_in.config,
+                )
+            )
 
     await db.commit()
     result = await db.execute(
@@ -434,6 +495,7 @@ async def delete_pipeline(
 
 
 # ── Discovered Tools ────────────────────────────────────────────────────────
+
 
 @router.get("/discovered-tools", response_model=DiscoveredToolsResponse)
 async def get_discovered_tools(
@@ -469,6 +531,7 @@ async def get_discovered_tools(
 
 
 # ── Spin History ────────────────────────────────────────────────────────────
+
 
 @router.get("/spin-history", response_model=SpinHistoryResponse)
 async def get_spin_history(

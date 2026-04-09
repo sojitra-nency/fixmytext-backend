@@ -4,7 +4,9 @@ Revision ID: 0001
 Create Date: 2026-03-17
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
+from typing import Union
+
 from alembic import op
 
 # revision identifiers

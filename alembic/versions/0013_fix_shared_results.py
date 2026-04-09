@@ -4,11 +4,14 @@ Revision ID: 0013
 Revises: 0012
 Create Date: 2026-03-26
 """
-from typing import Sequence, Union
 
-from alembic import op
+from collections.abc import Sequence
+from typing import Union
+
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import TIMESTAMP
+
+from alembic import op
 
 revision: str = "0013"
 down_revision: Union[str, None] = "0012"
@@ -27,7 +30,9 @@ def upgrade() -> None:
     # Add view_count
     op.add_column(
         "shared_results",
-        sa.Column("view_count", sa.Integer(), nullable=False, server_default=sa.text("0")),
+        sa.Column(
+            "view_count", sa.Integer(), nullable=False, server_default=sa.text("0")
+        ),
         schema="activity",
     )
 
@@ -58,7 +63,9 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("ix_shared_results_expires_at", table_name="shared_results", schema="activity")
+    op.drop_index(
+        "ix_shared_results_expires_at", table_name="shared_results", schema="activity"
+    )
     op.drop_column("shared_results", "expires_at", schema="activity")
     op.drop_column("shared_results", "view_count", schema="activity")
     op.drop_column("shared_results", "input_text", schema="activity")

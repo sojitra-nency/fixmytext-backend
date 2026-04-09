@@ -1,11 +1,11 @@
 """Pydantic schemas for passes, credits, and tool access."""
 
-from pydantic import BaseModel, Field
-from typing import Optional
 from datetime import datetime
 
+from pydantic import BaseModel, Field
 
 # ── Catalog ──────────────────────────────────────────────────────────────────
+
 
 class PassCatalogItem(BaseModel):
     id: str
@@ -36,6 +36,7 @@ class CatalogResponse(BaseModel):
 
 # ── Active Passes & Credits ──────────────────────────────────────────────────
 
+
 class ActivePass(BaseModel):
     id: str
     pass_id: str
@@ -63,10 +64,13 @@ class ActiveResponse(BaseModel):
 
 # ── Razorpay Order / Verify ──────────────────────────────────────────────────
 
+
 class PassOrderRequest(BaseModel):
     pass_id: str = Field(..., description="Catalog pass ID e.g. 'day_triple'")
     tool_ids: list[str] = Field(default=[], description="Selected tool IDs")
-    region: str = Field(default="", description="Browser-detected region (IN, US, GB, EU)")
+    region: str = Field(
+        default="", description="Browser-detected region (IN, US, GB, EU)"
+    )
 
 
 class CreditOrderRequest(BaseModel):
@@ -94,18 +98,22 @@ class RazorpayVerifyRequest(BaseModel):
 
 # ── Spin ─────────────────────────────────────────────────────────────────────
 
+
 class SpinResult(BaseModel):
     reward_type: str
-    amount: Optional[int] = None
-    pass_id: Optional[str] = None
-    pass_name: Optional[str] = None
+    amount: int | None = None
+    pass_id: str | None = None
+    pass_name: str | None = None
     message: str
 
 
 # ── Referral ─────────────────────────────────────────────────────────────────
 
+
 class ClaimReferralRequest(BaseModel):
-    code: str = Field(..., min_length=1, max_length=20, description="Referral code to claim")
+    code: str = Field(
+        ..., min_length=1, max_length=20, description="Referral code to claim"
+    )
 
 
 class ReferralCodeResponse(BaseModel):

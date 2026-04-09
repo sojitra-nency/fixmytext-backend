@@ -1,58 +1,59 @@
 """Pydantic schemas for user preferences, gamification, templates, ui-settings, favorites, tool-stats, pipelines."""
 
-from typing import Optional
 from pydantic import BaseModel, Field
-
 
 # ── Preferences ──────────────────────────────────────────────────────────────
 
+
 class PreferencesResponse(BaseModel):
     theme: str = "dark"
-    persona: Optional[str] = None
-    theme_skin: Optional[str] = None
+    persona: str | None = None
+    theme_skin: str | None = None
 
 
 class PreferencesUpdate(BaseModel):
-    theme: Optional[str] = Field(None, max_length=10)
-    persona: Optional[str] = Field(None, max_length=50)
-    theme_skin: Optional[str] = Field(None, max_length=50)
+    theme: str | None = Field(None, max_length=10)
+    persona: str | None = Field(None, max_length=50)
+    theme_skin: str | None = Field(None, max_length=50)
 
 
 # ── Gamification ─────────────────────────────────────────────────────────────
 
+
 class GamificationResponse(BaseModel):
     xp: int = 0
     streak_current: int = 0
-    streak_last_date: Optional[str] = None
+    streak_last_date: str | None = None
     total_ops: int = 0
     total_chars: int = 0
     achievements: list[str] = []
     completed_quests: list[str] = []
-    daily_quest_id: Optional[str] = None
-    daily_quest_date: Optional[str] = None
+    daily_quest_id: str | None = None
+    daily_quest_date: str | None = None
     daily_quest_completed: bool = False
 
 
 class GamificationUpdate(BaseModel):
-    xp: Optional[int] = None
-    streak_current: Optional[int] = None
-    streak_last_date: Optional[str] = None
-    total_ops: Optional[int] = None
-    total_chars: Optional[int] = None
-    achievements: Optional[list[str]] = None
-    completed_quests: Optional[list[str]] = None
-    daily_quest_id: Optional[str] = None
-    daily_quest_date: Optional[str] = None
-    daily_quest_completed: Optional[bool] = None
+    xp: int | None = None
+    streak_current: int | None = None
+    streak_last_date: str | None = None
+    total_ops: int | None = None
+    total_chars: int | None = None
+    achievements: list[str] | None = None
+    completed_quests: list[str] | None = None
+    daily_quest_id: str | None = None
+    daily_quest_date: str | None = None
+    daily_quest_completed: bool | None = None
 
 
 # ── Templates ────────────────────────────────────────────────────────────────
+
 
 class TemplateResponse(BaseModel):
     id: str
     name: str
     text: str
-    tool_id: Optional[str] = None
+    tool_id: str | None = None
     created_at: str
     updated_at: str
 
@@ -60,16 +61,17 @@ class TemplateResponse(BaseModel):
 class TemplateCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
     text: str = Field(..., min_length=1)
-    tool_id: Optional[str] = Field(None, max_length=100)
+    tool_id: str | None = Field(None, max_length=100)
 
 
 class TemplateUpdate(BaseModel):
-    name: Optional[str] = Field(None, min_length=1, max_length=200)
-    text: Optional[str] = Field(None, min_length=1)
-    tool_id: Optional[str] = Field(None, max_length=100)
+    name: str | None = Field(None, min_length=1, max_length=200)
+    text: str | None = Field(None, min_length=1)
+    tool_id: str | None = Field(None, max_length=100)
 
 
 # ── UI Settings ───────────────────────────────────────────────────────────────
+
 
 class UiSettingsResponse(BaseModel):
     tool_view: str = "grid"
@@ -78,12 +80,13 @@ class UiSettingsResponse(BaseModel):
 
 
 class UiSettingsUpdate(BaseModel):
-    tool_view: Optional[str] = Field(None, max_length=10)
-    keybindings: Optional[dict] = None
-    panel_sizes: Optional[dict] = None
+    tool_view: str | None = Field(None, max_length=10)
+    keybindings: dict | None = None
+    panel_sizes: dict | None = None
 
 
 # ── Favorites ─────────────────────────────────────────────────────────────────
+
 
 class FavoriteToolItem(BaseModel):
     tool_id: str
@@ -95,6 +98,7 @@ class FavoritesResponse(BaseModel):
 
 
 # ── Tool Stats ────────────────────────────────────────────────────────────────
+
 
 class ToolStatItem(BaseModel):
     tool_id: str
@@ -108,18 +112,19 @@ class ToolStatsResponse(BaseModel):
 
 # ── Pipelines ─────────────────────────────────────────────────────────────────
 
+
 class PipelineStepResponse(BaseModel):
     id: str
     step_order: int
     tool_id: str
     tool_label: str
-    config: Optional[dict] = None
+    config: dict | None = None
 
 
 class PipelineResponse(BaseModel):
     id: str
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     steps: list[PipelineStepResponse]
     created_at: str
     updated_at: str
@@ -129,22 +134,23 @@ class PipelineStepIn(BaseModel):
     step_order: int
     tool_id: str = Field(..., max_length=100)
     tool_label: str = Field(..., max_length=200)
-    config: Optional[dict] = None
+    config: dict | None = None
 
 
 class PipelineCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
-    description: Optional[str] = Field(None, max_length=500)
+    description: str | None = Field(None, max_length=500)
     steps: list[PipelineStepIn] = []
 
 
 class PipelineUpdate(BaseModel):
-    name: Optional[str] = Field(None, min_length=1, max_length=200)
-    description: Optional[str] = Field(None, max_length=500)
-    steps: Optional[list[PipelineStepIn]] = None
+    name: str | None = Field(None, min_length=1, max_length=200)
+    description: str | None = Field(None, max_length=500)
+    steps: list[PipelineStepIn] | None = None
 
 
 # ── Discovered Tools ─────────────────────────────────────────────────────────
+
 
 class DiscoveredToolItem(BaseModel):
     tool_id: str
@@ -158,10 +164,11 @@ class DiscoveredToolsResponse(BaseModel):
 
 # ── Spin History ─────────────────────────────────────────────────────────────
 
+
 class SpinHistoryItem(BaseModel):
     spin_date: str
     reward_type: str
-    reward_ref: Optional[str] = None
+    reward_ref: str | None = None
     iso_week: int
 
 

@@ -2,33 +2,52 @@
 
 import json
 import logging
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import select, and_
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-
-logger = logging.getLogger(__name__)
 
 from app.core.config import settings
 from app.core.deps import get_current_user
-from app.db.session import get_db
 from app.db.models import User
+from app.db.models.billing_subscription import Subscription
+from app.db.session import get_db
 from app.schemas.subscription import (
-    SubscriptionStatus, RazorpayProOrderResponse, RazorpayProVerifyRequest,
+    RazorpayProOrderResponse,
+    RazorpayProVerifyRequest,
+    SubscriptionStatus,
+)
+from app.services.pass_service import (
+    get_active_passes,
+    get_all_tool_uses_today,
+    get_credit_balance,
+    get_subscription_tier,
+    has_logged_in_today,
+    record_daily_login,
 )
 from app.services.razorpay_service import (
-    create_order, fetch_order, verify_payment_signature, PRO_PLAN_PRICES,
+    PRO_PLAN_PRICES,
+    create_order,
+    fetch_order,
+    verify_payment_signature,
     verify_webhook_signature,
 )
-from app.services.pass_service import record_daily_login, get_credit_balance, get_active_passes, get_all_tool_uses_today, has_logged_in_today, get_subscription_tier
-from app.db.models.billing_subscription import Subscription
-from datetime import datetime, timezone
 from app.services.region_service import resolve_user_region
+
+logger = logging.getLogger(__name__)
+
+
+def _s(value: object) -> str:
+    """Sanitize a value for log output — strips CR/LF to prevent log injection."""
+    return str(value).replace("\r", " ").replace("\n", " ")
+
 
 router = APIRouter(prefix="/subscription", tags=["Subscription"])
 
 
-# ── Status ──────────────────────────────────────────────────────────────────
+# ── Status ────────────────────────────────────────────────────────────
+
 
 @router.get("/status", response_model=SubscriptionStatus)
 async def subscription_status(
@@ -65,6 +84,7 @@ async def subscription_status(
 
 # ── Pro Checkout (create Razorpay order — one-time payment) ─────────────────
 
+
 @router.post("/checkout", response_model=RazorpayProOrderResponse)
 async def create_pro_checkout(
     user: User = Depends(get_current_user),
@@ -87,9 +107,13 @@ async def create_pro_checkout(
             receipt=f"pro_{str(user.id)[:8]}",
             notes={"user_id": str(user.id), "item_type": "pro_subscription"},
         )
-    except Exception:
-        logger.exception("Failed to create Razorpay order for Pro checkout, user %s", user.id)
-        raise HTTPException(502, "Failed to start checkout — please try again later")
+    except Exception as e:
+        logger.exception(
+            "Failed to create Razorpay order for Pro checkout, user %s", user.id
+        )
+        raise HTTPException(
+            502, "Failed to start checkout — please try again later"
+        ) from e
 
     return RazorpayProOrderResponse(
         order_id=order["id"],
@@ -101,7 +125,8 @@ async def create_pro_checkout(
     )
 
 
-# ── Verify Pro Payment ─────────────────────────────────────────────────────
+# ── Verify Pro Payment ────────────────────────────────────────────────
+
 
 @router.post("/verify")
 async def verify_pro_payment(
@@ -110,15 +135,17 @@ async def verify_pro_payment(
     db: AsyncSession = Depends(get_db),
 ):
     """Verify Razorpay payment and activate Pro."""
-    if not verify_payment_signature(req.razorpay_order_id, req.razorpay_payment_id, req.razorpay_signature):
+    if not verify_payment_signature(
+        req.razorpay_order_id, req.razorpay_payment_id, req.razorpay_signature
+    ):
         raise HTTPException(400, "Payment verification failed — invalid signature")
 
     # Validate order belongs to this user
     try:
         order = fetch_order(req.razorpay_order_id)
-    except Exception:
+    except Exception as e:
         logger.exception("Failed to fetch order %s", req.razorpay_order_id)
-        raise HTTPException(502, "Could not verify order details")
+        raise HTTPException(502, "Could not verify order details") from e
 
     notes = order.get("notes", {})
     if notes.get("user_id") != str(user.id):
@@ -140,11 +167,17 @@ async def verify_pro_payment(
     db.add(sub)
 
     await db.commit()
-    logger.info("Pro activated: user=%s order=%s payment=%s", user.id, req.razorpay_order_id, req.razorpay_payment_id)
+    logger.info(
+        "Pro activated: user=%s order=%s payment=%s",
+        user.id,
+        _s(req.razorpay_order_id),
+        _s(req.razorpay_payment_id),
+    )
     return {"status": "success", "tier": "pro"}
 
 
-# ── Cancel Pro ───────────────────────────────────────────────────────────────
+# ── Cancel Pro ────────────────────────────────────────────────────────
+
 
 @router.post("/cancel")
 async def cancel_pro(
@@ -169,13 +202,14 @@ async def cancel_pro(
     active_sub = sub_result.scalars().first()
     if active_sub:
         active_sub.status = "cancelled"
-        active_sub.cancelled_at = datetime.now(timezone.utc)
+        active_sub.cancelled_at = datetime.now(UTC)
 
     await db.commit()
     return {"status": "cancelled"}
 
 
-# ── Webhook ──────────────────────────────────────────────────────────────────
+# ── Webhook ───────────────────────────────────────────────────────────
+
 
 @router.post("/webhook")
 async def razorpay_webhook(request: Request, db: AsyncSession = Depends(get_db)):
@@ -190,8 +224,8 @@ async def razorpay_webhook(request: Request, db: AsyncSession = Depends(get_db))
 
     try:
         event = json.loads(body)
-    except json.JSONDecodeError:
-        raise HTTPException(400, "Invalid payload")
+    except json.JSONDecodeError as e:
+        raise HTTPException(400, "Invalid payload") from e
 
     event_type = event.get("event", "")
     payload = event.get("payload", {})

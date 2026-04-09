@@ -10,15 +10,38 @@ logger = logging.getLogger(__name__)
 # Maps country codes to our pricing regions
 _COUNTRY_TO_REGION = {
     "IN": "IN",
-    "US": "US", "CA": "US", "AU": "US",
+    "US": "US",
+    "CA": "US",
+    "AU": "US",
     "GB": "GB",
     # EU countries
-    "DE": "EU", "FR": "EU", "IT": "EU", "ES": "EU", "NL": "EU",
-    "BE": "EU", "AT": "EU", "PT": "EU", "IE": "EU", "FI": "EU",
-    "GR": "EU", "SE": "EU", "DK": "EU", "PL": "EU", "CZ": "EU",
-    "RO": "EU", "HU": "EU", "SK": "EU", "HR": "EU", "BG": "EU",
-    "LT": "EU", "LV": "EU", "EE": "EU", "SI": "EU", "LU": "EU",
-    "MT": "EU", "CY": "EU",
+    "DE": "EU",
+    "FR": "EU",
+    "IT": "EU",
+    "ES": "EU",
+    "NL": "EU",
+    "BE": "EU",
+    "AT": "EU",
+    "PT": "EU",
+    "IE": "EU",
+    "FI": "EU",
+    "GR": "EU",
+    "SE": "EU",
+    "DK": "EU",
+    "PL": "EU",
+    "CZ": "EU",
+    "RO": "EU",
+    "HU": "EU",
+    "SK": "EU",
+    "HR": "EU",
+    "BG": "EU",
+    "LT": "EU",
+    "LV": "EU",
+    "EE": "EU",
+    "SI": "EU",
+    "LU": "EU",
+    "MT": "EU",
+    "CY": "EU",
 }
 
 DEFAULT_REGION = "US"
@@ -26,7 +49,7 @@ DEFAULT_REGION = "US"
 
 def _is_local_ip(ip_address: str) -> bool:
     """Check if IP is local/private (includes Docker 172.16.x range)."""
-    if not ip_address or ip_address in {"localhost", "0.0.0.0"}:
+    if not ip_address or ip_address in {"localhost", "0.0.0.0"}:  # noqa: S104
         return True
     try:
         ip_obj = ipaddress.ip_address(ip_address)
@@ -46,7 +69,9 @@ async def detect_region(ip_address: str) -> str:
                 # Local dev — detect region from server's public IP
                 resp = await client.get("http://ip-api.com/json/?fields=countryCode")
             else:
-                resp = await client.get(f"http://ip-api.com/json/{ip_address}?fields=countryCode")
+                resp = await client.get(
+                    f"http://ip-api.com/json/{ip_address}?fields=countryCode"
+                )
 
             if resp.status_code == 200:
                 country = resp.json().get("countryCode", "")
@@ -64,7 +89,8 @@ async def resolve_user_region(
     explicit_region: str = "",
 ) -> str:
     """Resolve region: explicit param > user.region > IP detection.
-    Updates user.region if changed (but does NOT commit — caller controls transaction)."""
+    Updates user.region if changed (but does NOT commit — caller controls transaction).
+    """
     from app.core.pass_catalog import REGIONS
 
     if explicit_region and explicit_region in REGIONS:

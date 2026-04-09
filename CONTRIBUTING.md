@@ -12,7 +12,7 @@ Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md) in all interact
 
 Before you begin, make sure you have the following installed and available:
 
-- **Python 3.11+**
+- **Python 3.12+**
 - **PostgreSQL 16** (or Docker to run it in a container)
 - **Git**
 - **Groq API key** -- free at [console.groq.com](https://console.groq.com) (required only for AI-powered tools)
@@ -82,11 +82,10 @@ Keep the subject line under 72 characters. Use the body for additional context w
 
 ### Formatting and linting
 
-- **Black** formatter with the default line length of **88** characters.
-- **ruff** or **flake8** for linting -- fix all warnings before opening a PR.
+- **Ruff** for both formatting and linting with a line length of **88** characters.
 - Run before committing:
   ```bash
-  black app/ tests/
+  ruff format app/ tests/
   ruff check app/ tests/
   ```
 
@@ -250,7 +249,7 @@ Always review auto-generated migration files before committing -- Alembic does n
 Before opening a pull request, confirm the following:
 
 - [ ] The new endpoint works correctly (tested via curl or Swagger UI).
-- [ ] Code is formatted with **Black**.
+- [ ] Code is formatted with **Ruff** (`ruff format .`).
 - [ ] All tests pass (`pytest`).
 - [ ] No secrets, API keys, or credentials are committed.
 - [ ] The `tool_id` in the backend matches the corresponding definition in the frontend repo.
