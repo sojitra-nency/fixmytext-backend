@@ -17,7 +17,9 @@ from tests.conftest import make_mock_db, make_user
 
 @pytest.fixture
 def user_in_db():
-    return make_user(email="existing@example.com", hashed_password=hash_password("correct_password"))
+    return make_user(
+        email="existing@example.com", hashed_password=hash_password("correct_password")
+    )
 
 
 @pytest.fixture
@@ -52,7 +54,11 @@ def test_register_success(empty_db):
         with patch("app.services.region_service.resolve_user_region"):
             resp = TestClient(app, raise_server_exceptions=True).post(
                 "/api/v1/auth/register",
-                json={"email": "new@example.com", "password": "password123", "display_name": "New User"},
+                json={
+                    "email": "new@example.com",
+                    "password": "password123",
+                    "display_name": "New User",
+                },
             )
     app.dependency_overrides.clear()
     # May succeed or hit issues with the mock — we test the request reaches the endpoint
@@ -95,7 +101,11 @@ def test_register_duplicate_email(db_with_user):
     with patch("app.api.v1.endpoints.auth._set_user_region"):
         resp = TestClient(app, raise_server_exceptions=False).post(
             "/api/v1/auth/register",
-            json={"email": "existing@example.com", "password": "password123", "display_name": "Dup"},
+            json={
+                "email": "existing@example.com",
+                "password": "password123",
+                "display_name": "Dup",
+            },
         )
     app.dependency_overrides.clear()
     assert resp.status_code == 409
@@ -108,7 +118,11 @@ def test_register_invalid_email_format(empty_db):
     app.dependency_overrides[get_db] = _get_db
     resp = TestClient(app).post(
         "/api/v1/auth/register",
-        json={"email": "not-an-email", "password": "pass123", "display_name": "Bad Email"},
+        json={
+            "email": "not-an-email",
+            "password": "pass123",
+            "display_name": "Bad Email",
+        },
     )
     app.dependency_overrides.clear()
     # FastAPI/pydantic may or may not validate email format — accept either

@@ -68,7 +68,9 @@ class ActiveResponse(BaseModel):
 class PassOrderRequest(BaseModel):
     pass_id: str = Field(..., description="Catalog pass ID e.g. 'day_triple'")
     tool_ids: list[str] = Field(default=[], description="Selected tool IDs")
-    region: str = Field(default="", description="Browser-detected region (IN, US, GB, EU)")
+    region: str = Field(
+        default="", description="Browser-detected region (IN, US, GB, EU)"
+    )
 
 
 class CreditOrderRequest(BaseModel):
@@ -109,7 +111,9 @@ class SpinResult(BaseModel):
 
 
 class ClaimReferralRequest(BaseModel):
-    code: str = Field(..., min_length=1, max_length=20, description="Referral code to claim")
+    code: str = Field(
+        ..., min_length=1, max_length=20, description="Referral code to claim"
+    )
 
 
 class ReferralCodeResponse(BaseModel):

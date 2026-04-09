@@ -7,6 +7,7 @@ Revision ID: 0018
 Revises: 0017
 Create Date: 2026-04-01
 """
+
 from typing import Sequence, Union
 
 from alembic import op

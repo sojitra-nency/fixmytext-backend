@@ -61,7 +61,9 @@ async def get_preferences(
     prefs = await db.get(UserPreferences, user.id)
     if not prefs:
         return PreferencesResponse()
-    return PreferencesResponse(theme=prefs.theme, persona=prefs.persona, theme_skin=prefs.theme_skin)
+    return PreferencesResponse(
+        theme=prefs.theme, persona=prefs.persona, theme_skin=prefs.theme_skin
+    )
 
 
 @router.put("/preferences", response_model=PreferencesResponse)
@@ -81,17 +83,25 @@ async def update_preferences(
 
     await db.commit()
     await db.refresh(prefs)
-    return PreferencesResponse(theme=prefs.theme, persona=prefs.persona, theme_skin=prefs.theme_skin)
+    return PreferencesResponse(
+        theme=prefs.theme, persona=prefs.persona, theme_skin=prefs.theme_skin
+    )
 
 
 # ── Gamification ─────────────────────────────────────────────────────────────
 
 
-async def _gam_to_response(gam: UserGamification, db: AsyncSession) -> GamificationResponse:
+async def _gam_to_response(
+    gam: UserGamification, db: AsyncSession
+) -> GamificationResponse:
     """Convert ORM model to response schema — reads from normalized tables."""
     # Date columns: use new Date columns, format as ISO string
-    streak_last_date = gam.streak_last_date.isoformat() if gam.streak_last_date else None
-    daily_quest_date = gam.daily_quest_date.isoformat() if gam.daily_quest_date else None
+    streak_last_date = (
+        gam.streak_last_date.isoformat() if gam.streak_last_date else None
+    )
+    daily_quest_date = (
+        gam.daily_quest_date.isoformat() if gam.daily_quest_date else None
+    )
 
     return GamificationResponse(
         xp=gam.xp,
@@ -152,7 +162,9 @@ async def list_templates(
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(UserTemplate).where(UserTemplate.user_id == user.id).order_by(UserTemplate.created_at)
+        select(UserTemplate)
+        .where(UserTemplate.user_id == user.id)
+        .order_by(UserTemplate.created_at)
     )
     templates = result.scalars().all()
     return [
@@ -174,7 +186,9 @@ async def create_template(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    template = UserTemplate(user_id=user.id, name=body.name, text=body.text, tool_id=body.tool_id)
+    template = UserTemplate(
+        user_id=user.id, name=body.name, text=body.text, tool_id=body.tool_id
+    )
     db.add(template)
     await db.commit()
     await db.refresh(template)
@@ -280,10 +294,16 @@ async def get_favorites(
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(UserFavoriteTool).where(UserFavoriteTool.user_id == user.id).order_by(UserFavoriteTool.sort_order)
+        select(UserFavoriteTool)
+        .where(UserFavoriteTool.user_id == user.id)
+        .order_by(UserFavoriteTool.sort_order)
     )
     rows = result.scalars().all()
-    return FavoritesResponse(favorites=[FavoriteToolItem(tool_id=r.tool_id, sort_order=r.sort_order) for r in rows])
+    return FavoritesResponse(
+        favorites=[
+            FavoriteToolItem(tool_id=r.tool_id, sort_order=r.sort_order) for r in rows
+        ]
+    )
 
 
 @router.post("/favorites/{tool_id}", status_code=201)
@@ -297,7 +317,9 @@ async def add_favorite(
         return {"tool_id": tool_id, "sort_order": existing.sort_order}
 
     max_result = await db.execute(
-        select(func.max(UserFavoriteTool.sort_order)).where(UserFavoriteTool.user_id == user.id)
+        select(func.max(UserFavoriteTool.sort_order)).where(
+            UserFavoriteTool.user_id == user.id
+        )
     )
     max_order = max_result.scalar() or -1
 
@@ -328,7 +350,9 @@ async def get_tool_stats(
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(UserToolStats).where(UserToolStats.user_id == user.id).order_by(UserToolStats.total_uses.desc())
+        select(UserToolStats)
+        .where(UserToolStats.user_id == user.id)
+        .order_by(UserToolStats.total_uses.desc())
     )
     rows = result.scalars().all()
     return ToolStatsResponse(
@@ -386,7 +410,9 @@ async def create_pipeline(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    pipeline = UserPipeline(user_id=user.id, name=body.name, description=body.description)
+    pipeline = UserPipeline(
+        user_id=user.id, name=body.name, description=body.description
+    )
     db.add(pipeline)
     await db.flush()
 
@@ -403,7 +429,9 @@ async def create_pipeline(
 
     await db.commit()
     result = await db.execute(
-        select(UserPipeline).where(UserPipeline.id == pipeline.id).options(selectinload(UserPipeline.steps))
+        select(UserPipeline)
+        .where(UserPipeline.id == pipeline.id)
+        .options(selectinload(UserPipeline.steps))
     )
     return _pipeline_to_response(result.scalar_one())
 
@@ -446,7 +474,9 @@ async def update_pipeline(
 
     await db.commit()
     result = await db.execute(
-        select(UserPipeline).where(UserPipeline.id == pipeline_id).options(selectinload(UserPipeline.steps))
+        select(UserPipeline)
+        .where(UserPipeline.id == pipeline_id)
+        .options(selectinload(UserPipeline.steps))
     )
     return _pipeline_to_response(result.scalar_one())
 
@@ -475,7 +505,9 @@ async def get_discovered_tools(
     offset: int = 0,
 ):
     # Total count (unaffected by pagination)
-    count_result = await db.execute(select(func.count()).where(UserDiscoveredTool.user_id == user.id))
+    count_result = await db.execute(
+        select(func.count()).where(UserDiscoveredTool.user_id == user.id)
+    )
     total = count_result.scalar()
 
     result = await db.execute(
@@ -507,7 +539,10 @@ async def get_spin_history(
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(UserSpinLog).where(UserSpinLog.user_id == user.id).order_by(UserSpinLog.created_at.desc()).limit(20)
+        select(UserSpinLog)
+        .where(UserSpinLog.user_id == user.id)
+        .order_by(UserSpinLog.created_at.desc())
+        .limit(20)
     )
     spins = result.scalars().all()
     return SpinHistoryResponse(

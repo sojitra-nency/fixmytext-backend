@@ -1,8 +1,9 @@
 """Pydantic models (schemas) for text-processing requests and responses."""
 
+import re
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class TextRequest(BaseModel):
@@ -126,6 +127,8 @@ class WrapRequest(BaseModel):
 class FilterRequest(BaseModel):
     """Payload for filter-lines and remove-lines requests."""
 
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     text: str = Field(
         ...,
         min_length=1,
@@ -146,6 +149,24 @@ class FilterRequest(BaseModel):
         default=False,
         description="If true, treat pattern as a regular expression.",
     )
+    # Pre-compiled pattern — populated by the validator below; excluded from
+    # serialisation so it never appears in API responses or OpenAPI schema.
+    compiled_pattern: re.Pattern | None = Field(default=None, exclude=True)
+
+    @model_validator(mode="after")
+    def _compile_regex(self) -> "FilterRequest":
+        """Compile and validate the regex pattern eagerly at request-parse time.
+
+        Rejecting invalid patterns with 422 before any text processing begins,
+        and pre-compiling once avoids repeated re.compile calls in the hot loop.
+        """
+        if self.use_regex:
+            flags = 0 if self.case_sensitive else re.IGNORECASE
+            try:
+                self.compiled_pattern = re.compile(self.pattern, flags)
+            except re.error as exc:
+                raise ValueError(f"Invalid regular expression: {exc}") from exc
+        return self
 
 
 class TruncateRequest(BaseModel):

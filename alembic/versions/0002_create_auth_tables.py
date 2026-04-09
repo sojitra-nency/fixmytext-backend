@@ -20,15 +20,37 @@ def upgrade() -> None:
     # ── auth.users ───────────────────────────────────────────────────────────
     op.create_table(
         "users",
-        sa.Column("id", UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), nullable=False),
+        sa.Column(
+            "id",
+            UUID(as_uuid=True),
+            server_default=sa.text("gen_random_uuid()"),
+            nullable=False,
+        ),
         sa.Column("email", sa.String(255), nullable=False),
         sa.Column("hashed_password", sa.String(255), nullable=False),
         sa.Column("display_name", sa.String(100), nullable=False),
-        sa.Column("is_active", sa.Boolean(), server_default=sa.text("true"), nullable=False),
-        sa.Column("created_at", TIMESTAMP(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.Column("updated_at", TIMESTAMP(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "is_active", sa.Boolean(), server_default=sa.text("true"), nullable=False
+        ),
+        sa.Column(
+            "created_at",
+            TIMESTAMP(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            TIMESTAMP(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         # Subscription fields
-        sa.Column("subscription_tier", sa.String(20), server_default=sa.text("'free'"), nullable=False),
+        sa.Column(
+            "subscription_tier",
+            sa.String(20),
+            server_default=sa.text("'free'"),
+            nullable=False,
+        ),
         sa.Column("razorpay_subscription_id", sa.String(255), nullable=True),
         sa.PrimaryKeyConstraint("id", name="pk_users"),
         sa.UniqueConstraint("email", name="uq_users_email"),
@@ -40,13 +62,21 @@ def upgrade() -> None:
     op.create_table(
         "user_preferences",
         sa.Column("user_id", UUID(as_uuid=True), nullable=False),
-        sa.Column("theme", sa.String(10), server_default=sa.text("'dark'"), nullable=False),
+        sa.Column(
+            "theme", sa.String(10), server_default=sa.text("'dark'"), nullable=False
+        ),
         sa.Column("persona", sa.String(50), nullable=True),
         sa.Column("theme_skin", sa.String(50), nullable=True),
-        sa.Column("updated_at", TIMESTAMP(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "updated_at",
+            TIMESTAMP(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.PrimaryKeyConstraint("user_id", name="pk_user_preferences"),
         sa.ForeignKeyConstraint(
-            ["user_id"], ["auth.users.id"],
+            ["user_id"],
+            ["auth.users.id"],
             name="fk_user_preferences_user_id_users",
             ondelete="CASCADE",
         ),

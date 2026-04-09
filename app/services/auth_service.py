@@ -8,11 +8,15 @@ from app.core.security import hash_password, verify_password
 from app.db.models import User
 
 
-async def register(db: AsyncSession, email: str, password: str, display_name: str) -> User:
+async def register(
+    db: AsyncSession, email: str, password: str, display_name: str
+) -> User:
     """Create a new local user. Raises 409 if email already taken."""
     existing = await db.execute(select(User).where(User.email == email))
     if existing.scalar_one_or_none():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Email already registered"
+        )
 
     user = User(
         email=email,
@@ -31,9 +35,13 @@ async def authenticate(db: AsyncSession, email: str, password: str) -> User:
     user = result.scalar_one_or_none()
 
     if not user or not verify_password(password, user.hashed_password):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password"
+        )
 
     if not user.is_active:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account disabled")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Account disabled"
+        )
 
     return user

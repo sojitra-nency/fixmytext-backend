@@ -102,7 +102,11 @@ from app.services.ai_service import (
     WritingPromptService,
     YoutubeDescService,
 )
-from app.services.pass_service import check_tool_access, check_visitor_access, record_tool_discovery
+from app.services.pass_service import (
+    check_tool_access,
+    check_visitor_access,
+    record_tool_discovery,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +127,13 @@ async def _local_endpoint(
     """Shared handler for non-AI text endpoints with optional usage tracking."""
     client_ip = request.client.host if request.client else "unknown"
     user_id = str(user.id) if user else "visitor"
-    logger.info("LOCAL  op=%s user=%s ip=%s chars=%d", operation, user_id, client_ip, len(req.text))
+    logger.info(
+        "LOCAL  op=%s user=%s ip=%s chars=%d",
+        operation,
+        user_id,
+        client_ip,
+        len(req.text),
+    )
     if db:
         await _enforce_tool_access(request, operation, "api", user, db)
     result = transform_fn(req.text)
@@ -131,7 +141,9 @@ async def _local_endpoint(
     return TextResponse(original=req.text, result=result, operation=operation)
 
 
-async def _enforce_tool_access(request: Request, tool_id: str, tool_type: str, user: User | None, db: AsyncSession):
+async def _enforce_tool_access(
+    request: Request, tool_id: str, tool_type: str, user: User | None, db: AsyncSession
+):
     """Unified tool access check — works for both authenticated and visitor users."""
     if user:
         result = await check_tool_access(user, tool_id, tool_type, db)
@@ -154,7 +166,9 @@ async def _enforce_tool_access(request: Request, tool_id: str, tool_type: str, u
         )
         raise HTTPException(
             status_code=429,
-            detail=result.get("message", "Daily limit reached. Get a pass for more access!"),
+            detail=result.get(
+                "message", "Daily limit reached. Get a pass for more access!"
+            ),
         )
 
     # Record tool discovery for authenticated users (fire-and-forget, ON CONFLICT DO NOTHING)
@@ -179,7 +193,13 @@ async def _ai_endpoint(
 
     client_ip = request.client.host if request.client else "unknown"
     user_id = str(user.id) if user else "visitor"
-    logger.info("AI     op=%s user=%s ip=%s chars=%d", _safe(operation), user_id, client_ip, len(req.text))
+    logger.info(
+        "AI     op=%s user=%s ip=%s chars=%d",
+        _safe(operation),
+        user_id,
+        client_ip,
+        len(req.text),
+    )
     ai_limiter.check(request)
     if db:
         await _enforce_tool_access(request, operation, "ai", user, db)
@@ -227,7 +247,9 @@ async def inversecase(
     db: AsyncSession = Depends(get_db),
 ):
     """Invert case of every character."""
-    return await _local_endpoint(request, req, "inversecase", ts.to_inverse_case, user, db)
+    return await _local_endpoint(
+        request, req, "inversecase", ts.to_inverse_case, user, db
+    )
 
 
 @router.post("/sentencecase", response_model=TextResponse)
@@ -238,7 +260,9 @@ async def sentencecase(
     db: AsyncSession = Depends(get_db),
 ):
     """Convert text to Sentence case."""
-    return await _local_endpoint(request, req, "sentencecase", ts.to_sentence_case, user, db)
+    return await _local_endpoint(
+        request, req, "sentencecase", ts.to_sentence_case, user, db
+    )
 
 
 @router.post("/titlecase", response_model=TextResponse)
@@ -260,7 +284,9 @@ async def upper_camel_case(
     db: AsyncSession = Depends(get_db),
 ):
     """Convert text to UpperCamelCase (PascalCase)."""
-    return await _local_endpoint(request, req, "upper-camel-case", ts.to_upper_camel_case, user, db)
+    return await _local_endpoint(
+        request, req, "upper-camel-case", ts.to_upper_camel_case, user, db
+    )
 
 
 @router.post("/lower-camel-case", response_model=TextResponse)
@@ -271,7 +297,9 @@ async def lower_camel_case(
     db: AsyncSession = Depends(get_db),
 ):
     """Convert text to lowerCamelCase."""
-    return await _local_endpoint(request, req, "lower-camel-case", ts.to_lower_camel_case, user, db)
+    return await _local_endpoint(
+        request, req, "lower-camel-case", ts.to_lower_camel_case, user, db
+    )
 
 
 @router.post("/snake-case", response_model=TextResponse)
@@ -304,7 +332,9 @@ async def capitalize_words(
     db: AsyncSession = Depends(get_db),
 ):
     """Capitalize the first letter of each word, keep rest unchanged."""
-    return await _local_endpoint(request, req, "capitalize-words", ts.to_capitalize_words, user, db)
+    return await _local_endpoint(
+        request, req, "capitalize-words", ts.to_capitalize_words, user, db
+    )
 
 
 @router.post("/alternating-case", response_model=TextResponse)
@@ -315,7 +345,9 @@ async def alternating_case(
     db: AsyncSession = Depends(get_db),
 ):
     """Convert text to aLtErNaTiNg CaSe."""
-    return await _local_endpoint(request, req, "alternating-case", ts.to_alternating_case, user, db)
+    return await _local_endpoint(
+        request, req, "alternating-case", ts.to_alternating_case, user, db
+    )
 
 
 @router.post("/inverse-word-case", response_model=TextResponse)
@@ -326,7 +358,9 @@ async def inverse_word_case(
     db: AsyncSession = Depends(get_db),
 ):
     """Capitalize last letter of each word instead of first."""
-    return await _local_endpoint(request, req, "inverse-word-case", ts.to_inverse_word_case, user, db)
+    return await _local_endpoint(
+        request, req, "inverse-word-case", ts.to_inverse_word_case, user, db
+    )
 
 
 @router.post("/wide-text", response_model=TextResponse)
@@ -359,7 +393,9 @@ async def upside_down(
     db: AsyncSession = Depends(get_db),
 ):
     """Flip text upside down using Unicode characters."""
-    return await _local_endpoint(request, req, "upside-down", ts.to_upside_down, user, db)
+    return await _local_endpoint(
+        request, req, "upside-down", ts.to_upside_down, user, db
+    )
 
 
 @router.post("/strikethrough", response_model=TextResponse)
@@ -370,7 +406,9 @@ async def strikethrough(
     db: AsyncSession = Depends(get_db),
 ):
     """Apply Unicode strikethrough to each character."""
-    return await _local_endpoint(request, req, "strikethrough", ts.to_strikethrough, user, db)
+    return await _local_endpoint(
+        request, req, "strikethrough", ts.to_strikethrough, user, db
+    )
 
 
 @router.post("/ap-title-case", response_model=TextResponse)
@@ -381,7 +419,9 @@ async def ap_title_case(
     db: AsyncSession = Depends(get_db),
 ):
     """Smart title case following AP style rules."""
-    return await _local_endpoint(request, req, "ap-title-case", ts.to_ap_title_case, user, db)
+    return await _local_endpoint(
+        request, req, "ap-title-case", ts.to_ap_title_case, user, db
+    )
 
 
 @router.post("/swap-word-case", response_model=TextResponse)
@@ -392,7 +432,9 @@ async def swap_word_case(
     db: AsyncSession = Depends(get_db),
 ):
     """Alternate case at the word level (UPPER lower UPPER lower)."""
-    return await _local_endpoint(request, req, "swap-word-case", ts.to_swap_word_case, user, db)
+    return await _local_endpoint(
+        request, req, "swap-word-case", ts.to_swap_word_case, user, db
+    )
 
 
 @router.post("/dot-case", response_model=TextResponse)
@@ -414,7 +456,9 @@ async def constant_case(
     db: AsyncSession = Depends(get_db),
 ):
     """Convert text to CONSTANT_CASE (SCREAMING_SNAKE_CASE)."""
-    return await _local_endpoint(request, req, "constant-case", ts.to_constant_case, user, db)
+    return await _local_endpoint(
+        request, req, "constant-case", ts.to_constant_case, user, db
+    )
 
 
 @router.post("/train-case", response_model=TextResponse)
@@ -469,7 +513,9 @@ async def remove_extra_spaces(
     db: AsyncSession = Depends(get_db),
 ):
     """Collapse multiple whitespace runs into a single space."""
-    return await _local_endpoint(request, req, "remove-extra-spaces", ts.remove_extra_spaces, user, db)
+    return await _local_endpoint(
+        request, req, "remove-extra-spaces", ts.remove_extra_spaces, user, db
+    )
 
 
 @router.post("/remove-all-spaces", response_model=TextResponse)
@@ -480,7 +526,9 @@ async def remove_all_spaces(
     db: AsyncSession = Depends(get_db),
 ):
     """Strip all whitespace from text."""
-    return await _local_endpoint(request, req, "remove-all-spaces", ts.remove_all_spaces, user, db)
+    return await _local_endpoint(
+        request, req, "remove-all-spaces", ts.remove_all_spaces, user, db
+    )
 
 
 @router.post("/remove-line-breaks", response_model=TextResponse)
@@ -491,7 +539,9 @@ async def remove_line_breaks(
     db: AsyncSession = Depends(get_db),
 ):
     """Replace line breaks with spaces."""
-    return await _local_endpoint(request, req, "remove-line-breaks", ts.remove_line_breaks, user, db)
+    return await _local_endpoint(
+        request, req, "remove-line-breaks", ts.remove_line_breaks, user, db
+    )
 
 
 # ── Text Cleaning ────────────────────────────────────────────────────────
@@ -516,7 +566,9 @@ async def remove_accents(
     db: AsyncSession = Depends(get_db),
 ):
     """Remove diacritics/accents from text."""
-    return await _local_endpoint(request, req, "remove-accents", ts.remove_accents, user, db)
+    return await _local_endpoint(
+        request, req, "remove-accents", ts.remove_accents, user, db
+    )
 
 
 @router.post("/toggle-smart-quotes", response_model=TextResponse)
@@ -527,7 +579,9 @@ async def toggle_smart_quotes(
     db: AsyncSession = Depends(get_db),
 ):
     """Toggle between smart (curly) and straight quotes."""
-    return await _local_endpoint(request, req, "toggle-smart-quotes", ts.toggle_smart_quotes, user, db)
+    return await _local_endpoint(
+        request, req, "toggle-smart-quotes", ts.toggle_smart_quotes, user, db
+    )
 
 
 @router.post("/strip-invisible", response_model=TextResponse)
@@ -538,7 +592,9 @@ async def strip_invisible(
     db: AsyncSession = Depends(get_db),
 ):
     """Remove zero-width spaces, soft hyphens, and hidden Unicode characters."""
-    return await _local_endpoint(request, req, "strip-invisible", ts.strip_invisible, user, db)
+    return await _local_endpoint(
+        request, req, "strip-invisible", ts.strip_invisible, user, db
+    )
 
 
 @router.post("/strip-emoji", response_model=TextResponse)
@@ -560,7 +616,9 @@ async def normalize_whitespace(
     db: AsyncSession = Depends(get_db),
 ):
     """Convert tabs, non-breaking spaces, and exotic whitespace to regular spaces."""
-    return await _local_endpoint(request, req, "normalize-whitespace", ts.normalize_whitespace, user, db)
+    return await _local_endpoint(
+        request, req, "normalize-whitespace", ts.normalize_whitespace, user, db
+    )
 
 
 @router.post("/strip-non-ascii", response_model=TextResponse)
@@ -571,7 +629,9 @@ async def strip_non_ascii(
     db: AsyncSession = Depends(get_db),
 ):
     """Remove all non-ASCII characters."""
-    return await _local_endpoint(request, req, "strip-non-ascii", ts.strip_non_ascii, user, db)
+    return await _local_endpoint(
+        request, req, "strip-non-ascii", ts.strip_non_ascii, user, db
+    )
 
 
 @router.post("/fix-line-endings", response_model=TextResponse)
@@ -582,7 +642,9 @@ async def fix_line_endings(
     db: AsyncSession = Depends(get_db),
 ):
     """Normalize mixed line endings (CRLF/CR) to Unix-style LF."""
-    return await _local_endpoint(request, req, "fix-line-endings", ts.fix_line_endings, user, db)
+    return await _local_endpoint(
+        request, req, "fix-line-endings", ts.fix_line_endings, user, db
+    )
 
 
 @router.post("/strip-markdown", response_model=TextResponse)
@@ -593,7 +655,9 @@ async def strip_markdown(
     db: AsyncSession = Depends(get_db),
 ):
     """Remove Markdown formatting to get plain text."""
-    return await _local_endpoint(request, req, "strip-markdown", ts.strip_markdown, user, db)
+    return await _local_endpoint(
+        request, req, "strip-markdown", ts.strip_markdown, user, db
+    )
 
 
 @router.post("/trim-lines", response_model=TextResponse)
@@ -615,7 +679,9 @@ async def strip_empty_lines(
     db: AsyncSession = Depends(get_db),
 ):
     """Delete all blank lines, keeping only lines with content."""
-    return await _local_endpoint(request, req, "strip-empty-lines", ts.strip_empty_lines, user, db)
+    return await _local_endpoint(
+        request, req, "strip-empty-lines", ts.strip_empty_lines, user, db
+    )
 
 
 @router.post("/strip-urls", response_model=TextResponse)
@@ -637,7 +703,9 @@ async def strip_emails(
     db: AsyncSession = Depends(get_db),
 ):
     """Strip all email addresses from text."""
-    return await _local_endpoint(request, req, "strip-emails", ts.strip_emails, user, db)
+    return await _local_endpoint(
+        request, req, "strip-emails", ts.strip_emails, user, db
+    )
 
 
 @router.post("/normalize-punctuation", response_model=TextResponse)
@@ -648,7 +716,9 @@ async def normalize_punctuation(
     db: AsyncSession = Depends(get_db),
 ):
     """Fix spaces around punctuation marks."""
-    return await _local_endpoint(request, req, "normalize-punctuation", ts.normalize_punctuation, user, db)
+    return await _local_endpoint(
+        request, req, "normalize-punctuation", ts.normalize_punctuation, user, db
+    )
 
 
 @router.post("/strip-numbers", response_model=TextResponse)
@@ -659,7 +729,9 @@ async def strip_numbers(
     db: AsyncSession = Depends(get_db),
 ):
     """Remove all numeric digits from text."""
-    return await _local_endpoint(request, req, "strip-numbers", ts.strip_numbers, user, db)
+    return await _local_endpoint(
+        request, req, "strip-numbers", ts.strip_numbers, user, db
+    )
 
 
 # ── Encoding ──────────────────────────────────────────────────────────────────
@@ -673,7 +745,9 @@ async def base64_encode(
     db: AsyncSession = Depends(get_db),
 ):
     """Encode text to Base64."""
-    return await _local_endpoint(request, req, "base64-encode", ts.base64_encode, user, db)
+    return await _local_endpoint(
+        request, req, "base64-encode", ts.base64_encode, user, db
+    )
 
 
 @router.post("/base64-decode", response_model=TextResponse)
@@ -686,7 +760,11 @@ async def base64_decode(
     """Decode Base64 text."""
     await _enforce_tool_access(request, "base64-decode", "api", user, db)
     try:
-        return TextResponse(original=req.text, result=ts.base64_decode(req.text), operation="base64-decode")
+        return TextResponse(
+            original=req.text,
+            result=ts.base64_decode(req.text),
+            operation="base64-decode",
+        )
     except (binascii.Error, UnicodeDecodeError, ValueError):
         raise HTTPException(status_code=400, detail="Invalid Base64 input") from None
 
@@ -712,9 +790,13 @@ async def url_decode(
     """Decode a percent-encoded URL string."""
     await _enforce_tool_access(request, "url-decode", "api", user, db)
     try:
-        return TextResponse(original=req.text, result=ts.url_decode(req.text), operation="url-decode")
+        return TextResponse(
+            original=req.text, result=ts.url_decode(req.text), operation="url-decode"
+        )
     except (ValueError, UnicodeDecodeError):
-        raise HTTPException(status_code=400, detail="Invalid URL-encoded input") from None
+        raise HTTPException(
+            status_code=400, detail="Invalid URL-encoded input"
+        ) from None
 
 
 @router.post("/hex-encode", response_model=TextResponse)
@@ -738,9 +820,13 @@ async def hex_decode(
     """Decode hexadecimal to text."""
     await _enforce_tool_access(request, "hex-decode", "api", user, db)
     try:
-        return TextResponse(original=req.text, result=ts.hex_decode(req.text), operation="hex-decode")
+        return TextResponse(
+            original=req.text, result=ts.hex_decode(req.text), operation="hex-decode"
+        )
     except (ValueError, UnicodeDecodeError):
-        raise HTTPException(status_code=400, detail="Invalid hexadecimal input") from None
+        raise HTTPException(
+            status_code=400, detail="Invalid hexadecimal input"
+        ) from None
 
 
 @router.post("/morse-encode", response_model=TextResponse)
@@ -751,7 +837,9 @@ async def morse_encode(
     db: AsyncSession = Depends(get_db),
 ):
     """Encode text to Morse code."""
-    return await _local_endpoint(request, req, "morse-encode", ts.morse_encode, user, db)
+    return await _local_endpoint(
+        request, req, "morse-encode", ts.morse_encode, user, db
+    )
 
 
 @router.post("/morse-decode", response_model=TextResponse)
@@ -764,9 +852,15 @@ async def morse_decode(
     """Decode Morse code to text."""
     await _enforce_tool_access(request, "morse-decode", "api", user, db)
     try:
-        return TextResponse(original=req.text, result=ts.morse_decode(req.text), operation="morse-decode")
+        return TextResponse(
+            original=req.text,
+            result=ts.morse_decode(req.text),
+            operation="morse-decode",
+        )
     except (KeyError, ValueError):
-        raise HTTPException(status_code=400, detail="Invalid Morse code input") from None
+        raise HTTPException(
+            status_code=400, detail="Invalid Morse code input"
+        ) from None
 
 
 # ── Binary / Octal / Decimal Encoding ─────────────────────────────────────────
@@ -780,7 +874,9 @@ async def binary_encode(
     db: AsyncSession = Depends(get_db),
 ):
     """Encode text to binary representation."""
-    return await _local_endpoint(request, req, "binary-encode", ts.binary_encode, user, db)
+    return await _local_endpoint(
+        request, req, "binary-encode", ts.binary_encode, user, db
+    )
 
 
 @router.post("/binary-decode", response_model=TextResponse)
@@ -793,7 +889,11 @@ async def binary_decode(
     """Decode binary representation back to text."""
     await _enforce_tool_access(request, "binary-decode", "api", user, db)
     try:
-        return TextResponse(original=req.text, result=ts.binary_decode(req.text), operation="binary-decode")
+        return TextResponse(
+            original=req.text,
+            result=ts.binary_decode(req.text),
+            operation="binary-decode",
+        )
     except (ValueError, UnicodeDecodeError):
         raise HTTPException(status_code=400, detail="Invalid binary input") from None
 
@@ -806,7 +906,9 @@ async def octal_encode(
     db: AsyncSession = Depends(get_db),
 ):
     """Encode text to octal representation."""
-    return await _local_endpoint(request, req, "octal-encode", ts.octal_encode, user, db)
+    return await _local_endpoint(
+        request, req, "octal-encode", ts.octal_encode, user, db
+    )
 
 
 @router.post("/octal-decode", response_model=TextResponse)
@@ -819,7 +921,11 @@ async def octal_decode(
     """Decode octal representation back to text."""
     await _enforce_tool_access(request, "octal-decode", "api", user, db)
     try:
-        return TextResponse(original=req.text, result=ts.octal_decode(req.text), operation="octal-decode")
+        return TextResponse(
+            original=req.text,
+            result=ts.octal_decode(req.text),
+            operation="octal-decode",
+        )
     except (ValueError, UnicodeDecodeError):
         raise HTTPException(status_code=400, detail="Invalid octal input") from None
 
@@ -832,7 +938,9 @@ async def decimal_encode(
     db: AsyncSession = Depends(get_db),
 ):
     """Encode text to decimal character codes."""
-    return await _local_endpoint(request, req, "decimal-encode", ts.decimal_encode, user, db)
+    return await _local_endpoint(
+        request, req, "decimal-encode", ts.decimal_encode, user, db
+    )
 
 
 @router.post("/decimal-decode", response_model=TextResponse)
@@ -845,7 +953,11 @@ async def decimal_decode(
     """Decode decimal character codes back to text."""
     await _enforce_tool_access(request, "decimal-decode", "api", user, db)
     try:
-        return TextResponse(original=req.text, result=ts.decimal_decode(req.text), operation="decimal-decode")
+        return TextResponse(
+            original=req.text,
+            result=ts.decimal_decode(req.text),
+            operation="decimal-decode",
+        )
     except (ValueError, UnicodeDecodeError):
         raise HTTPException(status_code=400, detail="Invalid decimal input") from None
 
@@ -861,7 +973,9 @@ async def unicode_escape(
     db: AsyncSession = Depends(get_db),
 ):
     """Convert characters to \\uXXXX escape sequences."""
-    return await _local_endpoint(request, req, "unicode-escape", ts.unicode_escape, user, db)
+    return await _local_endpoint(
+        request, req, "unicode-escape", ts.unicode_escape, user, db
+    )
 
 
 @router.post("/unicode-unescape", response_model=TextResponse)
@@ -874,9 +988,15 @@ async def unicode_unescape(
     """Convert \\uXXXX escape sequences back to characters."""
     await _enforce_tool_access(request, "unicode-unescape", "api", user, db)
     try:
-        return TextResponse(original=req.text, result=ts.unicode_unescape(req.text), operation="unicode-unescape")
+        return TextResponse(
+            original=req.text,
+            result=ts.unicode_unescape(req.text),
+            operation="unicode-unescape",
+        )
     except (ValueError, UnicodeDecodeError):
-        raise HTTPException(status_code=400, detail="Invalid Unicode escape sequence") from None
+        raise HTTPException(
+            status_code=400, detail="Invalid Unicode escape sequence"
+        ) from None
 
 
 # ── Brainfuck Encoding ─────────────────────────────────────────────────────────
@@ -890,7 +1010,9 @@ async def brainfuck_encode(
     db: AsyncSession = Depends(get_db),
 ):
     """Encode text as a Brainfuck program."""
-    return await _local_endpoint(request, req, "brainfuck-encode", ts.brainfuck_encode, user, db)
+    return await _local_endpoint(
+        request, req, "brainfuck-encode", ts.brainfuck_encode, user, db
+    )
 
 
 @router.post("/brainfuck-decode", response_model=TextResponse)
@@ -903,7 +1025,11 @@ async def brainfuck_decode(
     """Execute a Brainfuck program and return its output."""
     await _enforce_tool_access(request, "brainfuck-decode", "api", user, db)
     try:
-        return TextResponse(original=req.text, result=ts.brainfuck_decode(req.text), operation="brainfuck-decode")
+        return TextResponse(
+            original=req.text,
+            result=ts.brainfuck_decode(req.text),
+            operation="brainfuck-decode",
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
@@ -944,7 +1070,9 @@ async def caesar_brute_force(
     db: AsyncSession = Depends(get_db),
 ):
     """Try all 25 Caesar shifts to find plaintext."""
-    return await _local_endpoint(request, req, "caesar-brute-force", ts.caesar_brute_force, user, db)
+    return await _local_endpoint(
+        request, req, "caesar-brute-force", ts.caesar_brute_force, user, db
+    )
 
 
 @router.post("/vigenere-encrypt", response_model=TextResponse)
@@ -959,7 +1087,9 @@ async def vigenere_encrypt(
         await _enforce_tool_access(request, "vigenere-encrypt", "api", user, db)
     try:
         result = ts.vigenere_encrypt(req.text, req.key)
-        return TextResponse(original=req.text, result=result, operation="vigenere-encrypt")
+        return TextResponse(
+            original=req.text, result=result, operation="vigenere-encrypt"
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
@@ -976,7 +1106,9 @@ async def vigenere_decrypt(
         await _enforce_tool_access(request, "vigenere-decrypt", "api", user, db)
     try:
         result = ts.vigenere_decrypt(req.text, req.key)
-        return TextResponse(original=req.text, result=result, operation="vigenere-decrypt")
+        return TextResponse(
+            original=req.text, result=result, operation="vigenere-decrypt"
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
@@ -992,7 +1124,9 @@ async def rail_fence_encrypt(
     if db:
         await _enforce_tool_access(request, "rail-fence-encrypt", "api", user, db)
     result = ts.rail_fence_encrypt(req.text, req.rails)
-    return TextResponse(original=req.text, result=result, operation="rail-fence-encrypt")
+    return TextResponse(
+        original=req.text, result=result, operation="rail-fence-encrypt"
+    )
 
 
 @router.post("/rail-fence-decrypt", response_model=TextResponse)
@@ -1006,7 +1140,9 @@ async def rail_fence_decrypt(
     if db:
         await _enforce_tool_access(request, "rail-fence-decrypt", "api", user, db)
     result = ts.rail_fence_decrypt(req.text, req.rails)
-    return TextResponse(original=req.text, result=result, operation="rail-fence-decrypt")
+    return TextResponse(
+        original=req.text, result=result, operation="rail-fence-decrypt"
+    )
 
 
 @router.post("/playfair-encrypt", response_model=TextResponse)
@@ -1021,7 +1157,9 @@ async def playfair_encrypt(
         await _enforce_tool_access(request, "playfair-encrypt", "api", user, db)
     try:
         result = ts.playfair_encrypt(req.text, req.key)
-        return TextResponse(original=req.text, result=result, operation="playfair-encrypt")
+        return TextResponse(
+            original=req.text, result=result, operation="playfair-encrypt"
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
@@ -1038,7 +1176,9 @@ async def substitution_cipher_route(
         await _enforce_tool_access(request, "substitution-cipher", "api", user, db)
     try:
         result = ts.substitution_cipher(req.text, req.mapping)
-        return TextResponse(original=req.text, result=result, operation="substitution-cipher")
+        return TextResponse(
+            original=req.text, result=result, operation="substitution-cipher"
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
@@ -1055,7 +1195,9 @@ async def columnar_transposition(
         await _enforce_tool_access(request, "columnar-transposition", "api", user, db)
     try:
         result = ts.columnar_transposition(req.text, req.key)
-        return TextResponse(original=req.text, result=result, operation="columnar-transposition")
+        return TextResponse(
+            original=req.text, result=result, operation="columnar-transposition"
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
@@ -1068,7 +1210,9 @@ async def nato_phonetic(
     db: AsyncSession = Depends(get_db),
 ):
     """Convert text to/from NATO phonetic alphabet."""
-    return await _local_endpoint(request, req, "nato-phonetic", ts.nato_phonetic, user, db)
+    return await _local_endpoint(
+        request, req, "nato-phonetic", ts.nato_phonetic, user, db
+    )
 
 
 @router.post("/bacon-cipher", response_model=TextResponse)
@@ -1079,7 +1223,9 @@ async def bacon_cipher(
     db: AsyncSession = Depends(get_db),
 ):
     """Encode/decode using Bacon's biliteral cipher."""
-    return await _local_endpoint(request, req, "bacon-cipher", ts.bacon_cipher, user, db)
+    return await _local_endpoint(
+        request, req, "bacon-cipher", ts.bacon_cipher, user, db
+    )
 
 
 # ── Encoding Extensions ─────────────────────────────────────────────────────
@@ -1093,7 +1239,9 @@ async def base32_encode(
     db: AsyncSession = Depends(get_db),
 ):
     """Encode text to Base32."""
-    return await _local_endpoint(request, req, "base32-encode", ts.base32_encode, user, db)
+    return await _local_endpoint(
+        request, req, "base32-encode", ts.base32_encode, user, db
+    )
 
 
 @router.post("/base32-decode", response_model=TextResponse)
@@ -1105,7 +1253,9 @@ async def base32_decode(
 ):
     """Decode Base32 text."""
     try:
-        return await _local_endpoint(request, req, "base32-decode", ts.base32_decode, user, db)
+        return await _local_endpoint(
+            request, req, "base32-decode", ts.base32_decode, user, db
+        )
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid Base32 input") from None
 
@@ -1118,7 +1268,9 @@ async def ascii85_encode(
     db: AsyncSession = Depends(get_db),
 ):
     """Encode text to Ascii85."""
-    return await _local_endpoint(request, req, "ascii85-encode", ts.ascii85_encode, user, db)
+    return await _local_endpoint(
+        request, req, "ascii85-encode", ts.ascii85_encode, user, db
+    )
 
 
 @router.post("/ascii85-decode", response_model=TextResponse)
@@ -1130,7 +1282,9 @@ async def ascii85_decode(
 ):
     """Decode Ascii85 text."""
     try:
-        return await _local_endpoint(request, req, "ascii85-decode", ts.ascii85_decode, user, db)
+        return await _local_endpoint(
+            request, req, "ascii85-decode", ts.ascii85_decode, user, db
+        )
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid Ascii85 input") from None
 
@@ -1148,7 +1302,9 @@ async def xml_to_json(
     """Convert XML to JSON."""
     await _enforce_tool_access(request, "xml-to-json", "api", user, db)
     try:
-        return TextResponse(original=req.text, result=ts.xml_to_json(req.text), operation="xml-to-json")
+        return TextResponse(
+            original=req.text, result=ts.xml_to_json(req.text), operation="xml-to-json"
+        )
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid XML input") from None
 
@@ -1161,7 +1317,9 @@ async def csv_to_table(
     db: AsyncSession = Depends(get_db),
 ):
     """Convert CSV to Markdown table."""
-    return await _local_endpoint(request, req, "csv-to-table", ts.csv_to_table, user, db)
+    return await _local_endpoint(
+        request, req, "csv-to-table", ts.csv_to_table, user, db
+    )
 
 
 @router.post("/sql-insert-gen", response_model=TextResponse)
@@ -1174,7 +1332,11 @@ async def sql_insert_gen(
     """Generate SQL INSERT statements from CSV."""
     await _enforce_tool_access(request, "sql-insert-gen", "api", user, db)
     try:
-        return TextResponse(original=req.text, result=ts.sql_insert_gen(req.text), operation="sql-insert-gen")
+        return TextResponse(
+            original=req.text,
+            result=ts.sql_insert_gen(req.text),
+            operation="sql-insert-gen",
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
@@ -1201,7 +1363,9 @@ async def sort_lines_asc(
     db: AsyncSession = Depends(get_db),
 ):
     """Sort lines alphabetically A → Z (case-insensitive)."""
-    return await _local_endpoint(request, req, "sort-lines-asc", ts.sort_lines_asc, user, db)
+    return await _local_endpoint(
+        request, req, "sort-lines-asc", ts.sort_lines_asc, user, db
+    )
 
 
 @router.post("/sort-lines-desc", response_model=TextResponse)
@@ -1212,7 +1376,9 @@ async def sort_lines_desc(
     db: AsyncSession = Depends(get_db),
 ):
     """Sort lines alphabetically Z → A (case-insensitive)."""
-    return await _local_endpoint(request, req, "sort-lines-desc", ts.sort_lines_desc, user, db)
+    return await _local_endpoint(
+        request, req, "sort-lines-desc", ts.sort_lines_desc, user, db
+    )
 
 
 @router.post("/remove-duplicate-lines", response_model=TextResponse)
@@ -1223,7 +1389,9 @@ async def remove_duplicate_lines(
     db: AsyncSession = Depends(get_db),
 ):
     """Remove duplicate lines, preserving first occurrence."""
-    return await _local_endpoint(request, req, "remove-duplicate-lines", ts.remove_duplicate_lines, user, db)
+    return await _local_endpoint(
+        request, req, "remove-duplicate-lines", ts.remove_duplicate_lines, user, db
+    )
 
 
 @router.post("/reverse-lines", response_model=TextResponse)
@@ -1234,7 +1402,9 @@ async def reverse_lines(
     db: AsyncSession = Depends(get_db),
 ):
     """Reverse line order."""
-    return await _local_endpoint(request, req, "reverse-lines", ts.reverse_lines, user, db)
+    return await _local_endpoint(
+        request, req, "reverse-lines", ts.reverse_lines, user, db
+    )
 
 
 @router.post("/number-lines", response_model=TextResponse)
@@ -1245,7 +1415,9 @@ async def number_lines(
     db: AsyncSession = Depends(get_db),
 ):
     """Prefix each line with its line number."""
-    return await _local_endpoint(request, req, "number-lines", ts.number_lines, user, db)
+    return await _local_endpoint(
+        request, req, "number-lines", ts.number_lines, user, db
+    )
 
 
 @router.post("/shuffle-lines", response_model=TextResponse)
@@ -1256,7 +1428,9 @@ async def shuffle_lines(
     db: AsyncSession = Depends(get_db),
 ):
     """Randomly shuffle the order of all lines."""
-    return await _local_endpoint(request, req, "shuffle-lines", ts.shuffle_lines, user, db)
+    return await _local_endpoint(
+        request, req, "shuffle-lines", ts.shuffle_lines, user, db
+    )
 
 
 @router.post("/sort-by-length", response_model=TextResponse)
@@ -1267,7 +1441,9 @@ async def sort_by_length(
     db: AsyncSession = Depends(get_db),
 ):
     """Sort lines from shortest to longest."""
-    return await _local_endpoint(request, req, "sort-by-length", ts.sort_by_length, user, db)
+    return await _local_endpoint(
+        request, req, "sort-by-length", ts.sort_by_length, user, db
+    )
 
 
 @router.post("/sort-numeric", response_model=TextResponse)
@@ -1278,7 +1454,9 @@ async def sort_numeric(
     db: AsyncSession = Depends(get_db),
 ):
     """Sort lines by their leading number in natural numeric order."""
-    return await _local_endpoint(request, req, "sort-numeric", ts.sort_numeric, user, db)
+    return await _local_endpoint(
+        request, req, "sort-numeric", ts.sort_numeric, user, db
+    )
 
 
 @router.post("/line-frequency", response_model=TextResponse)
@@ -1289,7 +1467,9 @@ async def line_frequency(
     db: AsyncSession = Depends(get_db),
 ):
     """Count how many times each unique line appears, sorted by frequency."""
-    return await _local_endpoint(request, req, "line-frequency", ts.line_frequency, user, db)
+    return await _local_endpoint(
+        request, req, "line-frequency", ts.line_frequency, user, db
+    )
 
 
 @router.post("/split-to-lines", response_model=TextResponse)
@@ -1302,7 +1482,12 @@ async def split_to_lines(
     """Split text into separate lines by a delimiter."""
     client_ip = request.client.host if request.client else "unknown"
     user_id = str(user.id) if user else "visitor"
-    logger.info("LOCAL  op=split-to-lines user=%s ip=%s chars=%d", user_id, client_ip, len(req.text))
+    logger.info(
+        "LOCAL  op=split-to-lines user=%s ip=%s chars=%d",
+        user_id,
+        client_ip,
+        len(req.text),
+    )
     if db:
         await _enforce_tool_access(request, "split-to-lines", "api", user, db)
     result = ts.split_to_lines(req.text, req.delimiter)
@@ -1319,7 +1504,9 @@ async def join_lines(
     """Merge all lines into one using a chosen separator."""
     client_ip = request.client.host if request.client else "unknown"
     user_id = str(user.id) if user else "visitor"
-    logger.info("LOCAL  op=join-lines user=%s ip=%s chars=%d", user_id, client_ip, len(req.text))
+    logger.info(
+        "LOCAL  op=join-lines user=%s ip=%s chars=%d", user_id, client_ip, len(req.text)
+    )
     if db:
         await _enforce_tool_access(request, "join-lines", "api", user, db)
     result = ts.join_lines(req.text, req.delimiter)
@@ -1336,7 +1523,9 @@ async def pad_lines(
     """Pad all lines to equal width with spaces."""
     client_ip = request.client.host if request.client else "unknown"
     user_id = str(user.id) if user else "visitor"
-    logger.info("LOCAL  op=pad-lines user=%s ip=%s chars=%d", user_id, client_ip, len(req.text))
+    logger.info(
+        "LOCAL  op=pad-lines user=%s ip=%s chars=%d", user_id, client_ip, len(req.text)
+    )
     if db:
         await _enforce_tool_access(request, "pad-lines", "api", user, db)
     result = ts.pad_lines(req.text, req.align)
@@ -1353,7 +1542,9 @@ async def wrap_lines(
     """Add a custom prefix and/or suffix to every line."""
     client_ip = request.client.host if request.client else "unknown"
     user_id = str(user.id) if user else "visitor"
-    logger.info("LOCAL  op=wrap-lines user=%s ip=%s chars=%d", user_id, client_ip, len(req.text))
+    logger.info(
+        "LOCAL  op=wrap-lines user=%s ip=%s chars=%d", user_id, client_ip, len(req.text)
+    )
     if db:
         await _enforce_tool_access(request, "wrap-lines", "api", user, db)
     result = ts.wrap_lines(req.text, req.prefix, req.suffix)
@@ -1370,10 +1561,17 @@ async def filter_lines(
     """Keep only lines that contain a specific word or phrase."""
     client_ip = request.client.host if request.client else "unknown"
     user_id = str(user.id) if user else "visitor"
-    logger.info("LOCAL  op=filter-lines user=%s ip=%s chars=%d", user_id, client_ip, len(req.text))
+    logger.info(
+        "LOCAL  op=filter-lines user=%s ip=%s chars=%d",
+        user_id,
+        client_ip,
+        len(req.text),
+    )
     if db:
         await _enforce_tool_access(request, "filter-lines", "api", user, db)
-    result = ts.filter_lines_contain(req.text, req.pattern, req.case_sensitive, req.use_regex)
+    result = ts.filter_lines_contain(
+        req.text, req.pattern, req.case_sensitive, req.use_regex, req.compiled_pattern
+    )
     return TextResponse(original=req.text, result=result, operation="filter-lines")
 
 
@@ -1387,10 +1585,17 @@ async def remove_lines(
     """Remove all lines that contain a specific word or phrase."""
     client_ip = request.client.host if request.client else "unknown"
     user_id = str(user.id) if user else "visitor"
-    logger.info("LOCAL  op=remove-lines user=%s ip=%s chars=%d", user_id, client_ip, len(req.text))
+    logger.info(
+        "LOCAL  op=remove-lines user=%s ip=%s chars=%d",
+        user_id,
+        client_ip,
+        len(req.text),
+    )
     if db:
         await _enforce_tool_access(request, "remove-lines", "api", user, db)
-    result = ts.remove_lines_contain(req.text, req.pattern, req.case_sensitive, req.use_regex)
+    result = ts.remove_lines_contain(
+        req.text, req.pattern, req.case_sensitive, req.use_regex, req.compiled_pattern
+    )
     return TextResponse(original=req.text, result=result, operation="remove-lines")
 
 
@@ -1404,7 +1609,12 @@ async def truncate_lines(
     """Cut each line to a maximum character length."""
     client_ip = request.client.host if request.client else "unknown"
     user_id = str(user.id) if user else "visitor"
-    logger.info("LOCAL  op=truncate-lines user=%s ip=%s chars=%d", user_id, client_ip, len(req.text))
+    logger.info(
+        "LOCAL  op=truncate-lines user=%s ip=%s chars=%d",
+        user_id,
+        client_ip,
+        len(req.text),
+    )
     if db:
         await _enforce_tool_access(request, "truncate-lines", "api", user, db)
     result = ts.truncate_lines(req.text, req.max_length)
@@ -1421,7 +1631,12 @@ async def extract_nth_lines(
     """Extract every Nth line."""
     client_ip = request.client.host if request.client else "unknown"
     user_id = str(user.id) if user else "visitor"
-    logger.info("LOCAL  op=extract-nth-lines user=%s ip=%s chars=%d", user_id, client_ip, len(req.text))
+    logger.info(
+        "LOCAL  op=extract-nth-lines user=%s ip=%s chars=%d",
+        user_id,
+        client_ip,
+        len(req.text),
+    )
     if db:
         await _enforce_tool_access(request, "extract-nth-lines", "api", user, db)
     result = ts.extract_nth_lines(req.text, req.n, req.offset)
@@ -1452,7 +1667,9 @@ async def format_json(
     """Pretty-print JSON with 2-space indentation."""
     await _enforce_tool_access(request, "format-json", "api", user, db)
     try:
-        return TextResponse(original=req.text, result=ts.format_json(req.text), operation="format-json")
+        return TextResponse(
+            original=req.text, result=ts.format_json(req.text), operation="format-json"
+        )
     except (json.JSONDecodeError, ValueError):
         raise HTTPException(status_code=400, detail="Invalid JSON input") from None
 
@@ -1467,7 +1684,11 @@ async def json_to_yaml(
     """Convert JSON to YAML."""
     await _enforce_tool_access(request, "json-to-yaml", "api", user, db)
     try:
-        return TextResponse(original=req.text, result=ts.json_to_yaml(req.text), operation="json-to-yaml")
+        return TextResponse(
+            original=req.text,
+            result=ts.json_to_yaml(req.text),
+            operation="json-to-yaml",
+        )
     except (json.JSONDecodeError, ValueError):
         raise HTTPException(status_code=400, detail="Invalid JSON input") from None
 
@@ -1496,9 +1717,15 @@ async def json_unescape(
     """Unescape JSON string escape sequences."""
     await _enforce_tool_access(request, "json-unescape", "api", user, db)
     try:
-        return TextResponse(original=req.text, result=ts.json_unescape(req.text), operation="json-unescape")
+        return TextResponse(
+            original=req.text,
+            result=ts.json_unescape(req.text),
+            operation="json-unescape",
+        )
     except (json.JSONDecodeError, ValueError):
-        raise HTTPException(status_code=400, detail="Invalid JSON escaped input") from None
+        raise HTTPException(
+            status_code=400, detail="Invalid JSON escaped input"
+        ) from None
 
 
 @router.post("/html-escape", response_model=TextResponse)
@@ -1509,7 +1736,9 @@ async def html_escape(
     db: AsyncSession = Depends(get_db),
 ):
     """Escape HTML special characters to entities."""
-    return await _local_endpoint(request, req, "html-escape", ts.html_escape_text, user, db)
+    return await _local_endpoint(
+        request, req, "html-escape", ts.html_escape_text, user, db
+    )
 
 
 @router.post("/html-unescape", response_model=TextResponse)
@@ -1520,7 +1749,9 @@ async def html_unescape(
     db: AsyncSession = Depends(get_db),
 ):
     """Decode HTML entities to characters."""
-    return await _local_endpoint(request, req, "html-unescape", ts.html_unescape_text, user, db)
+    return await _local_endpoint(
+        request, req, "html-unescape", ts.html_unescape_text, user, db
+    )
 
 
 # ── CSV / JSON Conversion ────────────────────────────────────────────────────
@@ -1536,7 +1767,9 @@ async def csv_to_json(
     """Convert CSV text to JSON array."""
     await _enforce_tool_access(request, "csv-to-json", "api", user, db)
     try:
-        return TextResponse(original=req.text, result=ts.csv_to_json(req.text), operation="csv-to-json")
+        return TextResponse(
+            original=req.text, result=ts.csv_to_json(req.text), operation="csv-to-json"
+        )
     except (csv.Error, ValueError):
         raise HTTPException(status_code=400, detail="Invalid CSV input") from None
 
@@ -1551,9 +1784,13 @@ async def json_to_csv(
     """Convert JSON array of objects to CSV."""
     await _enforce_tool_access(request, "json-to-csv", "api", user, db)
     try:
-        return TextResponse(original=req.text, result=ts.json_to_csv(req.text), operation="json-to-csv")
+        return TextResponse(
+            original=req.text, result=ts.json_to_csv(req.text), operation="json-to-csv"
+        )
     except (json.JSONDecodeError, ValueError, KeyError):
-        raise HTTPException(status_code=400, detail="Invalid JSON input (expected array of objects)") from None
+        raise HTTPException(
+            status_code=400, detail="Invalid JSON input (expected array of objects)"
+        ) from None
 
 
 # ── AI Tools ─────────────────────────────────────────────────────────────────
@@ -1893,7 +2130,15 @@ async def eli5(
     db: AsyncSession = Depends(get_db),
 ):
     """Simplify text for easy understanding (ELI5)."""
-    return await _ai_endpoint(request, req, "eli5", ELI5Service.eli5, "ELI5 simplification failed", user=user, db=db)
+    return await _ai_endpoint(
+        request,
+        req,
+        "eli5",
+        ELI5Service.eli5,
+        "ELI5 simplification failed",
+        user=user,
+        db=db,
+    )
 
 
 @router.post("/proofread", response_model=TextResponse)
@@ -2364,7 +2609,15 @@ async def ad_copy(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await _ai_endpoint(request, req, "ad-copy", AdCopyService.transform, "Ad copy failed", user=user, db=db)
+    return await _ai_endpoint(
+        request,
+        req,
+        "ad-copy",
+        AdCopyService.transform,
+        "Ad copy failed",
+        user=user,
+        db=db,
+    )
 
 
 @router.post("/landing-headline", response_model=TextResponse)

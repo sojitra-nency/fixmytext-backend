@@ -26,7 +26,9 @@ def init_razorpay():
     global _client
     if not settings.RAZORPAY_KEY_ID:
         return
-    _client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+    _client = razorpay.Client(
+        auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
+    )
 
 
 def get_client() -> razorpay.Client:

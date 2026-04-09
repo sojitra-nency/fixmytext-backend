@@ -13,8 +13,14 @@ _ALLOW = {"allowed": True, "reason": "free"}
 @pytest.fixture(autouse=True)
 def patch_access_checks():
     with (
-        patch("app.api.v1.endpoints.text.check_tool_access", AsyncMock(return_value=_ALLOW)),
-        patch("app.api.v1.endpoints.text.check_visitor_access", AsyncMock(return_value=_ALLOW)),
+        patch(
+            "app.api.v1.endpoints.text.check_tool_access",
+            AsyncMock(return_value=_ALLOW),
+        ),
+        patch(
+            "app.api.v1.endpoints.text.check_visitor_access",
+            AsyncMock(return_value=_ALLOW),
+        ),
         patch("app.api.v1.endpoints.text.record_tool_discovery", AsyncMock()),
     ):
         yield
@@ -118,7 +124,9 @@ def test_train_case(client):
 
 
 def test_remove_extra_spaces(client):
-    resp = client.post("/api/v1/text/remove-extra-spaces", json={"text": "  hello   world  "})
+    resp = client.post(
+        "/api/v1/text/remove-extra-spaces", json={"text": "  hello   world  "}
+    )
     assert resp.status_code == 200
     assert resp.json()["result"] == "hello world"
 
@@ -179,7 +187,9 @@ def test_html_escape(client):
 
 
 def test_html_unescape(client):
-    resp = client.post("/api/v1/text/html-unescape", json={"text": "&lt;p&gt;hi&lt;/p&gt;"})
+    resp = client.post(
+        "/api/v1/text/html-unescape", json={"text": "&lt;p&gt;hi&lt;/p&gt;"}
+    )
     assert resp.status_code == 200
     assert "<p>" in resp.json()["result"]
 
@@ -223,19 +233,25 @@ def test_reverse_lines(client):
 
 
 def test_sort_lines_asc(client):
-    resp = client.post("/api/v1/text/sort-lines-asc", json={"text": "banana\napple\ncherry"})
+    resp = client.post(
+        "/api/v1/text/sort-lines-asc", json={"text": "banana\napple\ncherry"}
+    )
     assert resp.status_code == 200
     assert resp.json()["result"] == "apple\nbanana\ncherry"
 
 
 def test_sort_lines_desc(client):
-    resp = client.post("/api/v1/text/sort-lines-desc", json={"text": "apple\nbanana\ncherry"})
+    resp = client.post(
+        "/api/v1/text/sort-lines-desc", json={"text": "apple\nbanana\ncherry"}
+    )
     assert resp.status_code == 200
     assert resp.json()["result"] == "cherry\nbanana\napple"
 
 
 def test_remove_duplicate_lines(client):
-    resp = client.post("/api/v1/text/remove-duplicate-lines", json={"text": "a\nb\na\nc"})
+    resp = client.post(
+        "/api/v1/text/remove-duplicate-lines", json={"text": "a\nb\na\nc"}
+    )
     assert resp.status_code == 200
 
 
@@ -258,7 +274,9 @@ def test_caesar_cipher(client):
 
 
 def test_truncate_lines(client):
-    resp = client.post("/api/v1/text/truncate-lines", json={"text": "Hello World", "max_length": 5})
+    resp = client.post(
+        "/api/v1/text/truncate-lines", json={"text": "Hello World", "max_length": 5}
+    )
     assert resp.status_code == 200
 
 
@@ -293,7 +311,9 @@ def test_response_has_original(client):
 
 
 def test_fix_grammar_requires_auth(unauth_client):
-    resp = unauth_client.post("/api/v1/text/fix-grammar", json={"text": "i am go to school"})
+    resp = unauth_client.post(
+        "/api/v1/text/fix-grammar", json={"text": "i am go to school"}
+    )
     assert resp.status_code == 401
 
 
@@ -303,12 +323,16 @@ def test_summarize_requires_auth(unauth_client):
 
 
 def test_translate_requires_auth(unauth_client):
-    resp = unauth_client.post("/api/v1/text/translate", json={"text": "hello", "target_language": "Spanish"})
+    resp = unauth_client.post(
+        "/api/v1/text/translate", json={"text": "hello", "target_language": "Spanish"}
+    )
     assert resp.status_code == 401
 
 
 def test_change_tone_requires_auth(unauth_client):
-    resp = unauth_client.post("/api/v1/text/change-tone", json={"text": "hello", "tone": "formal"})
+    resp = unauth_client.post(
+        "/api/v1/text/change-tone", json={"text": "hello", "tone": "formal"}
+    )
     assert resp.status_code == 401
 
 
@@ -321,20 +345,33 @@ def test_paraphrase_requires_auth(unauth_client):
 
 
 def test_fix_grammar_with_mock_ai(client):
-    with patch("app.services.ai_service.GrammarFixerService.fix_grammar", AsyncMock(return_value="Fixed text.")):
-        resp = client.post("/api/v1/text/fix-grammar", json={"text": "i am go to school"})
+    with patch(
+        "app.services.ai_service.GrammarFixerService.fix_grammar",
+        AsyncMock(return_value="Fixed text."),
+    ):
+        resp = client.post(
+            "/api/v1/text/fix-grammar", json={"text": "i am go to school"}
+        )
     assert resp.status_code == 200
     assert resp.json()["result"] == "Fixed text."
 
 
 def test_summarize_with_mock_ai(client):
-    with patch("app.services.ai_service.SummarizerService.summarize", AsyncMock(return_value="Summary.")):
-        resp = client.post("/api/v1/text/summarize", json={"text": "A very long piece of text."})
+    with patch(
+        "app.services.ai_service.SummarizerService.summarize",
+        AsyncMock(return_value="Summary."),
+    ):
+        resp = client.post(
+            "/api/v1/text/summarize", json={"text": "A very long piece of text."}
+        )
     assert resp.status_code == 200
 
 
 def test_translate_with_mock_ai(client):
-    with patch("app.services.ai_service.TranslatorService.translate", AsyncMock(return_value="Hola")):
+    with patch(
+        "app.services.ai_service.TranslatorService.translate",
+        AsyncMock(return_value="Hola"),
+    ):
         resp = client.post(
             "/api/v1/text/translate",
             json={"text": "hello", "target_language": "Spanish"},
@@ -343,7 +380,10 @@ def test_translate_with_mock_ai(client):
 
 
 def test_change_tone_with_mock_ai(client):
-    with patch("app.services.ai_service.ToneChangerService.change_tone", AsyncMock(return_value="Formal text.")):
+    with patch(
+        "app.services.ai_service.ToneChangerService.change_tone",
+        AsyncMock(return_value="Formal text."),
+    ):
         resp = client.post(
             "/api/v1/text/change-tone",
             json={"text": "hey what's up", "tone": "formal"},
@@ -374,11 +414,15 @@ def test_text_endpoint_access_denied_returns_429(client, mock_db):
     with (
         patch(
             "app.api.v1.endpoints.text.check_tool_access",
-            AsyncMock(return_value={"allowed": False, "message": "Daily limit reached"}),
+            AsyncMock(
+                return_value={"allowed": False, "message": "Daily limit reached"}
+            ),
         ),
         patch(
             "app.api.v1.endpoints.text.check_visitor_access",
-            AsyncMock(return_value={"allowed": False, "message": "Daily limit reached"}),
+            AsyncMock(
+                return_value={"allowed": False, "message": "Daily limit reached"}
+            ),
         ),
     ):
         resp = client.post("/api/v1/text/uppercase", json={"text": "hello"})
@@ -394,7 +438,9 @@ def test_strip_emoji(client):
 
 
 def test_normalize_whitespace(client):
-    resp = client.post("/api/v1/text/normalize-whitespace", json={"text": "  hello  \t world  "})
+    resp = client.post(
+        "/api/v1/text/normalize-whitespace", json={"text": "  hello  \t world  "}
+    )
     assert resp.status_code == 200
 
 

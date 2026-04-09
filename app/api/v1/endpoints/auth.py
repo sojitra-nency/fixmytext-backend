@@ -40,7 +40,9 @@ async def _set_user_region(user, request: Request, db: AsyncSession):
         pass  # non-critical, default to US
 
 
-def _set_refresh_cookie(response: Response, token: str, *, persistent: bool = True) -> None:
+def _set_refresh_cookie(
+    response: Response, token: str, *, persistent: bool = True
+) -> None:
     response.set_cookie(
         key=REFRESH_COOKIE,
         value=token,
@@ -60,13 +62,22 @@ def _clear_refresh_cookie(response: Response) -> None:
 
 
 @router.post("/register", response_model=TokenResponse)
-async def register(req: RegisterRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
+async def register(
+    req: RegisterRequest,
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+):
     """Create a new account and return tokens."""
-    logger.info("REGISTER attempt email=%s display_name=%s", req.email, req.display_name)
+    logger.info(
+        "REGISTER attempt email=%s display_name=%s", req.email, req.display_name
+    )
     try:
         user = await do_register(db, req.email, req.password, req.display_name)
     except HTTPException:
-        logger.warning("REGISTER failed email=%s (duplicate or validation error)", req.email)
+        logger.warning(
+            "REGISTER failed email=%s (duplicate or validation error)", req.email
+        )
         raise
     except Exception:
         logger.exception("REGISTER unexpected error email=%s", req.email)
@@ -84,7 +95,12 @@ async def register(req: RegisterRequest, request: Request, response: Response, d
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(req: LoginRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
+async def login(
+    req: LoginRequest,
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+):
     """Authenticate with email + password and return tokens."""
     logger.info("LOGIN attempt email=%s", req.email)
     user = await authenticate(db, req.email, req.password)
@@ -101,7 +117,9 @@ async def login(req: LoginRequest, request: Request, response: Response, db: Asy
 
 
 @router.post("/refresh", response_model=TokenResponse)
-async def refresh(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
+async def refresh(
+    request: Request, response: Response, db: AsyncSession = Depends(get_db)
+):
     """Exchange a valid refresh token (from cookie) for a new access token."""
     token = request.cookies.get(REFRESH_COOKIE)
     if not token:
@@ -111,7 +129,9 @@ async def refresh(request: Request, response: Response, db: AsyncSession = Depen
         payload = decode_token(token)
     except (JWTError, ValueError) as e:
         _clear_refresh_cookie(response)
-        raise HTTPException(status_code=401, detail="Refresh token expired or invalid") from e
+        raise HTTPException(
+            status_code=401, detail="Refresh token expired or invalid"
+        ) from e
 
     if payload.get("type") != "refresh":
         _clear_refresh_cookie(response)
@@ -144,7 +164,9 @@ async def logout(response: Response, user: User = Depends(get_current_user)):
 
 
 @router.get("/me", response_model=UserResponse)
-async def me(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def me(
+    user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
+):
     """Return the current authenticated user's profile."""
     from app.services.pass_service import get_subscription_tier
 

@@ -9,6 +9,7 @@ Revision ID: 0008
 Revises: 0007
 Create Date: 2026-03-26
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -25,26 +26,50 @@ def upgrade() -> None:
     # ── billing.subscriptions ─────────────────────────────────────────────────
     op.create_table(
         "subscriptions",
-        sa.Column("id", UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), nullable=False),
+        sa.Column(
+            "id",
+            UUID(as_uuid=True),
+            server_default=sa.text("gen_random_uuid()"),
+            nullable=False,
+        ),
         sa.Column("user_id", UUID(as_uuid=True), nullable=False),
-        sa.Column("tier", sa.String(20), nullable=False, server_default=sa.text("'free'")),
-        sa.Column("status", sa.String(20), nullable=False, server_default=sa.text("'active'")),
+        sa.Column(
+            "tier", sa.String(20), nullable=False, server_default=sa.text("'free'")
+        ),
+        sa.Column(
+            "status", sa.String(20), nullable=False, server_default=sa.text("'active'")
+        ),
         sa.Column("razorpay_order_id", sa.String(255), nullable=True),
         sa.Column("razorpay_payment_id", sa.String(255), nullable=True),
         sa.Column("amount_paid_subunits", sa.Integer(), nullable=True),
         sa.Column("currency", sa.String(10), nullable=True),
         sa.Column("region", sa.String(5), nullable=True),
-        sa.Column("activated_at", TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "activated_at",
+            TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.Column("expires_at", TIMESTAMP(timezone=True), nullable=True),
         sa.Column("cancelled_at", TIMESTAMP(timezone=True), nullable=True),
-        sa.Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.ForeignKeyConstraint(["user_id"], ["auth.users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.CheckConstraint("tier IN ('free', 'pro')", name="ck_subscription_tier"),
-        sa.CheckConstraint("status IN ('active', 'cancelled', 'expired', 'pending')", name="ck_subscription_status"),
+        sa.CheckConstraint(
+            "status IN ('active', 'cancelled', 'expired', 'pending')",
+            name="ck_subscription_status",
+        ),
         schema="billing",
     )
-    op.create_index("ix_subscriptions_user_id", "subscriptions", ["user_id"], schema="billing")
+    op.create_index(
+        "ix_subscriptions_user_id", "subscriptions", ["user_id"], schema="billing"
+    )
     # Partial unique index: one active subscription per user (enforced at DB level)
     op.execute(
         "CREATE UNIQUE INDEX uq_subscriptions_one_active_per_user "
@@ -66,7 +91,12 @@ def upgrade() -> None:
     # ── billing.payment_events ────────────────────────────────────────────────
     op.create_table(
         "payment_events",
-        sa.Column("id", UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), nullable=False),
+        sa.Column(
+            "id",
+            UUID(as_uuid=True),
+            server_default=sa.text("gen_random_uuid()"),
+            nullable=False,
+        ),
         sa.Column("event_type", sa.String(100), nullable=False),
         sa.Column("razorpay_event_id", sa.String(255), nullable=True),
         sa.Column("razorpay_payment_id", sa.String(255), nullable=True),
@@ -76,10 +106,22 @@ def upgrade() -> None:
         sa.Column("item_id", sa.String(50), nullable=True),
         sa.Column("amount_subunits", sa.Integer(), nullable=True),
         sa.Column("currency", sa.String(10), nullable=True),
-        sa.Column("status", sa.String(20), nullable=False, server_default=sa.text("'received'")),
-        sa.Column("raw_payload", JSONB, nullable=False, server_default=sa.text("'{}'::jsonb")),
+        sa.Column(
+            "status",
+            sa.String(20),
+            nullable=False,
+            server_default=sa.text("'received'"),
+        ),
+        sa.Column(
+            "raw_payload", JSONB, nullable=False, server_default=sa.text("'{}'::jsonb")
+        ),
         sa.Column("processed_at", TIMESTAMP(timezone=True), nullable=True),
-        sa.Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.ForeignKeyConstraint(["user_id"], ["auth.users.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
         sa.CheckConstraint(
@@ -88,7 +130,9 @@ def upgrade() -> None:
         ),
         schema="billing",
     )
-    op.create_index("ix_payment_events_user_id", "payment_events", ["user_id"], schema="billing")
+    op.create_index(
+        "ix_payment_events_user_id", "payment_events", ["user_id"], schema="billing"
+    )
     # Partial index for idempotency checks
     op.execute(
         "CREATE INDEX ix_payment_events_payment_id "
@@ -100,17 +144,31 @@ def upgrade() -> None:
     # New home for passes; auth.user_passes stays alive until migration 0015
     op.create_table(
         "user_passes",
-        sa.Column("id", UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), nullable=False),
+        sa.Column(
+            "id",
+            UUID(as_uuid=True),
+            server_default=sa.text("gen_random_uuid()"),
+            nullable=False,
+        ),
         sa.Column("user_id", UUID(as_uuid=True), nullable=False),
         sa.Column("pass_id", sa.String(50), nullable=False),
         sa.Column("tools_count", sa.SmallInteger(), nullable=False),
         sa.Column("uses_per_day", sa.SmallInteger(), nullable=False),
         sa.Column("source", sa.String(20), nullable=False),
         sa.Column("razorpay_payment_id", sa.String(255), nullable=True),
-        sa.Column("purchased_at", TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "purchased_at",
+            TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.Column("expires_at", TIMESTAMP(timezone=True), nullable=False),
-        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("true")),
-        sa.Column("uses_today", sa.SmallInteger(), nullable=False, server_default=sa.text("0")),
+        sa.Column(
+            "is_active", sa.Boolean(), nullable=False, server_default=sa.text("true")
+        ),
+        sa.Column(
+            "uses_today", sa.SmallInteger(), nullable=False, server_default=sa.text("0")
+        ),
         sa.Column("uses_reset_date", sa.Date(), nullable=True),
         sa.ForeignKeyConstraint(["user_id"], ["auth.users.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["pass_id"], ["billing.pass_catalog.id"]),
@@ -121,7 +179,9 @@ def upgrade() -> None:
         ),
         schema="billing",
     )
-    op.create_index("ix_billing_user_passes_user_id", "user_passes", ["user_id"], schema="billing")
+    op.create_index(
+        "ix_billing_user_passes_user_id", "user_passes", ["user_id"], schema="billing"
+    )
     # Partial index for active pass lookup (most frequent access-check query)
     op.execute(
         "CREATE INDEX ix_billing_user_passes_active "
@@ -135,7 +195,9 @@ def upgrade() -> None:
         "user_pass_tools",
         sa.Column("pass_instance_id", UUID(as_uuid=True), nullable=False),
         sa.Column("tool_id", sa.String(100), nullable=False),
-        sa.ForeignKeyConstraint(["pass_instance_id"], ["billing.user_passes.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(
+            ["pass_instance_id"], ["billing.user_passes.id"], ondelete="CASCADE"
+        ),
         sa.PrimaryKeyConstraint("pass_instance_id", "tool_id"),
         schema="billing",
     )
@@ -184,14 +246,24 @@ def upgrade() -> None:
     # ── billing.user_credits ──────────────────────────────────────────────────
     op.create_table(
         "user_credits",
-        sa.Column("id", UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), nullable=False),
+        sa.Column(
+            "id",
+            UUID(as_uuid=True),
+            server_default=sa.text("gen_random_uuid()"),
+            nullable=False,
+        ),
         sa.Column("user_id", UUID(as_uuid=True), nullable=False),
         sa.Column("pack_id", sa.String(50), nullable=True),
         sa.Column("credits_total", sa.SmallInteger(), nullable=False),
         sa.Column("credits_remaining", sa.SmallInteger(), nullable=False),
         sa.Column("source", sa.String(30), nullable=False),
         sa.Column("razorpay_payment_id", sa.String(255), nullable=True),
-        sa.Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.ForeignKeyConstraint(["user_id"], ["auth.users.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["pack_id"], ["billing.credit_pack_catalog.id"]),
         sa.PrimaryKeyConstraint("id"),
@@ -205,7 +277,9 @@ def upgrade() -> None:
         ),
         schema="billing",
     )
-    op.create_index("ix_billing_user_credits_user_id", "user_credits", ["user_id"], schema="billing")
+    op.create_index(
+        "ix_billing_user_credits_user_id", "user_credits", ["user_id"], schema="billing"
+    )
     # Partial index for FIFO credit drain (active credits ordered by purchase time)
     op.execute(
         "CREATE INDEX ix_billing_user_credits_active "

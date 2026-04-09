@@ -12,7 +12,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     # ── Project metadata ──────────────────────────────────────────────────────
     PROJECT_NAME: str = "FixMyText API"
-    PROJECT_DESCRIPTION: str = "RESTful backend for the FixMyText text-manipulation application."
+    PROJECT_DESCRIPTION: str = (
+        "RESTful backend for the FixMyText text-manipulation application."
+    )
     VERSION: str = "0.1.0"
 
     # ── Server ────────────────────────────────────────────────────────────────

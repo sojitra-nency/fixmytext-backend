@@ -48,7 +48,11 @@ async def list_history(
     db: AsyncSession = Depends(get_db),
 ):
     base = select(OperationHistory).where(OperationHistory.user_id == user.id)
-    count_base = select(func.count()).select_from(OperationHistory).where(OperationHistory.user_id == user.id)
+    count_base = (
+        select(func.count())
+        .select_from(OperationHistory)
+        .where(OperationHistory.user_id == user.id)
+    )
 
     if tool_id:
         base = base.where(OperationHistory.tool_id == tool_id)
@@ -59,7 +63,9 @@ async def list_history(
     rows = (
         (
             await db.execute(
-                base.order_by(desc(OperationHistory.created_at)).offset((page - 1) * page_size).limit(page_size)
+                base.order_by(desc(OperationHistory.created_at))
+                .offset((page - 1) * page_size)
+                .limit(page_size)
             )
         )
         .scalars()
@@ -110,7 +116,11 @@ async def get_history_stats(
     db: AsyncSession = Depends(get_db),
 ):
     total = (
-        await db.execute(select(func.count()).select_from(OperationHistory).where(OperationHistory.user_id == user.id))
+        await db.execute(
+            select(func.count())
+            .select_from(OperationHistory)
+            .where(OperationHistory.user_id == user.id)
+        )
     ).scalar() or 0
 
     breakdown_rows = (
@@ -157,7 +167,9 @@ async def clear_history(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await db.execute(delete(OperationHistory).where(OperationHistory.user_id == user.id))
+    await db.execute(
+        delete(OperationHistory).where(OperationHistory.user_id == user.id)
+    )
     await db.commit()
 
 

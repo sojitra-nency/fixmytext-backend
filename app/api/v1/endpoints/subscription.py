@@ -102,8 +102,12 @@ async def create_pro_checkout(
             notes={"user_id": str(user.id), "item_type": "pro_subscription"},
         )
     except Exception as e:
-        logger.exception("Failed to create Razorpay order for Pro checkout, user %s", user.id)
-        raise HTTPException(502, "Failed to start checkout — please try again later") from e
+        logger.exception(
+            "Failed to create Razorpay order for Pro checkout, user %s", user.id
+        )
+        raise HTTPException(
+            502, "Failed to start checkout — please try again later"
+        ) from e
 
     return RazorpayProOrderResponse(
         order_id=order["id"],
@@ -125,7 +129,9 @@ async def verify_pro_payment(
     db: AsyncSession = Depends(get_db),
 ):
     """Verify Razorpay payment and activate Pro."""
-    if not verify_payment_signature(req.razorpay_order_id, req.razorpay_payment_id, req.razorpay_signature):
+    if not verify_payment_signature(
+        req.razorpay_order_id, req.razorpay_payment_id, req.razorpay_signature
+    ):
         raise HTTPException(400, "Payment verification failed — invalid signature")
 
     # Validate order belongs to this user
@@ -155,7 +161,12 @@ async def verify_pro_payment(
     db.add(sub)
 
     await db.commit()
-    logger.info("Pro activated: user=%s order=%s payment=%s", user.id, req.razorpay_order_id, req.razorpay_payment_id)
+    logger.info(
+        "Pro activated: user=%s order=%s payment=%s",
+        user.id,
+        req.razorpay_order_id,
+        req.razorpay_payment_id,
+    )
     return {"status": "success", "tier": "pro"}
 
 

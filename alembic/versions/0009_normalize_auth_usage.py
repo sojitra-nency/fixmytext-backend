@@ -11,6 +11,7 @@ Revision ID: 0009
 Revises: 0008
 Create Date: 2026-03-26
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -30,8 +31,15 @@ def upgrade() -> None:
         "user_tool_usage",
         sa.Column("user_id", UUID(as_uuid=True), nullable=False),
         sa.Column("tool_id", sa.String(100), nullable=False),
-        sa.Column("usage_date", sa.Date(), nullable=False, server_default=sa.text("CURRENT_DATE")),
-        sa.Column("use_count", sa.SmallInteger(), nullable=False, server_default=sa.text("1")),
+        sa.Column(
+            "usage_date",
+            sa.Date(),
+            nullable=False,
+            server_default=sa.text("CURRENT_DATE"),
+        ),
+        sa.Column(
+            "use_count", sa.SmallInteger(), nullable=False, server_default=sa.text("1")
+        ),
         sa.ForeignKeyConstraint(["user_id"], ["auth.users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("user_id", "tool_id", "usage_date"),
         sa.CheckConstraint("use_count > 0", name="ck_user_tool_use_count_positive"),
@@ -67,12 +75,19 @@ def upgrade() -> None:
     op.create_table(
         "user_daily_logins",
         sa.Column("user_id", UUID(as_uuid=True), nullable=False),
-        sa.Column("login_date", sa.Date(), nullable=False, server_default=sa.text("CURRENT_DATE")),
+        sa.Column(
+            "login_date",
+            sa.Date(),
+            nullable=False,
+            server_default=sa.text("CURRENT_DATE"),
+        ),
         sa.ForeignKeyConstraint(["user_id"], ["auth.users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("user_id", "login_date"),
         schema="auth",
     )
-    op.create_index("ix_user_daily_logins_user_id", "user_daily_logins", ["user_id"], schema="auth")
+    op.create_index(
+        "ix_user_daily_logins_user_id", "user_daily_logins", ["user_id"], schema="auth"
+    )
 
     # Migrate today's login (only users who logged in today)
     op.execute("""
@@ -94,12 +109,19 @@ def upgrade() -> None:
         sa.Column("spin_date", sa.Date(), nullable=False),
         sa.Column("reward_type", sa.String(20), nullable=False),
         sa.Column("reward_ref", sa.String(50), nullable=True),
-        sa.Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.ForeignKeyConstraint(["user_id"], ["auth.users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("user_id", "iso_year", "iso_week"),
         schema="auth",
     )
-    op.create_index("ix_user_spin_log_user_id", "user_spin_log", ["user_id"], schema="auth")
+    op.create_index(
+        "ix_user_spin_log_user_id", "user_spin_log", ["user_id"], schema="auth"
+    )
 
     # Migrate last spin date (only users who spun this week, reward_type unknown — default 'credits')
     op.execute("""
@@ -123,10 +145,21 @@ def upgrade() -> None:
     op.create_table(
         "user_ui_settings",
         sa.Column("user_id", UUID(as_uuid=True), nullable=False),
-        sa.Column("tool_view", sa.String(10), nullable=False, server_default=sa.text("'grid'")),
-        sa.Column("keybindings", JSONB, nullable=False, server_default=sa.text("'{}'::jsonb")),
-        sa.Column("panel_sizes", JSONB, nullable=False, server_default=sa.text("'{}'::jsonb")),
-        sa.Column("updated_at", TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "tool_view", sa.String(10), nullable=False, server_default=sa.text("'grid'")
+        ),
+        sa.Column(
+            "keybindings", JSONB, nullable=False, server_default=sa.text("'{}'::jsonb")
+        ),
+        sa.Column(
+            "panel_sizes", JSONB, nullable=False, server_default=sa.text("'{}'::jsonb")
+        ),
+        sa.Column(
+            "updated_at",
+            TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.ForeignKeyConstraint(["user_id"], ["auth.users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("user_id"),
         schema="auth",

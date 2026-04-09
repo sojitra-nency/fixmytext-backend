@@ -8,6 +8,7 @@ Revision ID: 0010
 Revises: 0009
 Create Date: 2026-03-26
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -27,9 +28,18 @@ def upgrade() -> None:
         "visitor_tool_usage",
         sa.Column("visitor_id", UUID(as_uuid=True), nullable=False),
         sa.Column("tool_id", sa.String(100), nullable=False),
-        sa.Column("usage_date", sa.Date(), nullable=False, server_default=sa.text("CURRENT_DATE")),
-        sa.Column("use_count", sa.SmallInteger(), nullable=False, server_default=sa.text("1")),
-        sa.ForeignKeyConstraint(["visitor_id"], ["auth.visitor_usage.id"], ondelete="CASCADE"),
+        sa.Column(
+            "usage_date",
+            sa.Date(),
+            nullable=False,
+            server_default=sa.text("CURRENT_DATE"),
+        ),
+        sa.Column(
+            "use_count", sa.SmallInteger(), nullable=False, server_default=sa.text("1")
+        ),
+        sa.ForeignKeyConstraint(
+            ["visitor_id"], ["auth.visitor_usage.id"], ondelete="CASCADE"
+        ),
         sa.PrimaryKeyConstraint("visitor_id", "tool_id", "usage_date"),
         sa.CheckConstraint("use_count > 0", name="ck_visitor_tool_use_count_positive"),
         schema="auth",
@@ -86,7 +96,9 @@ def upgrade() -> None:
         schema="auth",
     )
     # Backfill last_seen_at from created_at
-    op.execute("UPDATE auth.visitor_usage SET last_seen_at = created_at WHERE last_seen_at IS NULL")
+    op.execute(
+        "UPDATE auth.visitor_usage SET last_seen_at = created_at WHERE last_seen_at IS NULL"
+    )
 
     # Add GiST index on the new INET column for subnet queries
     op.execute(
@@ -101,5 +113,7 @@ def downgrade() -> None:
     op.drop_column("visitor_usage", "last_seen_at", schema="auth")
     op.drop_column("visitor_usage", "ip_address_inet", schema="auth")
 
-    op.drop_index("ix_visitor_tool_usage_visitor_date", "visitor_tool_usage", schema="auth")
+    op.drop_index(
+        "ix_visitor_tool_usage_visitor_date", "visitor_tool_usage", schema="auth"
+    )
     op.drop_table("visitor_tool_usage", schema="auth")

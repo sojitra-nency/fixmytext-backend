@@ -728,48 +728,55 @@ def wrap_lines(text: str, prefix: str = "", suffix: str = "") -> str:
 
 
 def _line_matches(
-    line: str, pattern: str, case_sensitive: bool, use_regex: bool
+    line: str,
+    pattern: str,
+    case_sensitive: bool,
+    use_regex: bool,
+    compiled: "re.Pattern[str] | None" = None,
 ) -> bool:
     """Match a line against a pattern.
 
-    When use_regex=True the pattern is an intentional user-supplied regular
-    expression (exposed as a feature to callers).  A length guard and
-    re.compile are used to limit worst-case ReDoS exposure; the caller is
-    responsible for deciding whether to allow arbitrary regex input.
+    When use_regex=True, *compiled* must be a pre-compiled Pattern produced by
+    the schema validator (FilterRequest._compile_regex).  Passing the compiled
+    object instead of the raw user string ensures that no user-controlled value
+    is ever handed directly to re.compile inside this function.
     """
     if use_regex:
-        if len(pattern) > 200:
+        if compiled is None:
             return False
-        flags = 0 if case_sensitive else re.IGNORECASE
-        try:
-            compiled = re.compile(pattern, flags)  # lgtm[py/regex-injection]
-            # Cap line length to limit worst-case backtracking on large inputs.
-            search_text = line if len(line) <= 2_000 else line[:2_000]
-            return bool(compiled.search(search_text))
-        except re.error:
-            return False
+        # Cap line length to limit worst-case backtracking on large inputs.
+        search_text = line if len(line) <= 2_000 else line[:2_000]
+        return bool(compiled.search(search_text))
     if case_sensitive:
         return pattern in line
     return pattern.lower() in line.lower()
 
 
 def filter_lines_contain(
-    text: str, pattern: str, case_sensitive: bool = False, use_regex: bool = False
+    text: str,
+    pattern: str,
+    case_sensitive: bool = False,
+    use_regex: bool = False,
+    compiled: "re.Pattern[str] | None" = None,
 ) -> str:
     return "\n".join(
         line
         for line in text.splitlines()
-        if _line_matches(line, pattern, case_sensitive, use_regex)
+        if _line_matches(line, pattern, case_sensitive, use_regex, compiled)
     )
 
 
 def remove_lines_contain(
-    text: str, pattern: str, case_sensitive: bool = False, use_regex: bool = False
+    text: str,
+    pattern: str,
+    case_sensitive: bool = False,
+    use_regex: bool = False,
+    compiled: "re.Pattern[str] | None" = None,
 ) -> str:
     return "\n".join(
         line
         for line in text.splitlines()
-        if not _line_matches(line, pattern, case_sensitive, use_regex)
+        if not _line_matches(line, pattern, case_sensitive, use_regex, compiled)
     )
 
 

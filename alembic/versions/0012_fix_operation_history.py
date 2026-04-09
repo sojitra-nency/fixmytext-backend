@@ -4,6 +4,7 @@ Revision ID: 0012
 Revises: 0011
 Create Date: 2026-03-26
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -19,7 +20,9 @@ def upgrade() -> None:
     # Add soft delete column
     op.add_column(
         "operation_history",
-        sa.Column("is_deleted", sa.Boolean(), nullable=False, server_default=sa.text("false")),
+        sa.Column(
+            "is_deleted", sa.Boolean(), nullable=False, server_default=sa.text("false")
+        ),
         schema="activity",
     )
 
@@ -57,6 +60,10 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.execute("DROP INDEX IF EXISTS ix_op_history_user_tool_date")
     op.execute("DROP INDEX IF EXISTS ix_op_history_user_date")
-    op.drop_constraint("ck_op_history_status", "operation_history", schema="activity", type_="check")
-    op.drop_constraint("ck_op_history_tool_type", "operation_history", schema="activity", type_="check")
+    op.drop_constraint(
+        "ck_op_history_status", "operation_history", schema="activity", type_="check"
+    )
+    op.drop_constraint(
+        "ck_op_history_tool_type", "operation_history", schema="activity", type_="check"
+    )
     op.drop_column("operation_history", "is_deleted", schema="activity")

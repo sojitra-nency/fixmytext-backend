@@ -294,7 +294,13 @@ REFERRAL_REWARDS = {
 
 # ── Always-free tools (no usage tracking) ────────────────────────────────────
 
-ALWAYS_FREE_TOOL_IDS = {"find_replace", "compare", "random_text", "password", "regex_test"}
+ALWAYS_FREE_TOOL_IDS = {
+    "find_replace",
+    "compare",
+    "random_text",
+    "password",
+    "regex_test",
+}
 
 # ── Helper functions ─────────────────────────────────────────────────────────
 

@@ -69,7 +69,9 @@ async def detect_region(ip_address: str) -> str:
                 # Local dev — detect region from server's public IP
                 resp = await client.get("http://ip-api.com/json/?fields=countryCode")
             else:
-                resp = await client.get(f"http://ip-api.com/json/{ip_address}?fields=countryCode")
+                resp = await client.get(
+                    f"http://ip-api.com/json/{ip_address}?fields=countryCode"
+                )
 
             if resp.status_code == 200:
                 country = resp.json().get("countryCode", "")
@@ -87,7 +89,8 @@ async def resolve_user_region(
     explicit_region: str = "",
 ) -> str:
     """Resolve region: explicit param > user.region > IP detection.
-    Updates user.region if changed (but does NOT commit — caller controls transaction)."""
+    Updates user.region if changed (but does NOT commit — caller controls transaction).
+    """
     from app.core.pass_catalog import REGIONS
 
     if explicit_region and explicit_region in REGIONS:

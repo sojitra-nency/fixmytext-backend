@@ -4,6 +4,7 @@ Revision ID: 0014
 Revises: 0013
 Create Date: 2026-03-26
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -18,7 +19,9 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     op.add_column(
         "user_templates",
-        sa.Column("is_deleted", sa.Boolean(), nullable=False, server_default=sa.text("false")),
+        sa.Column(
+            "is_deleted", sa.Boolean(), nullable=False, server_default=sa.text("false")
+        ),
         schema="activity",
     )
 

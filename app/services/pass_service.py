@@ -75,7 +75,11 @@ async def increment_tool_usage(user_id: str, tool_id: str, db: AsyncSession) -> 
             use_count=1,
         )
         .on_conflict_do_update(
-            index_elements=[UserToolUsage.user_id, UserToolUsage.tool_id, UserToolUsage.usage_date],
+            index_elements=[
+                UserToolUsage.user_id,
+                UserToolUsage.tool_id,
+                UserToolUsage.usage_date,
+            ],
             set_={"use_count": UserToolUsage.use_count + 1},
         )
     )
@@ -96,7 +100,9 @@ async def get_all_tool_uses_today(user_id: str, db: AsyncSession) -> dict[str, i
     return {row.tool_id: row.use_count for row in result.all()}
 
 
-async def get_visitor_tool_use_count_today(visitor_id: str, tool_id: str, db: AsyncSession) -> int:
+async def get_visitor_tool_use_count_today(
+    visitor_id: str, tool_id: str, db: AsyncSession
+) -> int:
     """Return how many times *visitor_id* has used *tool_id* today (new table)."""
     result = await db.execute(
         select(VisitorToolUsage.use_count).where(
@@ -111,7 +117,9 @@ async def get_visitor_tool_use_count_today(visitor_id: str, tool_id: str, db: As
     return row if row is not None else 0
 
 
-async def increment_visitor_tool_usage(visitor_id: str, tool_id: str, db: AsyncSession) -> int:
+async def increment_visitor_tool_usage(
+    visitor_id: str, tool_id: str, db: AsyncSession
+) -> int:
     """UPSERT a row in visitor_tool_usage and return the new count."""
     stmt = (
         pg_insert(VisitorToolUsage)
@@ -122,7 +130,11 @@ async def increment_visitor_tool_usage(visitor_id: str, tool_id: str, db: AsyncS
             use_count=1,
         )
         .on_conflict_do_update(
-            index_elements=[VisitorToolUsage.visitor_id, VisitorToolUsage.tool_id, VisitorToolUsage.usage_date],
+            index_elements=[
+                VisitorToolUsage.visitor_id,
+                VisitorToolUsage.tool_id,
+                VisitorToolUsage.usage_date,
+            ],
             set_={"use_count": VisitorToolUsage.use_count + 1},
         )
     )
@@ -201,7 +213,12 @@ async def check_tool_access(
         new_count = await increment_tool_usage(user.id, tool_id, db)
 
         await db.commit()
-        return {"allowed": True, "reason": "free", "uses_today": new_count, "max_free": max_free}
+        return {
+            "allowed": True,
+            "reason": "free",
+            "uses_today": new_count,
+            "max_free": max_free,
+        }
 
     # Blocked
     return {
@@ -213,7 +230,9 @@ async def check_tool_access(
     }
 
 
-async def _check_passes(user: User, tool_id: str, today_str: str, db: AsyncSession) -> dict | None:
+async def _check_passes(
+    user: User, tool_id: str, today_str: str, db: AsyncSession
+) -> dict | None:
     """Check if any active pass covers this tool with remaining uses."""
     now = datetime.now(UTC)
     result = await db.execute(
@@ -236,14 +255,18 @@ async def _check_passes(user: User, tool_id: str, today_str: str, db: AsyncSessi
             p.uses_reset_date = date.today()
 
         # Check if this pass covers the tool
-        covers = p.tools_count == -1 or any(t.tool_id in ("*", tool_id) for t in p.tools)
+        covers = p.tools_count == -1 or any(
+            t.tool_id in ("*", tool_id) for t in p.tools
+        )
         if covers and p.uses_today < p.uses_per_day:
             p.uses_today += 1
             await db.commit()
             return {
                 "allowed": True,
                 "reason": "pass",
-                "pass_name": get_pass(p.pass_id)["name"] if get_pass(p.pass_id) else p.pass_id,
+                "pass_name": (
+                    get_pass(p.pass_id)["name"] if get_pass(p.pass_id) else p.pass_id
+                ),
             }
 
     return None
@@ -266,7 +289,11 @@ async def _check_credits(user: User, db: AsyncSession) -> dict | None:
         credit.credits_remaining -= 1
         await db.commit()
         total_remaining = await get_credit_balance(user, db)
-        return {"allowed": True, "reason": "credit", "credits_remaining": total_remaining}
+        return {
+            "allowed": True,
+            "reason": "credit",
+            "credits_remaining": total_remaining,
+        }
     return None
 
 
@@ -293,7 +320,9 @@ async def check_visitor_access(
         conditions.append(VisitorUsage.ip_address == ip_address)
 
     if conditions:
-        result = await db.execute(select(VisitorUsage).where(or_(*conditions)).with_for_update().limit(1))
+        result = await db.execute(
+            select(VisitorUsage).where(or_(*conditions)).with_for_update().limit(1)
+        )
         visitor = result.scalars().first()
 
     if visitor:
@@ -413,7 +442,10 @@ async def get_credit_balance(user: User, db: AsyncSession) -> int:
     """Return total remaining credits across all packs (new table)."""
     result = await db.execute(
         select(func.coalesce(func.sum(BillingUserCredit.credits_remaining), 0)).where(
-            and_(BillingUserCredit.user_id == user.id, BillingUserCredit.credits_remaining > 0)
+            and_(
+                BillingUserCredit.user_id == user.id,
+                BillingUserCredit.credits_remaining > 0,
+            )
         )
     )
     return result.scalar()
@@ -447,7 +479,12 @@ async def get_active_credits(user: User, db: AsyncSession) -> list[BillingUserCr
     """Return all credit rows with remaining balance (new table)."""
     result = await db.execute(
         select(BillingUserCredit)
-        .where(and_(BillingUserCredit.user_id == user.id, BillingUserCredit.credits_remaining > 0))
+        .where(
+            and_(
+                BillingUserCredit.user_id == user.id,
+                BillingUserCredit.credits_remaining > 0,
+            )
+        )
         .order_by(BillingUserCredit.created_at.asc())
     )
     return result.scalars().all()
@@ -589,7 +626,9 @@ async def claim_referral(user: User, code: str, db: AsyncSession) -> dict:
     try:
         # Reward referrer
         rr = REFERRAL_REWARDS["referrer"]
-        await grant_pass(referrer, rr["pass_id"], ["*"], "referral", db, auto_commit=False)
+        await grant_pass(
+            referrer, rr["pass_id"], ["*"], "referral", db, auto_commit=False
+        )
         await grant_credits(referrer, rr["credits"], "referral", db, auto_commit=False)
 
         # Reward new user

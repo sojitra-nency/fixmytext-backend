@@ -67,7 +67,9 @@ def test_get_current_user_expired_token():
     """Expired/invalid token → 401."""
     mock_db = make_mock_db()
     client = _make_client_with_db(mock_db)
-    resp = client.get("/api/v1/auth/me", headers={"Authorization": "Bearer invalid.token.here"})
+    resp = client.get(
+        "/api/v1/auth/me", headers={"Authorization": "Bearer invalid.token.here"}
+    )
     app.dependency_overrides.clear()
     assert resp.status_code == 401
 
@@ -85,7 +87,9 @@ def test_get_current_user_refresh_token_type():
 
     refresh_token = create_refresh_token(user.id)
     client = TestClient(app, raise_server_exceptions=False)
-    resp = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {refresh_token}"})
+    resp = client.get(
+        "/api/v1/auth/me", headers={"Authorization": f"Bearer {refresh_token}"}
+    )
     app.dependency_overrides.clear()
     assert resp.status_code == 401
 
@@ -141,8 +145,14 @@ def test_get_optional_user_no_credentials():
 
     _ALLOW = {"allowed": True, "reason": "free"}
     with (
-        patch("app.api.v1.endpoints.text.check_visitor_access", AsyncMock(return_value=_ALLOW)),
-        patch("app.api.v1.endpoints.text.check_tool_access", AsyncMock(return_value=_ALLOW)),
+        patch(
+            "app.api.v1.endpoints.text.check_visitor_access",
+            AsyncMock(return_value=_ALLOW),
+        ),
+        patch(
+            "app.api.v1.endpoints.text.check_tool_access",
+            AsyncMock(return_value=_ALLOW),
+        ),
         patch("app.api.v1.endpoints.text.record_tool_discovery", AsyncMock()),
     ):
         client = TestClient(app, raise_server_exceptions=False)
@@ -164,8 +174,14 @@ def test_get_optional_user_invalid_token_returns_none():
 
     _ALLOW = {"allowed": True, "reason": "free"}
     with (
-        patch("app.api.v1.endpoints.text.check_visitor_access", AsyncMock(return_value=_ALLOW)),
-        patch("app.api.v1.endpoints.text.check_tool_access", AsyncMock(return_value=_ALLOW)),
+        patch(
+            "app.api.v1.endpoints.text.check_visitor_access",
+            AsyncMock(return_value=_ALLOW),
+        ),
+        patch(
+            "app.api.v1.endpoints.text.check_tool_access",
+            AsyncMock(return_value=_ALLOW),
+        ),
         patch("app.api.v1.endpoints.text.record_tool_discovery", AsyncMock()),
     ):
         client = TestClient(app, raise_server_exceptions=False)
@@ -194,8 +210,14 @@ def test_get_optional_user_valid_token_wrong_type():
     refresh_token = create_refresh_token(user.id)
     _ALLOW = {"allowed": True, "reason": "free"}
     with (
-        patch("app.api.v1.endpoints.text.check_visitor_access", AsyncMock(return_value=_ALLOW)),
-        patch("app.api.v1.endpoints.text.check_tool_access", AsyncMock(return_value=_ALLOW)),
+        patch(
+            "app.api.v1.endpoints.text.check_visitor_access",
+            AsyncMock(return_value=_ALLOW),
+        ),
+        patch(
+            "app.api.v1.endpoints.text.check_tool_access",
+            AsyncMock(return_value=_ALLOW),
+        ),
         patch("app.api.v1.endpoints.text.record_tool_discovery", AsyncMock()),
     ):
         client = TestClient(app, raise_server_exceptions=False)
