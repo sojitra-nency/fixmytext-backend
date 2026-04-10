@@ -6,7 +6,11 @@
 # └─────────────────────────────────────────────────────────────────────────────┘
 
 # ── Stage 1: Dependency builder ───────────────────────────────────────────────
-FROM python:3.12-slim AS builder
+ARG PYTHON_VERSION=3.12
+FROM python:${PYTHON_VERSION}-slim AS builder
+
+LABEL org.opencontainers.image.title="FixMyText Backend"
+LABEL org.opencontainers.image.description="FastAPI text transformation service"
 
 WORKDIR /app
 
@@ -18,7 +22,9 @@ RUN python -m venv .venv && \
 
 
 # ── Stage 2: Runtime ──────────────────────────────────────────────────────────
-FROM python:3.12-slim AS runtime
+# Reuse the same ARG so both stages stay in sync
+ARG PYTHON_VERSION=3.12
+FROM python:${PYTHON_VERSION}-slim AS runtime
 
 # Non-root user for security
 RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser

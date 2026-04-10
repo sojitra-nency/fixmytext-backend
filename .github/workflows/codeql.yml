@@ -1,13 +1,17 @@
-name: "CodeQL Scheduled Scan"
+name: "CodeQL Analysis"
 
 on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
   schedule:
     - cron: '0 6 * * 1'  # Every Monday at 6 AM UTC
   workflow_dispatch:
 
 jobs:
   analyze:
-    name: CodeQL Deep Analysis
+    name: CodeQL Analysis
     runs-on: ubuntu-latest
     permissions:
       security-events: write

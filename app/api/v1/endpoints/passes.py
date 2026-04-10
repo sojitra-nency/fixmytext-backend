@@ -46,11 +46,8 @@ from app.services.pass_service import (
     grant_pass,
     spin_wheel,
 )
-from app.services.razorpay_service import (
-    create_order,
-    fetch_order,
-    verify_payment_signature,
-)
+from app.services.payment_service import verify_razorpay_payment
+from app.services.razorpay_service import create_order
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +60,9 @@ router = APIRouter(prefix="/passes", tags=["Passes"])
 @router.get("/catalog", response_model=CatalogResponse)
 async def get_catalog(request: Request, region: str = ""):
     """Return all available passes and credit packs with regional pricing.
-    Auto-detects region from IP if not provided."""
+
+    Auto-detects region from the client's IP address if not provided or invalid.
+    """
     if not region or region not in REGIONS:
         from app.services.region_service import detect_region
 
@@ -113,7 +112,7 @@ async def get_active(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Return user's active passes and credit balance."""
+    """Return the authenticated user's active passes and total credit balance."""
     passes = await get_active_passes(user, db)
     credits = await get_active_credits(user, db)
     total = await get_credit_balance(user, db)
@@ -159,7 +158,11 @@ async def create_pass_order(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Create a Razorpay order for purchasing a pass."""
+    """Create a Razorpay order for purchasing a pass.
+
+    Resolves the user's region (from explicit param, stored value, or IP),
+    then creates a Razorpay order with the correct regional pricing.
+    """
     if not settings.RAZORPAY_KEY_ID:
         raise HTTPException(503, "Payments not configured")
 
@@ -170,8 +173,7 @@ async def create_pass_order(
     from app.services.region_service import resolve_user_region
 
     region = await resolve_user_region(user, None, db, explicit_region=req.region)
-    if user in db.dirty:
-        await db.commit()
+    await db.flush()  # Ensure region changes are flushed within the session
     amount = get_price(req.pass_id, region)
     currency = get_currency(region)
 
@@ -205,7 +207,11 @@ async def create_credit_order(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Create a Razorpay order for purchasing credits."""
+    """Create a Razorpay order for purchasing a credit pack.
+
+    Resolves the user's region and returns a Razorpay order with pricing
+    in the correct currency.
+    """
     if not settings.RAZORPAY_KEY_ID:
         raise HTTPException(503, "Payments not configured")
 
@@ -216,8 +222,7 @@ async def create_credit_order(
     from app.services.region_service import resolve_user_region
 
     region = await resolve_user_region(user, None, db, explicit_region=req.region)
-    if user in db.dirty:
-        await db.commit()
+    await db.flush()  # Ensure region changes are flushed within the session
     amount = get_price(req.pack_id, region)
     currency = get_currency(region)
 
@@ -246,91 +251,93 @@ async def verify_pass_payment(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Verify Razorpay payment signature and grant pass/credits."""
-    if not verify_payment_signature(
-        req.razorpay_order_id, req.razorpay_payment_id, req.razorpay_signature
-    ):
-        raise HTTPException(400, "Payment verification failed — invalid signature")
+    """Verify a Razorpay payment signature, then grant the purchased pass or credits.
 
-    # Validate order details match what was originally requested (prevents item swap fraud)
-    try:
-        order = fetch_order(req.razorpay_order_id)
-    except Exception as e:
-        logger.exception("Failed to fetch Razorpay order %s", req.razorpay_order_id)
-        raise HTTPException(
-            502, "Could not verify order details with payment provider"
-        ) from e
+    Delegates signature and ownership checks to the payment service. On success,
+    grants the purchased item and a one-time welcome gift (10 credits) for
+    first-time purchasers. All grants are wrapped in a single transaction.
+    """
+    # Verify signature and ownership via centralized payment service
+    order = await verify_razorpay_payment(
+        req.razorpay_order_id, req.razorpay_payment_id, req.razorpay_signature, user, db
+    )
+
+    # Validate that the order metadata matches the client's claimed item
     notes = order.get("notes", {})
     if notes.get("item_id") != req.item_id or notes.get("item_type") != req.item_type:
         raise HTTPException(
             400, "Order details do not match — item_id or item_type mismatch"
         )
-    if notes.get("user_id") != str(user.id):
-        raise HTTPException(400, "Order does not belong to this user")
 
     # Lock user row first to ensure atomicity for grant + welcome gift
     await db.execute(select(User).where(User.id == user.id).with_for_update())
 
-    if req.item_type == "pass":
-        pass_def = get_pass(req.item_id)
-        if not pass_def:
-            raise HTTPException(400, f"Unknown pass: {req.item_id}")
-        tool_ids = req.tool_ids if req.tool_ids else ["*"]
-        await grant_pass(
-            user,
-            req.item_id,
-            tool_ids,
-            "razorpay",
-            db,
-            razorpay_payment_id=req.razorpay_payment_id,
-            auto_commit=False,
-        )
-        safe_item_id = str(req.item_id).replace("\r", "").replace("\n", "")
-        safe_payment_id = (
-            str(req.razorpay_payment_id).replace("\r", "").replace("\n", "")
-        )
-        logger.info(
-            "Pass granted: user=%s pass=%s payment=%s",
-            user.id,
-            safe_item_id,
-            safe_payment_id,
-        )
+    try:
+        if req.item_type == "pass":
+            pass_def = get_pass(req.item_id)
+            if not pass_def:
+                raise HTTPException(400, f"Unknown pass: {req.item_id}")
+            tool_ids = req.tool_ids if req.tool_ids else ["*"]
+            await grant_pass(
+                user,
+                req.item_id,
+                tool_ids,
+                "razorpay",
+                db,
+                razorpay_payment_id=req.razorpay_payment_id,
+                auto_commit=False,
+            )
+            safe_item_id = str(req.item_id).replace("\r", "").replace("\n", "")
+            safe_payment_id = (
+                str(req.razorpay_payment_id).replace("\r", "").replace("\n", "")
+            )
+            logger.info(
+                "Pass granted: user=%s pass=%s payment=%s",
+                user.id,
+                safe_item_id,
+                safe_payment_id,
+            )
 
-    elif req.item_type == "credit":
-        pack = get_credit_pack(req.item_id)
-        if not pack:
-            raise HTTPException(400, f"Unknown credit pack: {req.item_id}")
-        await grant_credits(
-            user,
-            pack["credits"],
-            "purchase",
-            db,
-            razorpay_payment_id=req.razorpay_payment_id,
-            auto_commit=False,
-        )
-        safe_item_id = str(req.item_id).replace("\r", "").replace("\n", "")
-        safe_payment_id = (
-            str(req.razorpay_payment_id).replace("\r", "").replace("\n", "")
-        )
-        logger.info(
-            "Credits granted: user=%s pack=%s credits=%d payment=%s",
-            user.id,
-            safe_item_id,
-            pack["credits"],
-            safe_payment_id,
-        )
+        elif req.item_type == "credit":
+            pack = get_credit_pack(req.item_id)
+            if not pack:
+                raise HTTPException(400, f"Unknown credit pack: {req.item_id}")
+            await grant_credits(
+                user,
+                pack["credits"],
+                "purchase",
+                db,
+                razorpay_payment_id=req.razorpay_payment_id,
+                auto_commit=False,
+            )
+            safe_item_id = str(req.item_id).replace("\r", "").replace("\n", "")
+            safe_payment_id = (
+                str(req.razorpay_payment_id).replace("\r", "").replace("\n", "")
+            )
+            logger.info(
+                "Credits granted: user=%s pack=%s credits=%d payment=%s",
+                user.id,
+                safe_item_id,
+                pack["credits"],
+                safe_payment_id,
+            )
 
-    # First purchase welcome gift (idempotent — user row already locked above)
-    already_welcomed = await db.execute(
-        select(func.count()).where(
-            BillingUserCredit.user_id == user.id, BillingUserCredit.source == "welcome"
+        # First purchase welcome gift (idempotent — user row already locked above)
+        already_welcomed = await db.execute(
+            select(func.count()).where(
+                BillingUserCredit.user_id == user.id,
+                BillingUserCredit.source == "welcome",
+            )
         )
-    )
-    if already_welcomed.scalar() == 0:
-        await grant_credits(user, 10, "welcome", db, auto_commit=False)
-        logger.info("Welcome gift granted: user=%s", user.id)
+        if already_welcomed.scalar() == 0:
+            await grant_credits(user, 10, "welcome", db, auto_commit=False)
+            logger.info("Welcome gift granted: user=%s", user.id)
 
-    await db.commit()
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
+
     return {"status": "success"}
 
 
@@ -342,7 +349,7 @@ async def do_spin(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Spin the weekly wheel for a random reward."""
+    """Spin the weekly reward wheel for a random prize (pass or credits)."""
     result = await spin_wheel(user, db)
     if "error" in result:
         raise HTTPException(400, result["error"])
@@ -357,7 +364,7 @@ async def get_referral_code(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get or generate the user's referral code."""
+    """Get or generate the authenticated user's unique referral code and URL."""
     code = await ensure_referral_code(user, db)
     return ReferralCodeResponse(
         referral_code=code,
@@ -371,7 +378,7 @@ async def do_claim_referral(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Claim a referral code for rewards."""
+    """Claim a referral code, granting rewards to both the referrer and the new user."""
     result = await claim_referral(user, req.code, db)
     if "error" in result:
         raise HTTPException(400, result["error"])

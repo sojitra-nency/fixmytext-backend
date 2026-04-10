@@ -49,3 +49,7 @@ logs/
 # ── AI Files ─────────────────────────────────────────────────────────
 *.ai
 .claude
+
+# ── Secrets directory (keep structure, ignore contents) ──────────────
+secrets/*
+!secrets/.gitkeep

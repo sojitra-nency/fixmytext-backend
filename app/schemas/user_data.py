@@ -6,12 +6,16 @@ from pydantic import BaseModel, Field
 
 
 class PreferencesResponse(BaseModel):
+    """Current user preference values."""
+
     theme: str = "dark"
     persona: str | None = None
     theme_skin: str | None = None
 
 
 class PreferencesUpdate(BaseModel):
+    """Partial update for user preferences. All fields optional."""
+
     theme: str | None = Field(None, max_length=10)
     persona: str | None = Field(None, max_length=50)
     theme_skin: str | None = Field(None, max_length=50)
@@ -21,6 +25,8 @@ class PreferencesUpdate(BaseModel):
 
 
 class GamificationResponse(BaseModel):
+    """Current gamification state for a user."""
+
     xp: int = 0
     streak_current: int = 0
     streak_last_date: str | None = None
@@ -34,6 +40,8 @@ class GamificationResponse(BaseModel):
 
 
 class GamificationUpdate(BaseModel):
+    """Partial update for gamification state. All fields optional."""
+
     xp: int | None = None
     streak_current: int | None = None
     streak_last_date: str | None = None
@@ -49,7 +57,29 @@ class GamificationUpdate(BaseModel):
 # ── Templates ────────────────────────────────────────────────────────────────
 
 
+class TemplateBase(BaseModel):
+    """Base fields shared across template schemas."""
+
+    name: str = Field(..., min_length=1, max_length=200)
+    text: str = Field(..., min_length=1)
+    tool_id: str | None = Field(None, max_length=100)
+
+
+class TemplateCreate(TemplateBase):
+    """Schema for creating a new template."""
+
+
+class TemplateUpdate(BaseModel):
+    """Schema for updating a template. All fields optional."""
+
+    name: str | None = Field(None, min_length=1, max_length=200)
+    text: str | None = Field(None, min_length=1)
+    tool_id: str | None = Field(None, max_length=100)
+
+
 class TemplateResponse(BaseModel):
+    """Template as returned by the API."""
+
     id: str
     name: str
     text: str
@@ -58,28 +88,24 @@ class TemplateResponse(BaseModel):
     updated_at: str
 
 
-class TemplateCreate(BaseModel):
-    name: str = Field(..., min_length=1, max_length=200)
-    text: str = Field(..., min_length=1)
-    tool_id: str | None = Field(None, max_length=100)
-
-
-class TemplateUpdate(BaseModel):
-    name: str | None = Field(None, min_length=1, max_length=200)
-    text: str | None = Field(None, min_length=1)
-    tool_id: str | None = Field(None, max_length=100)
-
-
 # ── UI Settings ───────────────────────────────────────────────────────────────
 
 
-class UiSettingsResponse(BaseModel):
+class UiSettingsBase(BaseModel):
+    """Base fields shared across UI settings schemas."""
+
     tool_view: str = "grid"
     keybindings: dict = {}
     panel_sizes: dict = {}
 
 
+class UiSettingsResponse(UiSettingsBase):
+    """Current UI settings for the user."""
+
+
 class UiSettingsUpdate(BaseModel):
+    """Partial update for UI settings. All fields optional."""
+
     tool_view: str | None = Field(None, max_length=10)
     keybindings: dict | None = None
     panel_sizes: dict | None = None
@@ -89,11 +115,15 @@ class UiSettingsUpdate(BaseModel):
 
 
 class FavoriteToolItem(BaseModel):
+    """A single favorited tool with its sort position."""
+
     tool_id: str
     sort_order: int
 
 
 class FavoritesResponse(BaseModel):
+    """List of the user's favorited tools."""
+
     favorites: list[FavoriteToolItem]
 
 
@@ -101,12 +131,16 @@ class FavoritesResponse(BaseModel):
 
 
 class ToolStatItem(BaseModel):
+    """Usage statistics for a single tool."""
+
     tool_id: str
     total_uses: int
     last_used_at: str
 
 
 class ToolStatsResponse(BaseModel):
+    """Aggregated tool usage statistics for the user."""
+
     stats: list[ToolStatItem]
 
 
@@ -114,6 +148,8 @@ class ToolStatsResponse(BaseModel):
 
 
 class PipelineStepResponse(BaseModel):
+    """A single step within a pipeline, as returned by the API."""
+
     id: str
     step_order: int
     tool_id: str
@@ -122,6 +158,8 @@ class PipelineStepResponse(BaseModel):
 
 
 class PipelineResponse(BaseModel):
+    """A full pipeline with all its steps, as returned by the API."""
+
     id: str
     name: str
     description: str | None = None
@@ -131,6 +169,8 @@ class PipelineResponse(BaseModel):
 
 
 class PipelineStepIn(BaseModel):
+    """Input schema for a single pipeline step."""
+
     step_order: int
     tool_id: str = Field(..., max_length=100)
     tool_label: str = Field(..., max_length=200)
@@ -138,12 +178,16 @@ class PipelineStepIn(BaseModel):
 
 
 class PipelineCreate(BaseModel):
+    """Schema for creating a new pipeline."""
+
     name: str = Field(..., min_length=1, max_length=200)
     description: str | None = Field(None, max_length=500)
     steps: list[PipelineStepIn] = []
 
 
 class PipelineUpdate(BaseModel):
+    """Schema for updating a pipeline. All fields optional."""
+
     name: str | None = Field(None, min_length=1, max_length=200)
     description: str | None = Field(None, max_length=500)
     steps: list[PipelineStepIn] | None = None
@@ -153,11 +197,15 @@ class PipelineUpdate(BaseModel):
 
 
 class DiscoveredToolItem(BaseModel):
+    """A single tool the user has discovered."""
+
     tool_id: str
     discovered_at: str
 
 
 class DiscoveredToolsResponse(BaseModel):
+    """List of tools the user has discovered."""
+
     tools: list[DiscoveredToolItem]
     count: int
 
@@ -166,6 +214,8 @@ class DiscoveredToolsResponse(BaseModel):
 
 
 class SpinHistoryItem(BaseModel):
+    """A single spin-the-wheel result entry."""
+
     spin_date: str
     reward_type: str
     reward_ref: str | None = None
@@ -173,4 +223,6 @@ class SpinHistoryItem(BaseModel):
 
 
 class SpinHistoryResponse(BaseModel):
+    """List of the user's spin history entries."""
+
     spins: list[SpinHistoryItem]

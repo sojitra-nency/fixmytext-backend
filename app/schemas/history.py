@@ -4,6 +4,8 @@ from pydantic import BaseModel, Field
 
 
 class HistoryCreate(BaseModel):
+    """Schema for recording a new operation history entry."""
+
     tool_id: str = Field(..., min_length=1, max_length=100)
     tool_label: str = Field(..., min_length=1, max_length=200)
     tool_type: str = Field(..., min_length=1, max_length=20)
@@ -15,6 +17,8 @@ class HistoryCreate(BaseModel):
 
 
 class HistoryResponse(BaseModel):
+    """A single history entry as returned by the API."""
+
     id: str
     tool_id: str
     tool_label: str
@@ -28,6 +32,8 @@ class HistoryResponse(BaseModel):
 
 
 class HistoryListResponse(BaseModel):
+    """Paginated list of history entries."""
+
     items: list[HistoryResponse]
     total: int
     page: int
@@ -36,6 +42,8 @@ class HistoryListResponse(BaseModel):
 
 
 class HistoryStatsResponse(BaseModel):
+    """Aggregated statistics across all history entries."""
+
     total_operations: int
     tools_breakdown: dict[str, int]  # tool_id -> count
     recent_tools: list[str]  # last 10 unique tool_ids

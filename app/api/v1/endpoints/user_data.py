@@ -1,10 +1,15 @@
-"""User data endpoints: preferences, gamification, templates, ui-settings, favorites, tool-stats, pipelines."""
+"""User data endpoints: preferences, gamification, templates, ui-settings, favorites, tool-stats, pipelines.
+
+Covers all per-user data CRUD operations including paginated listing of
+templates and pipelines, favorite management, gamification state, and UI
+preferences.
+"""
 
 import uuid
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func, select
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -58,6 +63,7 @@ async def get_preferences(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Return the authenticated user's preferences (theme, persona, skin)."""
     prefs = await db.get(UserPreferences, user.id)
     if not prefs:
         return PreferencesResponse()
@@ -72,6 +78,7 @@ async def update_preferences(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Update the authenticated user's preferences (partial update)."""
     prefs = await db.get(UserPreferences, user.id)
     if not prefs:
         prefs = UserPreferences(user_id=user.id)
@@ -122,6 +129,7 @@ async def get_gamification(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Return the authenticated user's gamification state (XP, streak, quests)."""
     gam = await db.get(UserGamification, user.id)
     if not gam:
         return GamificationResponse()
@@ -134,6 +142,7 @@ async def update_gamification(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Update the authenticated user's gamification state (partial update)."""
     gam = await db.get(UserGamification, user.id)
     if not gam:
         gam = UserGamification(user_id=user.id)
@@ -160,11 +169,20 @@ async def update_gamification(
 async def list_templates(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(25, ge=1, le=100, description="Items per page"),
 ):
+    """List the authenticated user's saved templates with pagination.
+
+    Returns templates ordered newest-first so the most recently created
+    template appears at the top of the list.
+    """
     result = await db.execute(
         select(UserTemplate)
         .where(UserTemplate.user_id == user.id)
-        .order_by(UserTemplate.created_at)
+        .order_by(desc(UserTemplate.created_at))
+        .offset((page - 1) * page_size)
+        .limit(page_size)
     )
     templates = result.scalars().all()
     return [
@@ -186,6 +204,7 @@ async def create_template(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Create a new saved template for the authenticated user."""
     template = UserTemplate(
         user_id=user.id, name=body.name, text=body.text, tool_id=body.tool_id
     )
@@ -209,6 +228,7 @@ async def update_template(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Update an existing template owned by the authenticated user."""
     template = await db.get(UserTemplate, template_id)
     if not template or template.user_id != user.id:
         raise HTTPException(status_code=404, detail="Template not found")
@@ -235,6 +255,7 @@ async def delete_template(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Delete a template owned by the authenticated user."""
     template = await db.get(UserTemplate, template_id)
     if not template or template.user_id != user.id:
         raise HTTPException(status_code=404, detail="Template not found")
@@ -251,6 +272,7 @@ async def get_ui_settings(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Return the authenticated user's UI settings (tool view, keybindings, panel sizes)."""
     row = await db.get(UserUiSettings, user.id)
     if not row:
         return UiSettingsResponse()
@@ -267,6 +289,7 @@ async def update_ui_settings(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Update the authenticated user's UI settings (partial update)."""
     row = await db.get(UserUiSettings, user.id)
     if not row:
         row = UserUiSettings(user_id=user.id)
@@ -293,6 +316,7 @@ async def get_favorites(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Return the authenticated user's favorited tools sorted by display order."""
     result = await db.execute(
         select(UserFavoriteTool)
         .where(UserFavoriteTool.user_id == user.id)
@@ -312,6 +336,10 @@ async def add_favorite(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Add a tool to the authenticated user's favorites list.
+
+    Idempotent: returns the existing entry if the tool is already favorited.
+    """
     existing = await db.get(UserFavoriteTool, (user.id, tool_id))
     if existing:
         return {"tool_id": tool_id, "sort_order": existing.sort_order}
@@ -335,6 +363,7 @@ async def remove_favorite(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Remove a tool from the authenticated user's favorites list."""
     fav = await db.get(UserFavoriteTool, (user.id, tool_id))
     if fav:
         await db.delete(fav)
@@ -349,6 +378,7 @@ async def get_tool_stats(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Return aggregated tool usage statistics for the authenticated user."""
     result = await db.execute(
         select(UserToolStats)
         .where(UserToolStats.user_id == user.id)
@@ -394,12 +424,21 @@ def _pipeline_to_response(p: UserPipeline) -> PipelineResponse:
 async def list_pipelines(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(25, ge=1, le=100, description="Items per page"),
 ):
+    """List the authenticated user's active pipelines with pagination.
+
+    Pipelines are returned newest-first.  Each pipeline eagerly loads its
+    steps so the response includes the full pipeline configuration.
+    """
     result = await db.execute(
         select(UserPipeline)
         .where(UserPipeline.user_id == user.id, UserPipeline.is_active.is_(True))
         .options(selectinload(UserPipeline.steps))
-        .order_by(UserPipeline.created_at)
+        .order_by(desc(UserPipeline.created_at))
+        .offset((page - 1) * page_size)
+        .limit(page_size)
     )
     return [_pipeline_to_response(p) for p in result.scalars().all()]
 
@@ -410,6 +449,7 @@ async def create_pipeline(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Create a new multi-step pipeline for the authenticated user."""
     pipeline = UserPipeline(
         user_id=user.id, name=body.name, description=body.description
     )
@@ -443,6 +483,7 @@ async def update_pipeline(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Update an existing pipeline (name, description, or steps) for the authenticated user."""
     result = await db.execute(
         select(UserPipeline)
         .where(UserPipeline.id == pipeline_id, UserPipeline.user_id == user.id)
@@ -487,6 +528,7 @@ async def delete_pipeline(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Soft-delete a pipeline by marking it inactive (sets is_active=False)."""
     pipeline = await db.get(UserPipeline, pipeline_id)
     if not pipeline or pipeline.user_id != user.id:
         raise HTTPException(status_code=404, detail="Pipeline not found")
@@ -504,6 +546,7 @@ async def get_discovered_tools(
     limit: int = 200,
     offset: int = 0,
 ):
+    """Return paginated list of tools the authenticated user has discovered."""
     # Total count (unaffected by pagination)
     count_result = await db.execute(
         select(func.count()).where(UserDiscoveredTool.user_id == user.id)
@@ -538,6 +581,7 @@ async def get_spin_history(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Return the authenticated user's most recent 20 spin-wheel entries."""
     result = await db.execute(
         select(UserSpinLog)
         .where(UserSpinLog.user_id == user.id)

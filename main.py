@@ -10,24 +10,48 @@ Run locally:
 import asyncio
 import logging
 import time
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 
 import uvicorn
 from alembic.config import Config as AlembicConfig
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from alembic import command
 from app.api.v1.router import api_router
 from app.core.config import settings
-from app.db.session import engine
+from app.db.session import engine, get_db
 from app.services.ai_service import close_groq_client, init_groq_client
 from app.services.razorpay_service import init_razorpay
 
+# ── Logging configuration ────────────────────────────────────────────────────
+
 LOG_FORMAT = "%(asctime)s %(levelname)-5s [%(name)s] %(message)s"
 LOG_DATEFMT = "%Y-%m-%d %H:%M:%S"
+
+# Try to use structured JSON logging; fall back to plain text if unavailable
+_use_json_logging = False
+try:
+    from pythonjsonlogger import jsonlogger
+
+    class CustomJsonFormatter(jsonlogger.JsonFormatter):
+        """JSON log formatter with request context fields."""
+
+        def add_fields(self, log_record, record, message_dict):
+            super().add_fields(log_record, record, message_dict)
+            log_record["timestamp"] = log_record.get("timestamp", record.created)
+            log_record["level"] = record.levelname
+            log_record["logger"] = record.name
+
+    _use_json_logging = True
+except ImportError:
+    # python-json-logger not installed — fall back to plain text format
+    pass
 
 
 def _configure_logging() -> None:
@@ -39,7 +63,10 @@ def _configure_logging() -> None:
     # Remove any existing handlers (e.g. from alembic fileConfig) and set ours
     root.handlers.clear()
     handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter(LOG_FORMAT, datefmt=LOG_DATEFMT))
+    if _use_json_logging:
+        handler.setFormatter(CustomJsonFormatter("%(timestamp)s %(level)s %(name)s %(message)s"))
+    else:
+        handler.setFormatter(logging.Formatter(LOG_FORMAT, datefmt=LOG_DATEFMT))
     root.addHandler(handler)
 
     # Tame noisy loggers
@@ -51,7 +78,12 @@ def _configure_logging() -> None:
         uv_logger = logging.getLogger(name)
         uv_logger.handlers.clear()
         uv_handler = logging.StreamHandler()
-        uv_handler.setFormatter(logging.Formatter(LOG_FORMAT, datefmt=LOG_DATEFMT))
+        if _use_json_logging:
+            uv_handler.setFormatter(
+                CustomJsonFormatter("%(timestamp)s %(level)s %(name)s %(message)s")
+            )
+        else:
+            uv_handler.setFormatter(logging.Formatter(LOG_FORMAT, datefmt=LOG_DATEFMT))
         uv_logger.addHandler(uv_handler)
         uv_logger.propagate = False
 
@@ -70,6 +102,13 @@ def _run_migrations() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize/cleanup shared clients on startup/shutdown."""
+
+    # ── Startup validation ───────────────────────────────────────────────
+    if not settings.DATABASE_URL:
+        raise RuntimeError("DATABASE_URL is required")
+    if len(settings.SECRET_KEY) < 32:
+        logger.warning("SECRET_KEY is shorter than 32 characters - this is insecure")
+
     logger.info("Running database migrations …")
     loop = asyncio.get_running_loop()
     with ThreadPoolExecutor(max_workers=1) as pool:
@@ -97,11 +136,32 @@ app = FastAPI(
 )
 
 
-# ── Request Logging Middleware ────────────────────────────────────────────────
+# ── Correlation ID Middleware ────────────────────────────────────────────────
+
+
+class CorrelationIdMiddleware(BaseHTTPMiddleware):
+    """Injects X-Request-ID into request state and response headers.
+
+    If the incoming request already carries an ``X-Request-ID`` header the
+    value is reused; otherwise a new UUID4 is generated.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
+        request.state.request_id = request_id
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
+        return response
+
+
+app.add_middleware(CorrelationIdMiddleware)
+
+
+# ── Request Logging Middleware ───────────────────────────────────────────────
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
-    """Log every request with method, path, status code, and duration."""
+    """Log every request with method, path, status code, duration, and request ID."""
 
     async def dispatch(self, request: Request, call_next):
         start = time.perf_counter()
@@ -109,13 +169,16 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         method = request.method
         path = request.url.path
         query = str(request.url.query)
+        # Retrieve correlation ID set by CorrelationIdMiddleware
+        request_id = getattr(request.state, "request_id", "N/A")
 
         logger.info(
-            "%s %s%s from %s",
+            "%s %s%s from %s [req_id=%s]",
             method,
             path,
             f"?{query}" if query else "",
             client_ip,
+            request_id,
         )
 
         try:
@@ -123,21 +186,23 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         except Exception as exc:
             duration_ms = (time.perf_counter() - start) * 1000
             logger.error(
-                "%s %s -> 500 (%.1fms) ERROR: %s",
+                "%s %s -> 500 (%.1fms) [req_id=%s] ERROR: %s",
                 method,
                 path,
                 duration_ms,
+                request_id,
                 exc,
             )
             raise
 
         duration_ms = (time.perf_counter() - start) * 1000
         logger.info(
-            "%s %s -> %s (%.1fms)",
+            "%s %s -> %s (%.1fms) [req_id=%s]",
             method,
             path,
             response.status_code,
             duration_ms,
+            request_id,
         )
         return response
 
@@ -145,24 +210,39 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 app.add_middleware(RequestLoggingMiddleware)
 
 
-# ── CORS ──────────────────────────────────────────────────────────────────────
+# ── CORS ─────────────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins_list,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "X-Visitor-Id"],
+    allow_headers=["Content-Type", "Authorization", "X-Visitor-Id", "X-Request-ID"],
 )
 
-# ── Routers ───────────────────────────────────────────────────────────────────
+# ── Routers ──────────────────────────────────────────────────────────────────
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 
 
-# ── Health check ──────────────────────────────────────────────────────────────
-@app.get("/health", tags=["Health"])
+# ── Health checks ────────────────────────────────────────────────────────────
+
+
+@app.get("/health", tags=["health"])
 async def health_check():
     """Quick liveness probe used by Docker / k8s health checks."""
     return {"status": "ok", "version": settings.VERSION}
+
+
+@app.get("/health/ready", tags=["health"])
+async def readiness_check(db: AsyncSession = Depends(get_db)):
+    """Readiness check - verifies database connectivity."""
+    try:
+        await db.execute(text("SELECT 1"))
+        return {"status": "ready", "database": "connected"}
+    except Exception as e:
+        raise HTTPException(
+            status_code=503,
+            detail={"status": "not ready", "database": str(e)},
+        )
 
 
 if __name__ == "__main__":

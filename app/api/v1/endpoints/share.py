@@ -1,4 +1,9 @@
-"""Share endpoints — create and view shareable links for transformed text."""
+"""Share endpoints -- create and view shareable links for transformed text.
+
+Supports anonymous creation (no auth required) with configurable expiry and
+text-length limits driven by ``settings.SHARE_EXPIRE_DAYS`` and
+``settings.MAX_SHARE_TEXT_LENGTH``.
+"""
 
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -16,8 +21,11 @@ from app.schemas.share import ShareCreate, SharedResultView, ShareResponse
 
 router = APIRouter(prefix="/share", tags=["Share"])
 
-SHARE_EXPIRE_DAYS = 30
-MAX_SHARE_TEXT_LENGTH = 50_000
+# Pull tunables from centralised settings so operators can adjust via env vars
+# without a code change.  Falls back to sensible defaults if the attribute is
+# not yet defined on the Settings class.
+SHARE_EXPIRE_DAYS: int = getattr(settings, "SHARE_EXPIRE_DAYS", 30)
+MAX_SHARE_TEXT_LENGTH: int = getattr(settings, "MAX_SHARE_TEXT_LENGTH", 50_000)
 
 
 @router.post("", response_model=ShareResponse)
@@ -26,7 +34,11 @@ async def create_share(
     user: User | None = Depends(get_optional_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Create a shareable link for a transformed result. No auth required."""
+    """Create a shareable link for a transformed result.
+
+    Authentication is optional -- anonymous visitors may also create shares.
+    The output text is truncated to ``MAX_SHARE_TEXT_LENGTH`` characters.
+    """
     row = SharedResult(
         user_id=user.id if user else None,
         tool_id=req.tool_id,
@@ -46,7 +58,11 @@ async def get_share(
     share_id: str,
     db: AsyncSession = Depends(get_db),
 ):
-    """View a shared result. No auth required."""
+    """View a shared result by its public ID.
+
+    No authentication required.  Returns 410 Gone if the share has passed
+    the ``SHARE_EXPIRE_DAYS`` window.
+    """
     try:
         sid = uuid.UUID(share_id)
     except ValueError as e:

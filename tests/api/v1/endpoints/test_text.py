@@ -346,7 +346,7 @@ def test_paraphrase_requires_auth(unauth_client):
 
 def test_fix_grammar_with_mock_ai(client):
     with patch(
-        "app.services.ai_service.GrammarFixerService.fix_grammar",
+        "app.services.ai_service.run_ai_tool",
         AsyncMock(return_value="Fixed text."),
     ):
         resp = client.post(
@@ -358,7 +358,7 @@ def test_fix_grammar_with_mock_ai(client):
 
 def test_summarize_with_mock_ai(client):
     with patch(
-        "app.services.ai_service.SummarizerService.summarize",
+        "app.services.ai_service.run_ai_tool",
         AsyncMock(return_value="Summary."),
     ):
         resp = client.post(
@@ -369,7 +369,7 @@ def test_summarize_with_mock_ai(client):
 
 def test_translate_with_mock_ai(client):
     with patch(
-        "app.services.ai_service.TranslatorService.translate",
+        "app.services.ai_service.run_ai_tool",
         AsyncMock(return_value="Hola"),
     ):
         resp = client.post(
@@ -381,7 +381,7 @@ def test_translate_with_mock_ai(client):
 
 def test_change_tone_with_mock_ai(client):
     with patch(
-        "app.services.ai_service.ToneChangerService.change_tone",
+        "app.services.ai_service.run_ai_tool",
         AsyncMock(return_value="Formal text."),
     ):
         resp = client.post(

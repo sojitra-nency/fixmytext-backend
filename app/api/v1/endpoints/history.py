@@ -1,11 +1,17 @@
-"""Operation history endpoints — persistent per-user operation tracking."""
+"""Operation history endpoints -- persistent per-user operation tracking.
+
+Provides CRUD for the user's operation history including paginated listing,
+recording new operations, per-tool stats, and soft-delete for both individual
+entries and bulk clear.
+"""
 
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import delete, desc, func, select
+from sqlalchemy import desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.deps import get_current_user
 from app.db.models import OperationHistory, User
 from app.db.session import get_db
@@ -18,10 +24,13 @@ from app.schemas.history import (
 
 router = APIRouter(prefix="/history", tags=["History"])
 
-PREVIEW_MAX = 500
+# Use the centralized config value so operators can tune truncation without
+# a code change; falls back to 500 if the setting is absent.
+PREVIEW_MAX = getattr(settings, "HISTORY_PREVIEW_MAX_LENGTH", 500)
 
 
 def _row_to_response(row: OperationHistory) -> HistoryResponse:
+    """Convert an OperationHistory ORM instance to its API response schema."""
     return HistoryResponse(
         id=str(row.id),
         tool_id=row.tool_id,
@@ -47,11 +56,22 @@ async def list_history(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    base = select(OperationHistory).where(OperationHistory.user_id == user.id)
+    """Return a paginated list of the user's operation history (newest first).
+
+    Soft-deleted entries are excluded.  Optionally filter by ``tool_id``.
+    """
+    # Exclude soft-deleted rows from both the data query and the count query
+    base = select(OperationHistory).where(
+        OperationHistory.user_id == user.id,
+        OperationHistory.is_deleted == False,  # noqa: E712
+    )
     count_base = (
         select(func.count())
         .select_from(OperationHistory)
-        .where(OperationHistory.user_id == user.id)
+        .where(
+            OperationHistory.user_id == user.id,
+            OperationHistory.is_deleted == False,  # noqa: E712
+        )
     )
 
     if tool_id:
@@ -90,6 +110,11 @@ async def record_operation(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Record a new text-transformation operation in the user's history.
+
+    Input and output previews are truncated to ``PREVIEW_MAX`` characters to
+    avoid bloating the history table.
+    """
     row = OperationHistory(
         user_id=user.id,
         tool_id=body.tool_id,
@@ -115,47 +140,44 @@ async def get_history_stats(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    total = (
-        await db.execute(
-            select(func.count())
-            .select_from(OperationHistory)
-            .where(OperationHistory.user_id == user.id)
-        )
-    ).scalar() or 0
+    """Return a summary of the user's operation history.
 
-    breakdown_rows = (
+    Uses a single grouped query that fetches per-tool count **and**
+    last-used timestamp in one database round-trip.  The ``recent_tools``
+    list is derived from the same result set by sorting on ``last_used``
+    instead of issuing a separate query.  Soft-deleted entries are excluded.
+    """
+    # Combined query: per-tool count + last-used timestamp in one round-trip
+    all_stats = (
         await db.execute(
-            select(OperationHistory.tool_id, func.count())
-            .where(OperationHistory.user_id == user.id)
+            select(
+                OperationHistory.tool_id,
+                func.count().label("count"),
+                func.max(OperationHistory.created_at).label("last_used"),
+            )
+            .where(
+                OperationHistory.user_id == user.id,
+                OperationHistory.is_deleted == False,  # noqa: E712
+            )
             .group_by(OperationHistory.tool_id)
             .order_by(func.count().desc())
         )
     ).all()
-    tools_breakdown = {row[0]: row[1] for row in breakdown_rows}
 
-    recent_rows = (
-        (
-            await db.execute(
-                select(OperationHistory.tool_id)
-                .where(OperationHistory.user_id == user.id)
-                .order_by(desc(OperationHistory.created_at))
-                .limit(50)
-            )
-        )
-        .scalars()
-        .all()
-    )
-    seen = []
-    for tid in recent_rows:
-        if tid not in seen:
-            seen.append(tid)
-        if len(seen) >= 10:
-            break
+    # Total is the sum of per-tool counts
+    total = sum(row.count for row in all_stats)
+
+    # Breakdown keyed by tool_id
+    tools_breakdown = {row.tool_id: row.count for row in all_stats}
+
+    # Derive recent tools from the same data by sorting on last_used
+    recent_tool_ids = sorted(all_stats, key=lambda r: r.last_used, reverse=True)
+    recent_tools = list(dict.fromkeys(r.tool_id for r in recent_tool_ids))[:10]
 
     return HistoryStatsResponse(
         total_operations=total,
         tools_breakdown=tools_breakdown,
-        recent_tools=seen,
+        recent_tools=recent_tools,
     )
 
 
@@ -167,8 +189,18 @@ async def clear_history(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Soft-delete all history entries for the authenticated user.
+
+    Sets ``is_deleted=True`` on every non-deleted row rather than physically
+    removing data, preserving audit trail and enabling future undo.
+    """
     await db.execute(
-        delete(OperationHistory).where(OperationHistory.user_id == user.id)
+        update(OperationHistory)
+        .where(
+            OperationHistory.user_id == user.id,
+            OperationHistory.is_deleted == False,  # noqa: E712
+        )
+        .values(is_deleted=True)
     )
     await db.commit()
 
@@ -182,8 +214,13 @@ async def get_history_entry(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Retrieve a single history entry by ID for the authenticated user.
+
+    Returns 404 if the entry does not exist, belongs to another user, or
+    has been soft-deleted.
+    """
     row = await db.get(OperationHistory, entry_id)
-    if not row or row.user_id != user.id:
+    if not row or row.user_id != user.id or row.is_deleted:
         raise HTTPException(status_code=404, detail="History entry not found")
     return _row_to_response(row)
 
@@ -197,8 +234,13 @@ async def delete_history_entry(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Soft-delete a single history entry for the authenticated user.
+
+    Marks the row as deleted rather than physically removing it, consistent
+    with the bulk ``clear_history`` endpoint.
+    """
     row = await db.get(OperationHistory, entry_id)
-    if not row or row.user_id != user.id:
+    if not row or row.user_id != user.id or row.is_deleted:
         raise HTTPException(status_code=404, detail="History entry not found")
-    await db.delete(row)
+    row.is_deleted = True
     await db.commit()
