@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 from fastapi import HTTPException
 
-from tests.conftest import make_mock_db, make_user
+from tests.conftest import make_user
 
 
 @pytest.mark.asyncio
@@ -15,13 +15,12 @@ async def test_verify_payment_invalid_signature():
     from app.services.payment_service import verify_razorpay_payment
 
     user = make_user()
-    db = make_mock_db()
 
     with patch(
         "app.services.payment_service.verify_payment_signature", return_value=False
     ):
         with pytest.raises(HTTPException) as exc_info:
-            await verify_razorpay_payment("order_1", "pay_1", "bad_sig", user, db)
+            await verify_razorpay_payment("order_1", "pay_1", "bad_sig", user)
         assert exc_info.value.status_code == 400
 
 
@@ -31,7 +30,6 @@ async def test_verify_payment_fetch_order_fails():
     from app.services.payment_service import verify_razorpay_payment
 
     user = make_user()
-    db = make_mock_db()
 
     with (
         patch(
@@ -42,7 +40,7 @@ async def test_verify_payment_fetch_order_fails():
         ),
     ):
         with pytest.raises(HTTPException) as exc_info:
-            await verify_razorpay_payment("order_1", "pay_1", "sig", user, db)
+            await verify_razorpay_payment("order_1", "pay_1", "sig", user)
         assert exc_info.value.status_code == 502
 
 
@@ -52,7 +50,6 @@ async def test_verify_payment_wrong_user():
     from app.services.payment_service import verify_razorpay_payment
 
     user = make_user()
-    db = make_mock_db()
 
     order = {"notes": {"user_id": str(uuid.uuid4())}}  # different user
 
@@ -63,7 +60,7 @@ async def test_verify_payment_wrong_user():
         patch("app.services.payment_service.fetch_order", return_value=order),
     ):
         with pytest.raises(HTTPException) as exc_info:
-            await verify_razorpay_payment("order_1", "pay_1", "sig", user, db)
+            await verify_razorpay_payment("order_1", "pay_1", "sig", user)
         assert exc_info.value.status_code == 400
 
 
@@ -73,7 +70,6 @@ async def test_verify_payment_success():
     from app.services.payment_service import verify_razorpay_payment
 
     user = make_user()
-    db = make_mock_db()
 
     order = {"notes": {"user_id": str(user.id)}, "amount": 10000, "currency": "INR"}
 
@@ -83,5 +79,5 @@ async def test_verify_payment_success():
         ),
         patch("app.services.payment_service.fetch_order", return_value=order),
     ):
-        result = await verify_razorpay_payment("order_1", "pay_1", "sig", user, db)
+        result = await verify_razorpay_payment("order_1", "pay_1", "sig", user)
         assert result == order

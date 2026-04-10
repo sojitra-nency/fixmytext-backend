@@ -64,7 +64,9 @@ def _configure_logging() -> None:
     root.handlers.clear()
     handler = logging.StreamHandler()
     if _use_json_logging:
-        handler.setFormatter(CustomJsonFormatter("%(timestamp)s %(level)s %(name)s %(message)s"))
+        handler.setFormatter(
+            CustomJsonFormatter("%(timestamp)s %(level)s %(name)s %(message)s")
+        )
     else:
         handler.setFormatter(logging.Formatter(LOG_FORMAT, datefmt=LOG_DATEFMT))
     root.addHandler(handler)
@@ -107,6 +109,11 @@ async def lifespan(app: FastAPI):
     if not settings.DATABASE_URL:
         raise RuntimeError("DATABASE_URL is required")
     if len(settings.SECRET_KEY) < 32:
+        if settings.ENVIRONMENT == "production":
+            raise RuntimeError(
+                "SECRET_KEY must be at least 32 characters in production. "
+                'Generate one with: python -c "import secrets; print(secrets.token_urlsafe(48))"'
+            )
         logger.warning("SECRET_KEY is shorter than 32 characters - this is insecure")
 
     logger.info("Running database migrations …")
@@ -155,6 +162,26 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
 
 
 app.add_middleware(CorrelationIdMiddleware)
+
+
+# ── Security Headers Middleware ─────────────────────────────────────────────
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Add standard security headers to every response."""
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = (
+            "camera=(), microphone=(), geolocation=()"
+        )
+        return response
+
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 
 # ── Request Logging Middleware ───────────────────────────────────────────────
@@ -242,7 +269,7 @@ async def readiness_check(db: AsyncSession = Depends(get_db)):
         raise HTTPException(
             status_code=503,
             detail={"status": "not ready", "database": str(e)},
-        )
+        ) from e
 
 
 if __name__ == "__main__":

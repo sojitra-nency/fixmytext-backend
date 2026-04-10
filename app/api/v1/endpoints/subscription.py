@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.deps import get_current_user
+from app.core.sanitize import sanitize_log_value as _s
 from app.db.models import User
 from app.db.models.billing_subscription import Subscription
 from app.db.session import get_db
@@ -36,11 +37,6 @@ from app.services.razorpay_service import (
 from app.services.region_service import resolve_user_region
 
 logger = logging.getLogger(__name__)
-
-
-def _s(value: object) -> str:
-    """Sanitize a value for log output — strips CR/LF to prevent log injection."""
-    return str(value).replace("\r", " ").replace("\n", " ")
 
 
 router = APIRouter(prefix="/subscription", tags=["Subscription"])

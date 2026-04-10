@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_optional_user
 from app.core.rate_limit import ai_limiter
+from app.core.sanitize import sanitize_log_value as _safe
 from app.core.tool_registry import ToolType, get_all_tools, get_tool
 from app.db.models import User
 from app.db.session import get_db
@@ -70,11 +71,6 @@ _REQUEST_MODELS: dict[str, type] = {
 # ---------------------------------------------------------------------------
 # Access-control helper
 # ---------------------------------------------------------------------------
-
-
-def _safe(s: object) -> str:
-    """Sanitise a value for safe inclusion in log messages."""
-    return str(s).replace("\n", " ").replace("\r", " ")
 
 
 async def _enforce_tool_access(

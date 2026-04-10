@@ -44,7 +44,11 @@ class InMemoryRateLimiter:
         # Purge expired entries outside the current window
         self._hits[key] = [t for t in self._hits[key] if now - t < self.window_seconds]
 
-        if len(self._hits[key]) >= self.max_requests:
+        # Remove the key entirely if no timestamps remain to prevent memory leak
+        if not self._hits[key]:
+            del self._hits[key]
+
+        if self._hits.get(key) and len(self._hits[key]) >= self.max_requests:
             logger.warning(
                 "RATE LIMIT hit for %s (%d/%d in %ds)",
                 key,

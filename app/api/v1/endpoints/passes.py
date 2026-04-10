@@ -259,7 +259,7 @@ async def verify_pass_payment(
     """
     # Verify signature and ownership via centralized payment service
     order = await verify_razorpay_payment(
-        req.razorpay_order_id, req.razorpay_payment_id, req.razorpay_signature, user, db
+        req.razorpay_order_id, req.razorpay_payment_id, req.razorpay_signature, user
     )
 
     # Validate that the order metadata matches the client's claimed item

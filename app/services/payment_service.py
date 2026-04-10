@@ -8,7 +8,6 @@ verifies order ownership, and checks amounts against the current catalog.
 import logging
 
 from fastapi import HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.user import User
 from app.services.razorpay_service import fetch_order, verify_payment_signature
@@ -21,7 +20,6 @@ async def verify_razorpay_payment(
     razorpay_payment_id: str,
     razorpay_signature: str,
     user: User,
-    db: AsyncSession,
 ) -> dict:
     """Verify a Razorpay payment end-to-end.
 
@@ -37,7 +35,6 @@ async def verify_razorpay_payment(
         razorpay_payment_id: The Razorpay payment ID from the client callback.
         razorpay_signature: HMAC-SHA256 signature from Razorpay.
         user: The currently authenticated user (from ``Depends(get_current_user)``).
-        db: Async database session (unused here but passed for future extensibility).
 
     Returns:
         The full Razorpay order dict on success.

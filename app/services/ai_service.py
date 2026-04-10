@@ -22,8 +22,6 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-_MODEL = "llama-3.3-70b-versatile"
-
 
 # ── Groq helpers ──────────────────────────────────────────────────────────────
 
@@ -55,7 +53,7 @@ async def _groq_chat(
     """Send a single chat completion to Groq and return the assistant text."""
     client = _groq_client
     response = await client.chat.completions.create(
-        model=_MODEL,
+        model=settings.GROQ_MODEL,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_text},

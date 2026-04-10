@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.deps import get_current_user
+from app.core.sanitize import sanitize_log_value as _s
 from app.core.security import create_access_token, create_refresh_token, decode_token
 from app.db.models import User
 from app.db.session import get_db
@@ -26,11 +27,6 @@ logger = logging.getLogger(__name__)
 # Cookie configuration sourced from settings (with safe fallbacks)
 REFRESH_COOKIE = getattr(settings, "COOKIE_NAME", "refresh_token")
 REFRESH_COOKIE_PATH = getattr(settings, "COOKIE_PATH", "/api/v1/auth")
-
-
-def _s(value: object) -> str:
-    """Sanitize a value for log output — strips CR/LF to prevent log injection."""
-    return str(value).replace("\r", " ").replace("\n", " ")
 
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
