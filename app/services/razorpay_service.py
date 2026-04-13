@@ -58,16 +58,47 @@ def get_client() -> razorpay.Client:
 # ── Orders (one-time payments: passes, credits, Pro) ──────────────────────
 
 
-def create_order(amount: int, currency: str, receipt: str, notes: dict) -> dict:
+def create_order(
+    amount: int,
+    currency: str,
+    receipt: str,
+    notes: dict,
+    idempotency_key: str | None = None,
+) -> dict:
     """Create a Razorpay order for a one-time payment.
+
     amount: in smallest currency unit (paise for INR, cents for USD).
+    idempotency_key: if provided, checks for a recent pending order with
+        the same receipt to avoid creating duplicates on retries.
     Returns order dict with 'id', 'amount', 'currency'.
     """
-    return get_client().order.create(
+    client = get_client()
+
+    # Check for an existing unpaid order with the same receipt to avoid
+    # duplicate orders on network retries or double-clicks.
+    if idempotency_key:
+        try:
+            existing_orders = client.order.all({"receipt": idempotency_key})
+            for order in existing_orders.get("items", []):
+                if (
+                    order.get("status") == "created"
+                    and order.get("amount") == amount
+                    and order.get("currency", "").upper() == currency.upper()
+                ):
+                    logger.info(
+                        "Returning existing order %s for receipt=%s",
+                        order["id"],
+                        idempotency_key,
+                    )
+                    return order
+        except Exception:
+            logger.debug("Could not check existing orders, creating new one")
+
+    return client.order.create(
         {
             "amount": amount,
             "currency": currency.upper(),
-            "receipt": receipt,
+            "receipt": idempotency_key or receipt,
             "notes": notes,
         }
     )

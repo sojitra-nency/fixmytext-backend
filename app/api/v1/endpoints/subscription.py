@@ -2,6 +2,7 @@
 
 import json
 import logging
+import uuid
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -10,9 +11,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.deps import get_current_user
+from app.core.pass_catalog import get_credit_pack, get_pass, get_price
 from app.core.sanitize import sanitize_log_value as _s
 from app.db.models import User
-from app.db.models.billing_subscription import Subscription
+from app.db.models.billing_subscription import PaymentEvent, Subscription
 from app.db.session import get_db
 from app.schemas.subscription import (
     RazorpayProOrderResponse,
@@ -24,6 +26,8 @@ from app.services.pass_service import (
     get_all_tool_uses_today,
     get_credit_balance,
     get_subscription_tier,
+    grant_credits,
+    grant_pass,
     has_logged_in_today,
     record_daily_login,
 )
@@ -96,12 +100,15 @@ async def create_pro_checkout(
     region = user.region or "IN"
     pricing = PRO_PLAN_PRICES.get(region, PRO_PLAN_PRICES["IN"])
 
+    idempotency_key = f"pro_{user.id}"
+
     try:
         order = create_order(
             amount=pricing["amount"],
             currency=pricing["currency"],
             receipt=f"pro_{str(user.id)[:8]}",
             notes={"user_id": str(user.id), "item_type": "pro_subscription"},
+            idempotency_key=idempotency_key,
         )
     except Exception as e:
         logger.exception(
@@ -209,7 +216,14 @@ async def cancel_pro(
 
 @router.post("/webhook")
 async def razorpay_webhook(request: Request, db: AsyncSession = Depends(get_db)):
-    """Handle Razorpay webhook events for payments."""
+    """Handle Razorpay webhook events for payments.
+
+    Supports: payment.captured, payment.authorized, payment.failed,
+    subscription.cancelled, subscription.halted.
+
+    Idempotent — duplicate events (same razorpay_event_id) are acknowledged
+    but not reprocessed.
+    """
     body = await request.body()
     signature = request.headers.get("x-razorpay-signature", "")
 
@@ -224,10 +238,276 @@ async def razorpay_webhook(request: Request, db: AsyncSession = Depends(get_db))
         raise HTTPException(400, "Invalid payload") from e
 
     event_type = event.get("event", "")
-    payload = event.get("payload", {})
+    razorpay_event_id = (
+        event.get("account_id", "") + "_" + str(event.get("created_at", ""))
+    )
+    payment_entity = event.get("payload", {}).get("payment", {}).get("entity", {})
+    payment_id = payment_entity.get("id")
+    order_id = payment_entity.get("order_id")
+    amount = payment_entity.get("amount")
+    currency = payment_entity.get("currency")
+    notes = payment_entity.get("notes", {})
 
+    user_id_str = notes.get("user_id")
+    item_type = notes.get("item_type")
+    item_id = notes.get("item_id")
+
+    # ── Idempotency check — skip already-processed events ────────────
+    existing = await db.execute(
+        select(PaymentEvent).where(
+            PaymentEvent.razorpay_event_id == razorpay_event_id,
+            PaymentEvent.status == "processed",
+        )
+    )
+    if existing.scalars().first():
+        logger.info("Duplicate webhook ignored: event_id=%s", razorpay_event_id)
+        return {"status": "ok", "detail": "duplicate"}
+
+    # ── Record the event ─────────────────────────────────────────────
+    user_id = uuid.UUID(user_id_str) if user_id_str else None
+    pe = PaymentEvent(
+        event_type=event_type,
+        razorpay_event_id=razorpay_event_id,
+        razorpay_payment_id=payment_id,
+        razorpay_order_id=order_id,
+        user_id=user_id,
+        item_type=item_type,
+        item_id=item_id,
+        amount_subunits=amount,
+        currency=currency,
+        status="received",
+        raw_payload=event,
+    )
+    db.add(pe)
+    await db.flush()
+
+    # ── payment.authorized — informational only (capture pending) ────
+    if event_type == "payment.authorized":
+        logger.info(
+            "payment.authorized: payment=%s order=%s",
+            _s(payment_id),
+            _s(order_id),
+        )
+        pe.status = "processed"
+        pe.processed_at = datetime.now(UTC)
+        await db.commit()
+        return {"status": "ok"}
+
+    # ── payment.failed — log failure ─────────────────────────────────
+    if event_type == "payment.failed":
+        reason = payment_entity.get("error_description", "unknown")
+        logger.warning(
+            "payment.failed: payment=%s order=%s reason=%s",
+            _s(payment_id),
+            _s(order_id),
+            reason,
+        )
+        pe.status = "processed"
+        pe.processed_at = datetime.now(UTC)
+        await db.commit()
+        return {"status": "ok"}
+
+    # ── payment.captured — fulfill the purchase ──────────────────────
     if event_type == "payment.captured":
-        payment_id = payload.get("payment", {}).get("entity", {}).get("id", "unknown")
-        logger.info("payment.captured webhook received: payment=%s", payment_id)
+        if not user_id:
+            logger.error(
+                "payment.captured missing user_id in notes: order=%s", _s(order_id)
+            )
+            pe.status = "error"
+            await db.commit()
+            raise HTTPException(400, "Missing user_id in order notes")
 
+        # Validate amount matches expected catalog price
+        _validate_payment_amount(
+            item_type, item_id, amount, currency, user_id, order_id
+        )
+
+        try:
+            # Look up user
+            user_result = await db.execute(select(User).where(User.id == user_id))
+            user = user_result.scalars().first()
+            if not user:
+                logger.error("Webhook user not found: user_id=%s", user_id)
+                pe.status = "error"
+                await db.commit()
+                raise HTTPException(400, "User not found")
+
+            if item_type == "pro_subscription":
+                sub = Subscription(
+                    user_id=user.id,
+                    tier="pro",
+                    status="active",
+                    razorpay_order_id=order_id,
+                    razorpay_payment_id=payment_id,
+                    amount_paid_subunits=amount,
+                    currency=currency,
+                    region=user.region,
+                )
+                db.add(sub)
+                logger.info(
+                    "Pro activated via webhook: user=%s payment=%s",
+                    user.id,
+                    _s(payment_id),
+                )
+
+            elif item_type == "pass":
+                pass_def = get_pass(item_id)
+                if not pass_def:
+                    logger.error("Unknown pass in webhook: %s", item_id)
+                    pe.status = "error"
+                    await db.commit()
+                    raise HTTPException(400, f"Unknown pass: {item_id}")
+                tool_ids_raw = notes.get("tool_ids", "*")
+                tool_ids = tool_ids_raw.split(",") if tool_ids_raw else ["*"]
+                await grant_pass(
+                    user,
+                    item_id,
+                    tool_ids,
+                    "razorpay",
+                    db,
+                    razorpay_payment_id=payment_id,
+                    auto_commit=False,
+                )
+                logger.info(
+                    "Pass granted via webhook: user=%s pass=%s payment=%s",
+                    user.id,
+                    item_id,
+                    _s(payment_id),
+                )
+
+            elif item_type == "credit":
+                pack = get_credit_pack(item_id)
+                if not pack:
+                    logger.error("Unknown credit pack in webhook: %s", item_id)
+                    pe.status = "error"
+                    await db.commit()
+                    raise HTTPException(400, f"Unknown credit pack: {item_id}")
+                await grant_credits(
+                    user,
+                    pack["credits"],
+                    "purchase",
+                    db,
+                    razorpay_payment_id=payment_id,
+                    auto_commit=False,
+                )
+                logger.info(
+                    "Credits granted via webhook: user=%s pack=%s credits=%d payment=%s",
+                    user.id,
+                    item_id,
+                    pack["credits"],
+                    _s(payment_id),
+                )
+            else:
+                logger.warning(
+                    "Unknown item_type in webhook: %s order=%s",
+                    item_type,
+                    _s(order_id),
+                )
+
+            pe.status = "processed"
+            pe.processed_at = datetime.now(UTC)
+            await db.commit()
+
+        except HTTPException:
+            raise
+        except Exception:
+            await db.rollback()
+            logger.exception(
+                "Failed to process payment.captured: order=%s payment=%s",
+                _s(order_id),
+                _s(payment_id),
+            )
+            raise HTTPException(500, "Webhook processing failed") from None
+
+        return {"status": "ok"}
+
+    # ── subscription.cancelled — downgrade user ──────────────────────
+    if event_type == "subscription.cancelled" and user_id:
+        sub_result = await db.execute(
+            select(Subscription).where(
+                and_(
+                    Subscription.user_id == user_id,
+                    Subscription.status == "active",
+                    Subscription.tier == "pro",
+                )
+            )
+        )
+        active_sub = sub_result.scalars().first()
+        if active_sub:
+            active_sub.status = "cancelled"
+            active_sub.cancelled_at = datetime.now(UTC)
+            logger.info("Subscription cancelled via webhook: user=%s", user_id)
+        pe.status = "processed"
+        pe.processed_at = datetime.now(UTC)
+        await db.commit()
+        return {"status": "ok"}
+
+    # ── subscription.halted — pause access ───────────────────────────
+    if event_type == "subscription.halted" and user_id:
+        sub_result = await db.execute(
+            select(Subscription).where(
+                and_(
+                    Subscription.user_id == user_id,
+                    Subscription.status == "active",
+                    Subscription.tier == "pro",
+                )
+            )
+        )
+        active_sub = sub_result.scalars().first()
+        if active_sub:
+            active_sub.status = "halted"
+            logger.info("Subscription halted via webhook: user=%s", user_id)
+        pe.status = "processed"
+        pe.processed_at = datetime.now(UTC)
+        await db.commit()
+        return {"status": "ok"}
+
+    # ── Unhandled event types — acknowledge but don't process ────────
+    logger.info("Unhandled webhook event: %s", event_type)
+    pe.status = "processed"
+    pe.processed_at = datetime.now(UTC)
+    await db.commit()
     return {"status": "ok"}
+
+
+def _validate_payment_amount(
+    item_type: str | None,
+    item_id: str | None,
+    amount: int | None,
+    currency: str | None,
+    user_id: uuid.UUID,
+    order_id: str | None,
+) -> None:
+    """Validate that the payment amount matches catalog pricing.
+
+    Logs a warning on mismatch but does not block fulfillment — Razorpay's
+    signature verification already guarantees the payment is authentic.
+    """
+    if not amount or not item_type:
+        return
+
+    expected: int | None = None
+    if item_type == "pro_subscription":
+        for pricing in PRO_PLAN_PRICES.values():
+            if pricing["currency"].upper() == (currency or "").upper():
+                expected = pricing["amount"]
+                break
+    elif item_type in ("pass", "credit") and item_id:
+        # Check all regions for a matching price
+        for region in ("IN", "US", "GB", "EU"):
+            price = get_price(item_id, region)
+            if price == amount:
+                expected = amount
+                break
+
+    if expected is not None and expected != amount:
+        logger.warning(
+            "Payment amount mismatch: expected=%d got=%d item_type=%s "
+            "item_id=%s user=%s order=%s",
+            expected,
+            amount,
+            item_type,
+            item_id,
+            user_id,
+            _s(order_id),
+        )

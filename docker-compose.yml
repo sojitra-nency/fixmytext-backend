@@ -22,7 +22,7 @@ services:
       - "${DB_HOST_PORT:-5433}:5432"
     environment:
       POSTGRES_USER: fixmytext
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fixmytext_dev}
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
       POSTGRES_DB: fixmytext
     volumes:
       - fixmytext-pgdata:/var/lib/postgresql/data
@@ -34,16 +34,8 @@ services:
       timeout: 3s
       retries: 5
       start_period: 10s
-    # === Docker Secrets (recommended for production) ===
-    # Uncomment below and create ./secrets/db_password.txt:
-    # environment:
-    #   POSTGRES_PASSWORD_FILE: /run/secrets/db_password
-    # secrets:
-    #   - db_password
-    #
-    # secrets:
-    #   db_password:
-    #     file: ./secrets/db_password.txt
+    secrets:
+      - db_password
 
 
   # ══════════════════════════════════════════════════════════════════════════
@@ -148,6 +140,11 @@ services:
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000}
       - DATABASE_URL=postgresql+asyncpg://fixmytext:${POSTGRES_PASSWORD:-fixmytext_dev}@db-service:5432/fixmytext
       - SECRET_KEY=${SECRET_KEY:-}
+    secrets:
+      - db_password
+      - secret_key
+      - razorpay_key_secret
+      - groq_api_key
     depends_on:
       db-service:
         condition: service_healthy
@@ -171,3 +168,19 @@ networks:
 # ── Volumes ───────────────────────────────────────────────────────────────────
 volumes:
   fixmytext-pgdata:
+
+# ── Secrets (production) ─────────────────────────────────────────────────────
+# Create ./secrets/ directory and add one secret per file:
+#   echo 'your_db_password'       > secrets/db_password.txt
+#   echo 'your_jwt_secret_key'    > secrets/secret_key.txt
+#   echo 'your_razorpay_secret'   > secrets/razorpay_key_secret.txt
+#   echo 'your_groq_api_key'      > secrets/groq_api_key.txt
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt
+  secret_key:
+    file: ./secrets/secret_key.txt
+  razorpay_key_secret:
+    file: ./secrets/razorpay_key_secret.txt
+  groq_api_key:
+    file: ./secrets/groq_api_key.txt

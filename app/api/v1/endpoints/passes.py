@@ -177,6 +177,7 @@ async def create_pass_order(
     amount = get_price(req.pass_id, region)
     currency = get_currency(region)
 
+    idempotency_key = f"pass_{req.pass_id}_{user.id}"
     order = create_order(
         amount=amount,
         currency=currency,
@@ -187,6 +188,7 @@ async def create_pass_order(
             "item_type": "pass",
             "tool_ids": ",".join(req.tool_ids),
         },
+        idempotency_key=idempotency_key,
     )
     return RazorpayOrderResponse(
         order_id=order["id"],
@@ -226,11 +228,13 @@ async def create_credit_order(
     amount = get_price(req.pack_id, region)
     currency = get_currency(region)
 
+    idempotency_key = f"credit_{req.pack_id}_{user.id}"
     order = create_order(
         amount=amount,
         currency=currency,
         receipt=f"credit_{req.pack_id}_{str(user.id)[:8]}",
         notes={"user_id": str(user.id), "item_id": req.pack_id, "item_type": "credit"},
+        idempotency_key=idempotency_key,
     )
     return RazorpayOrderResponse(
         order_id=order["id"],
