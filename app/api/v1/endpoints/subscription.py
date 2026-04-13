@@ -517,10 +517,10 @@ def _validate_payment_amount(
         logger.warning(
             "Payment amount mismatch: expected=%s got=%s item_type=%s "
             "item_id=%s user=%s order=%s",
-            expected,
-            amount,
+            str(expected).replace("\n", "").replace("\r", ""),
+            str(amount).replace("\n", "").replace("\r", ""),
             str(item_type).replace("\n", "").replace("\r", ""),
             str(item_id).replace("\n", "").replace("\r", ""),
-            user_id,
+            str(user_id).replace("\n", "").replace("\r", ""),
             str(order_id).replace("\n", "").replace("\r", ""),
         )
