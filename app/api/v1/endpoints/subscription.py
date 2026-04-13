@@ -252,6 +252,15 @@ async def razorpay_webhook(request: Request, db: AsyncSession = Depends(get_db))
     item_type = notes.get("item_type")
     item_id = notes.get("item_id")
 
+    # Log-safe versions — inline .replace() so static analysis (CodeQL) can
+    # verify the taint is removed before values reach logging sinks.
+    safe_event_type = str(event_type).replace("\n", "").replace("\r", "")
+    safe_event_id = str(razorpay_event_id).replace("\n", "").replace("\r", "")
+    safe_payment_id = str(payment_id).replace("\n", "").replace("\r", "")
+    safe_order_id = str(order_id).replace("\n", "").replace("\r", "")
+    safe_item_type = str(item_type).replace("\n", "").replace("\r", "")
+    safe_item_id = str(item_id).replace("\n", "").replace("\r", "")
+
     # ── Idempotency check — skip already-processed events ────────────
     existing = await db.execute(
         select(PaymentEvent).where(
@@ -260,7 +269,7 @@ async def razorpay_webhook(request: Request, db: AsyncSession = Depends(get_db))
         )
     )
     if existing.scalars().first():
-        logger.info("Duplicate webhook ignored: event_id=%s", razorpay_event_id)
+        logger.info("Duplicate webhook ignored: event_id=%s", safe_event_id)
         return {"status": "ok", "detail": "duplicate"}
 
     # ── Record the event ─────────────────────────────────────────────
@@ -285,8 +294,8 @@ async def razorpay_webhook(request: Request, db: AsyncSession = Depends(get_db))
     if event_type == "payment.authorized":
         logger.info(
             "payment.authorized: payment=%s order=%s",
-            _s(payment_id),
-            _s(order_id),
+            safe_payment_id,
+            safe_order_id,
         )
         pe.status = "processed"
         pe.processed_at = datetime.now(UTC)
@@ -295,11 +304,15 @@ async def razorpay_webhook(request: Request, db: AsyncSession = Depends(get_db))
 
     # ── payment.failed — log failure ─────────────────────────────────
     if event_type == "payment.failed":
-        reason = payment_entity.get("error_description", "unknown")
+        reason = (
+            str(payment_entity.get("error_description", "unknown"))
+            .replace("\n", "")
+            .replace("\r", "")
+        )
         logger.warning(
             "payment.failed: payment=%s order=%s reason=%s",
-            _s(payment_id),
-            _s(order_id),
+            safe_payment_id,
+            safe_order_id,
             reason,
         )
         pe.status = "processed"
@@ -311,7 +324,7 @@ async def razorpay_webhook(request: Request, db: AsyncSession = Depends(get_db))
     if event_type == "payment.captured":
         if not user_id:
             logger.error(
-                "payment.captured missing user_id in notes: order=%s", _s(order_id)
+                "payment.captured missing user_id in notes: order=%s", safe_order_id
             )
             pe.status = "error"
             await db.commit()
@@ -347,13 +360,13 @@ async def razorpay_webhook(request: Request, db: AsyncSession = Depends(get_db))
                 logger.info(
                     "Pro activated via webhook: user=%s payment=%s",
                     user.id,
-                    _s(payment_id),
+                    safe_payment_id,
                 )
 
             elif item_type == "pass":
                 pass_def = get_pass(item_id)
                 if not pass_def:
-                    logger.error("Unknown pass in webhook: %s", item_id)
+                    logger.error("Unknown pass in webhook: %s", safe_item_id)
                     pe.status = "error"
                     await db.commit()
                     raise HTTPException(400, f"Unknown pass: {item_id}")
@@ -371,14 +384,14 @@ async def razorpay_webhook(request: Request, db: AsyncSession = Depends(get_db))
                 logger.info(
                     "Pass granted via webhook: user=%s pass=%s payment=%s",
                     user.id,
-                    item_id,
-                    _s(payment_id),
+                    safe_item_id,
+                    safe_payment_id,
                 )
 
             elif item_type == "credit":
                 pack = get_credit_pack(item_id)
                 if not pack:
-                    logger.error("Unknown credit pack in webhook: %s", item_id)
+                    logger.error("Unknown credit pack in webhook: %s", safe_item_id)
                     pe.status = "error"
                     await db.commit()
                     raise HTTPException(400, f"Unknown credit pack: {item_id}")
@@ -393,15 +406,15 @@ async def razorpay_webhook(request: Request, db: AsyncSession = Depends(get_db))
                 logger.info(
                     "Credits granted via webhook: user=%s pack=%s credits=%d payment=%s",
                     user.id,
-                    item_id,
+                    safe_item_id,
                     pack["credits"],
-                    _s(payment_id),
+                    safe_payment_id,
                 )
             else:
                 logger.warning(
                     "Unknown item_type in webhook: %s order=%s",
-                    item_type,
-                    _s(order_id),
+                    safe_item_type,
+                    safe_order_id,
                 )
 
             pe.status = "processed"
@@ -414,8 +427,8 @@ async def razorpay_webhook(request: Request, db: AsyncSession = Depends(get_db))
             await db.rollback()
             logger.exception(
                 "Failed to process payment.captured: order=%s payment=%s",
-                _s(order_id),
-                _s(payment_id),
+                safe_order_id,
+                safe_payment_id,
             )
             raise HTTPException(500, "Webhook processing failed") from None
 
@@ -463,7 +476,7 @@ async def razorpay_webhook(request: Request, db: AsyncSession = Depends(get_db))
         return {"status": "ok"}
 
     # ── Unhandled event types — acknowledge but don't process ────────
-    logger.info("Unhandled webhook event: %s", event_type)
+    logger.info("Unhandled webhook event: %s", safe_event_type)
     pe.status = "processed"
     pe.processed_at = datetime.now(UTC)
     await db.commit()
@@ -502,12 +515,12 @@ def _validate_payment_amount(
 
     if expected is not None and expected != amount:
         logger.warning(
-            "Payment amount mismatch: expected=%d got=%d item_type=%s "
+            "Payment amount mismatch: expected=%s got=%s item_type=%s "
             "item_id=%s user=%s order=%s",
             expected,
             amount,
-            item_type,
-            item_id,
+            str(item_type).replace("\n", "").replace("\r", ""),
+            str(item_id).replace("\n", "").replace("\r", ""),
             user_id,
-            _s(order_id),
+            str(order_id).replace("\n", "").replace("\r", ""),
         )

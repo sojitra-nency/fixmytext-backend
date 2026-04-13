@@ -25,6 +25,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from alembic import command
 from app.api.v1.router import api_router
 from app.core.config import settings
+from app.core.sanitize import LogSanitizationFilter
 from app.db.session import engine, get_db
 from app.services.ai_service import close_groq_client, init_groq_client
 from app.services.razorpay_service import init_razorpay
@@ -69,6 +70,7 @@ def _configure_logging() -> None:
         )
     else:
         handler.setFormatter(logging.Formatter(LOG_FORMAT, datefmt=LOG_DATEFMT))
+    handler.addFilter(LogSanitizationFilter())
     root.addHandler(handler)
 
     # Tame noisy loggers
@@ -86,6 +88,7 @@ def _configure_logging() -> None:
             )
         else:
             uv_handler.setFormatter(logging.Formatter(LOG_FORMAT, datefmt=LOG_DATEFMT))
+        uv_handler.addFilter(LogSanitizationFilter())
         uv_logger.addHandler(uv_handler)
         uv_logger.propagate = False
 

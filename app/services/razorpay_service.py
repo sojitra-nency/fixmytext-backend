@@ -87,8 +87,8 @@ def create_order(
                 ):
                     logger.info(
                         "Returning existing order %s for receipt=%s",
-                        order["id"],
-                        idempotency_key,
+                        str(order["id"]).replace("\n", "").replace("\r", ""),
+                        str(idempotency_key).replace("\n", "").replace("\r", ""),
                     )
                     return order
         except Exception:
