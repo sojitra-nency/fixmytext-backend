@@ -34,16 +34,6 @@ services:
       timeout: 3s
       retries: 5
       start_period: 10s
-    # === Docker Secrets (recommended for production) ===
-    # Uncomment below and create ./secrets/db_password.txt:
-    # environment:
-    #   POSTGRES_PASSWORD_FILE: /run/secrets/db_password
-    # secrets:
-    #   - db_password
-    #
-    # secrets:
-    #   db_password:
-    #     file: ./secrets/db_password.txt
 
 
   # ══════════════════════════════════════════════════════════════════════════
@@ -81,12 +71,26 @@ services:
       target: runtime
     container_name: fixmytext-migrate-prod
     restart: "no"
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+          set -eu
+          if [ -f /run/secrets/db_password ]; then
+            POSTGRES_PASSWORD="$$(cat /run/secrets/db_password)"
+          else
+            POSTGRES_PASSWORD="$${POSTGRES_PASSWORD:-fixmytext_dev}"
+          fi
+          export DATABASE_URL="postgresql+asyncpg://fixmytext:$${POSTGRES_PASSWORD}@db-service:5432/fixmytext"
+          exec "$$@"
+      - --
     command: ["alembic", "upgrade", "head"]
     env_file:
       - .env
     environment:
-      - DATABASE_URL=postgresql+asyncpg://fixmytext:${POSTGRES_PASSWORD:-fixmytext_dev}@db-service:5432/fixmytext
       - SECRET_KEY=${SECRET_KEY:-}
+    secrets:
+      - db_password
     depends_on:
       db-service:
         condition: service_healthy
@@ -146,8 +150,33 @@ services:
       - PORT=8000
       - DEBUG=false
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000}
-      - DATABASE_URL=postgresql+asyncpg://fixmytext:${POSTGRES_PASSWORD:-fixmytext_dev}@db-service:5432/fixmytext
-      - SECRET_KEY=${SECRET_KEY:-}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+          set -eu
+          if [ -f /run/secrets/db_password ]; then
+            POSTGRES_PASSWORD="$$(cat /run/secrets/db_password)"
+          else
+            POSTGRES_PASSWORD="$${POSTGRES_PASSWORD:-fixmytext_dev}"
+          fi
+          export DATABASE_URL="postgresql+asyncpg://fixmytext:$${POSTGRES_PASSWORD}@db-service:5432/fixmytext"
+          if [ -f /run/secrets/secret_key ]; then
+            export SECRET_KEY="$$(cat /run/secrets/secret_key)"
+          fi
+          if [ -f /run/secrets/razorpay_key_secret ]; then
+            export RAZORPAY_KEY_SECRET="$$(cat /run/secrets/razorpay_key_secret)"
+          fi
+          if [ -f /run/secrets/groq_api_key ]; then
+            export GROQ_API_KEY="$$(cat /run/secrets/groq_api_key)"
+          fi
+          exec "$$@"
+      - --
+    secrets:
+      - db_password
+      - secret_key
+      - razorpay_key_secret
+      - groq_api_key
     depends_on:
       db-service:
         condition: service_healthy
@@ -171,3 +200,19 @@ networks:
 # ── Volumes ───────────────────────────────────────────────────────────────────
 volumes:
   fixmytext-pgdata:
+
+# ── Secrets (production) ─────────────────────────────────────────────────────
+# Create ./secrets/ directory and add one secret per file:
+#   echo 'your_db_password'       > secrets/db_password.txt
+#   echo 'your_jwt_secret_key'    > secrets/secret_key.txt
+#   echo 'your_razorpay_secret'   > secrets/razorpay_key_secret.txt
+#   echo 'your_groq_api_key'      > secrets/groq_api_key.txt
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt
+  secret_key:
+    file: ./secrets/secret_key.txt
+  razorpay_key_secret:
+    file: ./secrets/razorpay_key_secret.txt
+  groq_api_key:
+    file: ./secrets/groq_api_key.txt

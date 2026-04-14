@@ -8,7 +8,6 @@ verifies order ownership, and checks amounts against the current catalog.
 import logging
 
 from fastapi import HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.user import User
 from app.services.razorpay_service import fetch_order, verify_payment_signature
@@ -21,7 +20,6 @@ async def verify_razorpay_payment(
     razorpay_payment_id: str,
     razorpay_signature: str,
     user: User,
-    db: AsyncSession,
 ) -> dict:
     """Verify a Razorpay payment end-to-end.
 
@@ -29,15 +27,15 @@ async def verify_razorpay_payment(
     1. Cryptographic signature validation against Razorpay's secret.
     2. Fetches the order from Razorpay to read its metadata.
     3. Confirms the order belongs to the authenticated user by comparing
-       ``user.id`` (from the JWT) — NOT from ``order.notes``, which could
-       be tampered with if the order-creation payload were replayed.
+       the ``user_id`` stored in ``order.notes`` against ``user.id`` from
+       the JWT.  The notes are set at order-creation time and verified
+       here against the trusted JWT identity.
 
     Args:
         razorpay_order_id: The Razorpay order ID from the client callback.
         razorpay_payment_id: The Razorpay payment ID from the client callback.
         razorpay_signature: HMAC-SHA256 signature from Razorpay.
         user: The currently authenticated user (from ``Depends(get_current_user)``).
-        db: Async database session (unused here but passed for future extensibility).
 
     Returns:
         The full Razorpay order dict on success.
