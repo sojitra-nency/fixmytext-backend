@@ -272,8 +272,33 @@ async def razorpay_webhook(request: Request, db: AsyncSession = Depends(get_db))
         logger.info("Duplicate webhook ignored: event_id=%s", safe_event_id)
         return {"status": "ok", "detail": "duplicate"}
 
+    # ── Parse user_id safely — malformed values must not cause a 500 ──
+    user_id = None
+    if user_id_str:
+        try:
+            user_id = uuid.UUID(user_id_str)
+        except (ValueError, TypeError):
+            pe = PaymentEvent(
+                event_type=event_type,
+                razorpay_event_id=razorpay_event_id,
+                razorpay_payment_id=payment_id,
+                razorpay_order_id=order_id,
+                user_id=None,
+                item_type=item_type,
+                item_id=item_id,
+                amount_subunits=amount,
+                currency=currency,
+                status="error",
+                raw_payload=event,
+            )
+            db.add(pe)
+            await db.flush()
+            await db.commit()
+            raise HTTPException(
+                status_code=400, detail="Invalid user_id in webhook notes"
+            ) from None
+
     # ── Record the event ─────────────────────────────────────────────
-    user_id = uuid.UUID(user_id_str) if user_id_str else None
     pe = PaymentEvent(
         event_type=event_type,
         razorpay_event_id=razorpay_event_id,
@@ -506,12 +531,26 @@ def _validate_payment_amount(
                 expected = pricing["amount"]
                 break
     elif item_type in ("pass", "credit") and item_id:
-        # Check all regions for a matching price
+        # Collect all catalog prices across regions and warn if the paid
+        # amount does not match any of them.
+        catalog_prices: list[int] = []
         for region in ("IN", "US", "GB", "EU"):
             price = get_price(item_id, region)
-            if price == amount:
-                expected = amount
-                break
+            if price is not None and price not in catalog_prices:
+                catalog_prices.append(price)
+        if amount in catalog_prices:
+            expected = amount
+        elif catalog_prices:
+            logger.warning(
+                "Payment amount mismatch: expected_one_of=%s got=%s item_type=%s "
+                "item_id=%s user=%s order=%s",
+                str(catalog_prices).replace("\n", "").replace("\r", ""),
+                str(amount).replace("\n", "").replace("\r", ""),
+                str(item_type).replace("\n", "").replace("\r", ""),
+                str(item_id).replace("\n", "").replace("\r", ""),
+                str(user_id).replace("\n", "").replace("\r", ""),
+                str(order_id).replace("\n", "").replace("\r", ""),
+            )
 
     if expected is not None and expected != amount:
         logger.warning(

@@ -22,7 +22,7 @@ services:
       - "${DB_HOST_PORT:-5433}:5432"
     environment:
       POSTGRES_USER: fixmytext
-      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fixmytext_dev}
       POSTGRES_DB: fixmytext
     volumes:
       - fixmytext-pgdata:/var/lib/postgresql/data
@@ -34,8 +34,6 @@ services:
       timeout: 3s
       retries: 5
       start_period: 10s
-    secrets:
-      - db_password
 
 
   # ══════════════════════════════════════════════════════════════════════════
@@ -138,8 +136,28 @@ services:
       - PORT=8000
       - DEBUG=false
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000}
-      - DATABASE_URL=postgresql+asyncpg://fixmytext:${POSTGRES_PASSWORD:-fixmytext_dev}@db-service:5432/fixmytext
-      - SECRET_KEY=${SECRET_KEY:-}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+          set -eu
+          if [ -f /run/secrets/db_password ]; then
+            POSTGRES_PASSWORD="$$(cat /run/secrets/db_password)"
+          else
+            POSTGRES_PASSWORD="$${POSTGRES_PASSWORD:-fixmytext_dev}"
+          fi
+          export DATABASE_URL="postgresql+asyncpg://fixmytext:$${POSTGRES_PASSWORD}@db-service:5432/fixmytext"
+          if [ -f /run/secrets/secret_key ]; then
+            export SECRET_KEY="$$(cat /run/secrets/secret_key)"
+          fi
+          if [ -f /run/secrets/razorpay_key_secret ]; then
+            export RAZORPAY_KEY_SECRET="$$(cat /run/secrets/razorpay_key_secret)"
+          fi
+          if [ -f /run/secrets/groq_api_key ]; then
+            export GROQ_API_KEY="$$(cat /run/secrets/groq_api_key)"
+          fi
+          exec "$$@"
+      - --
     secrets:
       - db_password
       - secret_key

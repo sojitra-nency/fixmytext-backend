@@ -24,32 +24,34 @@ from app.services.razorpay_service import (
 def test_verify_webhook_signature_correct():
     original_secret = settings.RAZORPAY_WEBHOOK_SECRET
     settings.RAZORPAY_WEBHOOK_SECRET = "test-secret"  # noqa: S105
-
-    body = b'{"event": "payment.captured"}'
-    expected = hmac.new(b"test-secret", body, hashlib.sha256).hexdigest()
-
-    result = verify_webhook_signature(body, expected)
-    settings.RAZORPAY_WEBHOOK_SECRET = original_secret
-    assert result is True
+    try:
+        body = b'{"event": "payment.captured"}'
+        expected = hmac.new(b"test-secret", body, hashlib.sha256).hexdigest()
+        result = verify_webhook_signature(body, expected)
+        assert result is True
+    finally:
+        settings.RAZORPAY_WEBHOOK_SECRET = original_secret
 
 
 def test_verify_webhook_signature_wrong():
     original_secret = settings.RAZORPAY_WEBHOOK_SECRET
     settings.RAZORPAY_WEBHOOK_SECRET = "test-secret"  # noqa: S105
-
-    body = b'{"event": "payment.captured"}'
-    result = verify_webhook_signature(body, "wrong-signature")
-    settings.RAZORPAY_WEBHOOK_SECRET = original_secret
-    assert result is False
+    try:
+        body = b'{"event": "payment.captured"}'
+        result = verify_webhook_signature(body, "wrong-signature")
+        assert result is False
+    finally:
+        settings.RAZORPAY_WEBHOOK_SECRET = original_secret
 
 
 def test_verify_webhook_signature_no_secret():
     original_secret = settings.RAZORPAY_WEBHOOK_SECRET
     settings.RAZORPAY_WEBHOOK_SECRET = ""
-
-    result = verify_webhook_signature(b"body", "sig")
-    settings.RAZORPAY_WEBHOOK_SECRET = original_secret
-    assert result is False
+    try:
+        result = verify_webhook_signature(b"body", "sig")
+        assert result is False
+    finally:
+        settings.RAZORPAY_WEBHOOK_SECRET = original_secret
 
 
 def test_verify_payment_signature_invalid():
@@ -77,12 +79,12 @@ def test_init_razorpay_no_key():
     original_client = razorpay_service._client
     settings.RAZORPAY_KEY_ID = ""
     razorpay_service._client = None
-
-    init_razorpay()
-    assert razorpay_service._client is None
-
-    settings.RAZORPAY_KEY_ID = original_key
-    razorpay_service._client = original_client
+    try:
+        init_razorpay()
+        assert razorpay_service._client is None
+    finally:
+        settings.RAZORPAY_KEY_ID = original_key
+        razorpay_service._client = original_client
 
 
 def test_init_razorpay_with_key():
@@ -90,16 +92,15 @@ def test_init_razorpay_with_key():
     original_key = settings.RAZORPAY_KEY_ID
     original_secret = settings.RAZORPAY_KEY_SECRET
     original_client = razorpay_service._client
-
     settings.RAZORPAY_KEY_ID = "rzp_test_key"  # noqa: S105
     settings.RAZORPAY_KEY_SECRET = "rzp_test_secret"  # noqa: S105
-
-    init_razorpay()
-    assert razorpay_service._client is not None
-
-    settings.RAZORPAY_KEY_ID = original_key
-    settings.RAZORPAY_KEY_SECRET = original_secret
-    razorpay_service._client = original_client
+    try:
+        init_razorpay()
+        assert razorpay_service._client is not None
+    finally:
+        settings.RAZORPAY_KEY_ID = original_key
+        settings.RAZORPAY_KEY_SECRET = original_secret
+        razorpay_service._client = original_client
 
 
 # ── create_order ──────────────────────────────────────────────────────────
