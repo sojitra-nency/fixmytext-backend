@@ -71,12 +71,26 @@ services:
       target: runtime
     container_name: fixmytext-migrate-prod
     restart: "no"
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+          set -eu
+          if [ -f /run/secrets/db_password ]; then
+            POSTGRES_PASSWORD="$$(cat /run/secrets/db_password)"
+          else
+            POSTGRES_PASSWORD="$${POSTGRES_PASSWORD:-fixmytext_dev}"
+          fi
+          export DATABASE_URL="postgresql+asyncpg://fixmytext:$${POSTGRES_PASSWORD}@db-service:5432/fixmytext"
+          exec "$$@"
+      - --
     command: ["alembic", "upgrade", "head"]
     env_file:
       - .env
     environment:
-      - DATABASE_URL=postgresql+asyncpg://fixmytext:${POSTGRES_PASSWORD:-fixmytext_dev}@db-service:5432/fixmytext
       - SECRET_KEY=${SECRET_KEY:-}
+    secrets:
+      - db_password
     depends_on:
       db-service:
         condition: service_healthy

@@ -137,13 +137,23 @@ async def verify_pro_payment(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Verify Razorpay payment and activate Pro."""
+    """Verify Razorpay payment and activate Pro.
+
+    Trust model:
+      1. The client-supplied signature is verified against Razorpay's servers.
+      2. The order is re-fetched from Razorpay's API (server-to-server) and the
+         ``notes.user_id`` embedded at order-creation time is compared to the
+         authenticated user.  These notes originate from *our* backend (set in
+         ``create_pro_checkout``), not from the client request, so they are
+         trustworthy once the order ID is confirmed authentic.
+    """
     if not verify_payment_signature(
         req.razorpay_order_id, req.razorpay_payment_id, req.razorpay_signature
     ):
         raise HTTPException(400, "Payment verification failed — invalid signature")
 
-    # Validate order belongs to this user
+    # Re-fetch the order server-to-server so we read notes set by *our* backend
+    # at creation time — not user-supplied data.
     try:
         order = fetch_order(req.razorpay_order_id)
     except Exception as e:
