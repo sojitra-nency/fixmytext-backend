@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.deps import get_current_user
+from app.core.rate_limit import auth_limiter
 from app.core.sanitize import sanitize_log_value as _s
 from app.core.security import create_access_token, create_refresh_token, decode_token
 from app.db.models import User
@@ -82,6 +83,7 @@ async def register(
     The refresh token is set as an HTTP-only cookie; only the access token
     is returned in the response body.
     """
+    await auth_limiter.check(request)
     logger.info(
         "REGISTER attempt email=%s display_name=%s", _s(req.email), _s(req.display_name)
     )
@@ -119,6 +121,7 @@ async def login(
     On success the refresh token is stored as an HTTP-only cookie. If
     ``remember_me`` is false the cookie is a session cookie (no max_age).
     """
+    await auth_limiter.check(request)
     logger.info("LOGIN attempt email=%s", _s(req.email))
     user = await authenticate(db, req.email, req.password)
     # Detect region from IP if not set yet
@@ -142,6 +145,7 @@ async def refresh(
     Implements token rotation: a new refresh token replaces the old one on
     every successful refresh.
     """
+    await auth_limiter.check(request)
     token = request.cookies.get(REFRESH_COOKIE)
     if not token:
         raise HTTPException(status_code=401, detail="No refresh token")

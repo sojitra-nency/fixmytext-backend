@@ -64,6 +64,32 @@ async def _groq_chat(
     return response.choices[0].message.content.strip()
 
 
+async def _groq_chat_stream(
+    system_prompt: str,
+    user_text: str,
+    temperature: float = 0.7,
+    max_tokens: int = 200,
+):
+    """Yield token chunks from Groq streaming API for Server-Sent Events."""
+    client = _groq_client
+    if client is None:
+        raise RuntimeError("Groq client not initialized")
+    stream = await client.chat.completions.create(
+        model=settings.GROQ_MODEL,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_text},
+        ],
+        temperature=temperature,
+        max_tokens=max_tokens,
+        stream=True,
+    )
+    async for chunk in stream:
+        delta = chunk.choices[0].delta
+        if delta and delta.content:
+            yield delta.content
+
+
 async def _ai_transform(
     system_prompt: str,
     text: str,
@@ -165,26 +191,14 @@ def _keyword_fallback(text: str) -> str:
     return "\n".join(keywords)
 
 
-def _translate_fallback(text: str, target_language: str) -> str:
-    return (
-        "[Translation requires Groq API key. "
-        f"Set GROQ_API_KEY in .env to enable translation to {target_language}.]"
+def _ai_unavailable_fallback(text: str, *_args: Any) -> str:
+    """Raise 503 when Groq is unavailable and no meaningful local fallback exists."""
+    from fastapi import HTTPException
+
+    raise HTTPException(
+        status_code=503,
+        detail="AI service temporarily unavailable. Please try again later.",
     )
-
-
-def _transliterate_fallback(text: str, target_language: str) -> str:
-    return (
-        "[Transliteration requires Groq API key. "
-        f"Set GROQ_API_KEY in .env to enable transliteration to {target_language}.]"
-    )
-
-
-def _emojify_fallback(text: str) -> str:
-    return text + " :)"
-
-
-def _detect_lang_fallback(text: str) -> str:
-    return "Unknown"
 
 
 def _summarize_fallback(text: str) -> str:
@@ -201,41 +215,6 @@ def _grammar_fallback(text: str) -> str:
     if result and result[0].islower():
         result = result[0].upper() + result[1:]
     return result
-
-
-def _paraphrase_fallback(text: str) -> str:
-    return "[Paraphrasing requires Groq API key. Set GROQ_API_KEY in .env to enable.]"
-
-
-def _tone_fallback(text: str, tone: str) -> str:
-    return (
-        "[Tone changing requires Groq API key. "
-        f"Set GROQ_API_KEY in .env to enable {tone} tone.]"
-    )
-
-
-def _lengthen_fallback(text: str) -> str:
-    return (
-        "[Text lengthening requires Groq API key. Set GROQ_API_KEY in .env to enable.]"
-    )
-
-
-def _eli5_fallback(text: str) -> str:
-    return (
-        "[ELI5 simplification requires Groq API key. "
-        "Set GROQ_API_KEY in .env to enable.]"
-    )
-
-
-def _proofread_fallback(text: str) -> str:
-    return "[Proofreading requires Groq API key. Set GROQ_API_KEY in .env to enable.]"
-
-
-def _refactor_prompt_fallback(text: str) -> str:
-    return (
-        "[Prompt refactoring requires Groq API key. "
-        "Set GROQ_API_KEY in .env to enable.]"
-    )
 
 
 def _generate_title_fallback(text: str) -> str:
@@ -999,25 +978,25 @@ _AI_HANDLERS: dict[
     # translate and transliterate are handled dynamically
     "translate": (
         None,
-        _translate_fallback,
+        _ai_unavailable_fallback,
         (),
         {"temperature": 0.3, "max_tokens": 1000},
     ),
     "transliterate": (
         None,
-        _transliterate_fallback,
+        _ai_unavailable_fallback,
         (),
         {"temperature": 0.2, "max_tokens": 1000},
     ),
     "emojify": (
         "emojify",
-        _emojify_fallback,
+        _ai_unavailable_fallback,
         (),
         {"temperature": 0.7, "max_tokens": 1000},
     ),
     "detect-language": (
         "detect_language",
-        _detect_lang_fallback,
+        _ai_unavailable_fallback,
         (),
         {"temperature": 0.1, "max_tokens": 20},
     ),
@@ -1035,28 +1014,28 @@ _AI_HANDLERS: dict[
     ),
     "paraphrase": (
         "paraphrase",
-        _paraphrase_fallback,
+        _ai_unavailable_fallback,
         (),
         {"temperature": 0.8, "max_tokens": 1500},
     ),
     # change-tone is handled dynamically
-    "change-tone": (None, _tone_fallback, (), {"max_tokens": 1500}),
+    "change-tone": (None, _ai_unavailable_fallback, (), {"max_tokens": 1500}),
     "analyze-sentiment": (
         "sentiment",
         _sentiment_fallback,
         (),
         {"temperature": 0.2, "max_tokens": 400},
     ),
-    "lengthen-text": ("lengthen", _lengthen_fallback, (), {"max_tokens": 2000}),
+    "lengthen-text": ("lengthen", _ai_unavailable_fallback, (), {"max_tokens": 2000}),
     "eli5": (
         "eli5",
-        _eli5_fallback,
+        _ai_unavailable_fallback,
         (),
         {"temperature": 0.7, "max_tokens": 1500},
     ),
     "proofread": (
         "proofread",
-        _proofread_fallback,
+        _ai_unavailable_fallback,
         (),
         {"temperature": 0.3, "max_tokens": 2000},
     ),
@@ -1068,7 +1047,7 @@ _AI_HANDLERS: dict[
     ),
     "refactor-prompt": (
         "refactor_prompt",
-        _refactor_prompt_fallback,
+        _ai_unavailable_fallback,
         (),
         {"temperature": 0.4, "max_tokens": 1500},
     ),
@@ -1423,3 +1402,49 @@ async def run_ai_tool(
 
     prompt = _PROMPTS[prompt_key]
     return await _ai_transform(prompt, text, fallback_fn, *merged_extra, **ai_kwargs)
+
+
+async def stream_ai_tool(tool_id: str, text: str, *extra_args: Any):
+    """Yield streaming token chunks for an AI tool via Server-Sent Events.
+
+    Falls back to a single-chunk yield from ``run_ai_tool`` when Groq
+    streaming is unavailable.
+    """
+    if not settings.GROQ_API_KEY or _groq_client is None:
+        result = await run_ai_tool(tool_id, text, *extra_args)
+        yield result
+        return
+
+    prompt_key, _fallback_fn, default_extra, ai_kwargs = _AI_HANDLERS[tool_id]
+    merged_extra = extra_args if extra_args else default_extra
+
+    # Build the prompt (same logic as run_ai_tool)
+    if tool_id == "translate" and merged_extra:
+        prompt = (
+            f"You are a translator. Translate the user's text into {merged_extra[0]}. "
+            "Preserve the original meaning, tone, and formatting. "
+            "Return ONLY the translated text."
+        )
+    elif tool_id == "change-tone" and merged_extra:
+        instruction = _TONE_INSTRUCTIONS.get(
+            merged_extra[0].lower(), _TONE_INSTRUCTIONS["formal"]
+        )
+        prompt = (
+            f"You are a tone changer. {instruction} Return ONLY the rewritten text."
+        )
+    elif tool_id == "change-format" and merged_extra:
+        base = _FORMAT_PROMPTS.get(
+            merged_extra[0].lower(), _FORMAT_PROMPTS["paragraph"]
+        )
+        prompt = f"You are a text formatter. {base} Return ONLY the reformatted text."
+    elif prompt_key:
+        prompt = _PROMPTS[prompt_key]
+    else:
+        result = await run_ai_tool(tool_id, text, *extra_args)
+        yield result
+        return
+
+    temp = ai_kwargs.get("temperature", 0.7)
+    max_tok = ai_kwargs.get("max_tokens", 200)
+    async for token in _groq_chat_stream(prompt, text, temp, max_tok):
+        yield token

@@ -1,21 +1,18 @@
 """Tests for app/services/ai_service.py — fallback functions and helpers."""
 
 import pytest
+from fastapi import HTTPException
 
 from app.services.ai_service import (
+    _ai_unavailable_fallback,
     _blog_outline_fallback,
-    _detect_lang_fallback,
     _email_fallback,
-    _emojify_fallback,
     _grammar_fallback,
     _hashtag_fallback,
     _keyword_fallback,
     _meta_description_fallback,
-    _paraphrase_fallback,
     _seo_title_fallback,
     _summarize_fallback,
-    _translate_fallback,
-    _transliterate_fallback,
     _tweet_fallback,
 )
 
@@ -118,42 +115,26 @@ class TestKeywordFallback:
         assert len(result) > 0
 
 
-class TestTranslateFallback:
-    """Test translation fallback (no API key message)."""
+class TestAiUnavailableFallback:
+    """Test the unified fallback for AI tools without meaningful local alternatives.
 
-    def test_returns_api_key_message(self):
-        """Without API key, returns a message about needing GROQ_API_KEY."""
-        result = _translate_fallback("hello", "Spanish")
-        assert "GROQ_API_KEY" in result
-        assert "Spanish" in result
+    Tools like translate, transliterate, paraphrase, emojify, detect-language
+    now raise HTTP 503 when Groq is unavailable instead of returning placeholder
+    messages disguised as successful responses.
+    """
 
+    def test_raises_503(self):
+        """Raises HTTPException with 503 status code."""
+        with pytest.raises(HTTPException) as exc_info:
+            _ai_unavailable_fallback("some text")
+        assert exc_info.value.status_code == 503
+        assert "unavailable" in exc_info.value.detail.lower()
 
-class TestTransliterateFallback:
-    """Test transliteration fallback (no API key message)."""
-
-    def test_returns_api_key_message(self):
-        """Without API key, returns a message about needing GROQ_API_KEY."""
-        result = _transliterate_fallback("hello", "Hindi")
-        assert "GROQ_API_KEY" in result
-        assert "Hindi" in result
-
-
-class TestEmojifyFallback:
-    """Test emojify fallback."""
-
-    def test_appends_emoji(self):
-        """Fallback appends a simple emoji to text."""
-        result = _emojify_fallback("hello")
-        assert "hello" in result
-
-
-class TestDetectLangFallback:
-    """Test language detection fallback."""
-
-    def test_returns_unknown(self):
-        """Without API, returns 'Unknown'."""
-        result = _detect_lang_fallback("bonjour le monde")
-        assert result == "Unknown"
+    def test_raises_503_with_extra_args(self):
+        """Extra positional args (e.g., target_language) are accepted and ignored."""
+        with pytest.raises(HTTPException) as exc_info:
+            _ai_unavailable_fallback("hello", "Spanish")
+        assert exc_info.value.status_code == 503
 
 
 class TestSummarizeFallback:
@@ -183,15 +164,6 @@ class TestGrammarFallback:
         """Capitalizes the first character if lowercase."""
         result = _grammar_fallback("hello world")
         assert result[0] == "H"
-
-
-class TestParaphraseFallback:
-    """Test paraphrase fallback."""
-
-    def test_returns_api_key_message(self):
-        """Without API key, returns message about needing GROQ_API_KEY."""
-        result = _paraphrase_fallback("hello world")
-        assert "GROQ_API_KEY" in result
 
 
 # ── Groq client lifecycle ───────────────────────────────────────────────────

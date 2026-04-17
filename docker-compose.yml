@@ -37,6 +37,25 @@ services:
 
 
   # ══════════════════════════════════════════════════════════════════════════
+  # REDIS  —  shared across profiles (optional, for distributed rate limiting)
+  # ══════════════════════════════════════════════════════════════════════════
+
+  redis-service:
+    image: redis:7-alpine
+    container_name: fixmytext-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_HOST_PORT:-6379}:6379"
+    networks:
+      - fixmytext-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+
+  # ══════════════════════════════════════════════════════════════════════════
   # MIGRATE  —  runs alembic upgrade head once, then exits (shared logic)
   # Each profile has its own migrate service so build context matches.
   # Both backend services depend on their migrate service completing.

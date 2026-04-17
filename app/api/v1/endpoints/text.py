@@ -13,6 +13,7 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_optional_user
@@ -339,3 +340,36 @@ def _make_optional_route(tool_id: str, tool_def: Any, req_model: type) -> None:
 # Populate routes at module-import time so that ``router`` is ready before
 # the main application mounts it.
 _register_routes()
+
+
+# ── SSE streaming endpoint for AI tools ──────────────────────────────────────
+
+
+@router.post("/{tool_id}/stream", tags=["tools:ai-stream"])
+async def stream_tool(
+    tool_id: str,
+    req: TextRequest,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Stream AI tool output via Server-Sent Events (token-by-token).
+
+    Only available for AI-type tools. Returns a ``text/event-stream`` response.
+    """
+    tool_def = get_tool(tool_id)
+    if not tool_def or tool_def.tool_type != ToolType.AI:
+        raise HTTPException(404, f"AI tool '{tool_id}' not found")
+
+    await ai_limiter.check(request, user_id=str(user.id))
+
+    async def event_generator():
+        try:
+            async for token in ai_service.stream_ai_tool(tool_id, req.text):
+                yield f"data: {token}\n\n"
+            yield "data: [DONE]\n\n"
+        except Exception as exc:
+            logger.exception("Stream error for tool=%s", tool_id)
+            yield f"data: [ERROR] {exc}\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")

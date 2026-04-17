@@ -12,7 +12,7 @@ pydantic-settings==2.2.0
 email-validator==2.1.1
 
 # AI / keyword extraction
-groq==0.9.0
+groq==0.13.1
 yake==0.4.8
 
 # Emoji handling
@@ -25,13 +25,15 @@ alembic==1.13.0
 
 # Authentication
 PyJWT[crypto]==2.12.0
-passlib[bcrypt]==1.7.4
-bcrypt==4.0.1  # pinned: passlib 1.7.4 is incompatible with bcrypt>=4.1
+bcrypt>=4.0
 python-multipart==0.0.22
 
 # Payments
 setuptools==78.1.1  # Required by razorpay (pkg_resources)
 razorpay==1.4.2
+
+# Redis (optional — for distributed rate limiting)
+redis[hiredis]>=5.0
 
 # Structured logging
 python-json-logger==2.0.7
