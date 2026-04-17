@@ -361,11 +361,18 @@ async def stream_tool(
     if not tool_def or tool_def.tool_type != ToolType.AI:
         raise HTTPException(404, f"AI tool '{tool_id}' not found")
 
+    # -- Access control (must match _execute_tool behaviour) ----------------
+    await _enforce_tool_access(request, tool_id, "ai", user, db)
+
     await ai_limiter.check(request, user_id=str(user.id))
+
+    extra_args = _extract_extra_args(tool_id, req)
 
     async def event_generator():
         try:
-            async for token in ai_service.stream_ai_tool(tool_id, req.text):
+            async for token in ai_service.stream_ai_tool(
+                tool_id, req.text, *extra_args
+            ):
                 yield f"data: {token}\n\n"
             yield "data: [DONE]\n\n"
         except Exception as exc:

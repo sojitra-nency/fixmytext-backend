@@ -7,7 +7,6 @@ fallback to an in-memory implementation for single-instance deployments.
 
 import logging
 import time
-from collections import defaultdict
 
 from fastapi import HTTPException, Request
 
@@ -30,7 +29,7 @@ class InMemoryRateLimiter:
     ):
         self.max_requests = max_requests or settings.RATE_LIMIT_MAX_REQUESTS
         self.window_seconds = window_seconds or settings.RATE_LIMIT_WINDOW_SECONDS
-        self._hits: dict[str, list[float]] = defaultdict(list)
+        self._hits: dict[str, list[float]] = {}
 
     async def check(self, request: Request, user_id: str | None = None) -> None:
         """Check rate limit. Raises HTTPException(429) if exceeded."""
@@ -40,16 +39,23 @@ class InMemoryRateLimiter:
             key = request.client.host if request.client else "unknown"
 
         now = time.time()
-        self._hits[key] = [t for t in self._hits[key] if now - t < self.window_seconds]
 
-        if not self._hits[key]:
-            del self._hits[key]
+        # Prune expired timestamps for this key.
+        if key in self._hits:
+            self._hits[key] = [
+                t for t in self._hits[key] if now - t < self.window_seconds
+            ]
+            # Remove truly empty keys to prevent unbounded memory growth.
+            if not self._hits[key]:
+                del self._hits[key]
 
-        if self._hits.get(key) and len(self._hits[key]) >= self.max_requests:
+        # Check whether the limit has been reached *before* recording the hit.
+        current = self._hits.get(key, [])
+        if len(current) >= self.max_requests:
             logger.warning(
                 "RATE LIMIT hit for %s (%d/%d in %ds)",
                 key,
-                len(self._hits[key]),
+                len(current),
                 self.max_requests,
                 self.window_seconds,
             )
@@ -57,7 +63,10 @@ class InMemoryRateLimiter:
                 status_code=429,
                 detail="Rate limit exceeded. Please try again shortly.",
             )
-        self._hits[key].append(now)
+
+        # Record the new hit.  Use explicit setdefault so we do not rely on
+        # defaultdict creating a list behind the rate-check above.
+        self._hits.setdefault(key, []).append(now)
 
 
 class RedisRateLimiter:

@@ -12,7 +12,6 @@ from collections.abc import Sequence
 from typing import Union
 
 from alembic import op
-
 from app.core.config import settings
 
 revision: str = "0020"

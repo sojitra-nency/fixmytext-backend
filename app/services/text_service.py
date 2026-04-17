@@ -36,11 +36,15 @@ def to_inverse_case(text: str) -> str:
 
 def to_sentence_case(text: str) -> str:
     text = text.strip()
-    if text.endswith("."):
+    if not text:
+        return text
+    # Preserve the original trailing punctuation (if any).
+    trailing = text[-1] if text[-1] in ".?!" else ""
+    if text.endswith((".", "?", "!")):
         text = text[:-1]
-    sentences = re.split(r"[.?]\s*(?=\S|$)|\n", text)
+    sentences = re.split(r"[.?!]\s*(?=\S|$)|\n", text)
     result = ". ".join(s.strip().capitalize() for s in sentences if s.strip())
-    return result + "."
+    return result + (trailing or ".")
 
 
 def to_title_case(text: str) -> str:
@@ -1209,7 +1213,7 @@ def sql_insert_gen(text: str) -> str:
                 float(cell)
                 values.append(cell)
             except ValueError:
-                values.append(f"'{cell}'")
+                values.append(f"'{cell.replace(chr(39), chr(39) * 2)}'")
         lines.append(
             f"INSERT INTO {table_name} ({', '.join(headers)}) VALUES ({', '.join(values)});"
         )  # noqa: S608
