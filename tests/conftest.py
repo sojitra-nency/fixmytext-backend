@@ -12,10 +12,24 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.deps import get_current_user, get_optional_user
+from app.core.rate_limit import ai_limiter, auth_limiter
 from app.core.security import hash_password
 from app.db.models import User
 from app.db.session import get_db
 from main import app
+
+
+# ── Autouse: reset shared rate limiter state between tests ───────────────────
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiters():
+    """Clear in-memory rate-limiter state so tests don't trip each other's limits."""
+    for limiter in (auth_limiter, ai_limiter):
+        hits = getattr(limiter, "_hits", None)
+        if hits is not None:
+            hits.clear()
+    yield
 
 # ── User factory ─────────────────────────────────────────────────────────────
 
