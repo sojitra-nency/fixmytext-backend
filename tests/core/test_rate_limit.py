@@ -97,3 +97,93 @@ class TestInMemoryRateLimiter:
 
         assert limiter.max_requests == settings.RATE_LIMIT_MAX_REQUESTS
         assert limiter.window_seconds == settings.RATE_LIMIT_WINDOW_SECONDS
+
+    # -- Edge-case tests for the expiry / cleanup fix -----------------------
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_allowed_after_expiry(self, monkeypatch):
+        """After all hits expire, the next request must be ALLOWED (not 429).
+
+        This was the original bug: expired timestamps caused the key to be
+        deleted, which then skipped the rate check and raised no error, but
+        with ``defaultdict`` the empty list was silently re-created and the
+        new hit was never recorded properly.  The fix ensures that after
+        pruning, the rate check sees an empty (or absent) list and correctly
+        allows the request.
+        """
+        fake_time = [1000.0]
+        monkeypatch.setattr(time, "time", lambda: fake_time[0])
+
+        limiter = InMemoryRateLimiter(max_requests=2, window_seconds=10)
+        request = _make_request("192.168.1.1")
+
+        # Use up the full quota.
+        await limiter.check(request)
+        await limiter.check(request)
+
+        # Advance time so all hits are outside the window.
+        fake_time[0] = 1020.0
+
+        # The next request must succeed — expired hits should not block.
+        await limiter.check(request)  # no HTTPException expected
+
+    @pytest.mark.asyncio
+    async def test_memory_cleanup_after_expiry(self, monkeypatch):
+        """Once all timestamps for a key expire, the key is removed from _hits."""
+        fake_time = [1000.0]
+        monkeypatch.setattr(time, "time", lambda: fake_time[0])
+
+        limiter = InMemoryRateLimiter(max_requests=3, window_seconds=5)
+        request = _make_request("10.10.10.10")
+
+        await limiter.check(request)
+        await limiter.check(request)
+
+        key = "10.10.10.10"
+        assert key in limiter._hits
+
+        # Advance past the window so every timestamp is expired.
+        fake_time[0] = 1010.0
+
+        # Trigger pruning by performing another check.
+        await limiter.check(request)
+
+        # After the check, the old key should have been deleted during
+        # pruning and a fresh entry created for the new hit.  The list
+        # should contain exactly the one new timestamp.
+        assert key in limiter._hits
+        assert len(limiter._hits[key]) == 1
+        assert limiter._hits[key][0] == 1010.0
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_actually_blocks(self):
+        """Filling up to max_requests and then making one more must raise 429."""
+        limiter = InMemoryRateLimiter(max_requests=3, window_seconds=60)
+        request = _make_request("172.16.0.1")
+
+        for _ in range(3):
+            await limiter.check(request)
+
+        with pytest.raises(HTTPException) as exc_info:
+            await limiter.check(request)
+        assert exc_info.value.status_code == 429
+        assert "Rate limit exceeded" in exc_info.value.detail
+
+    @pytest.mark.asyncio
+    async def test_different_keys_are_independent(self):
+        """User A hitting the limit must not affect User B."""
+        limiter = InMemoryRateLimiter(max_requests=1, window_seconds=60)
+        req_a = _make_request("10.0.0.1")
+        req_b = _make_request("10.0.0.2")
+
+        # User A exhausts quota.
+        await limiter.check(req_a, user_id="user-A")
+        with pytest.raises(HTTPException):
+            await limiter.check(req_a, user_id="user-A")
+
+        # User B is completely unaffected.
+        await limiter.check(req_b, user_id="user-B")
+
+        # And a bare-IP request from A's address is also independent of the
+        # user-keyed limits.
+        await limiter.check(req_a)

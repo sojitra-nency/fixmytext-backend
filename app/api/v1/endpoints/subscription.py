@@ -248,7 +248,9 @@ async def razorpay_webhook(request: Request, db: AsyncSession = Depends(get_db))
         raise HTTPException(400, "Invalid payload") from e
 
     event_type = event.get("event", "")
-    razorpay_event_id = (
+    # Prefer the authoritative Razorpay event ID; fall back to composite key
+    # for older webhook formats that may not include the top-level "id" field.
+    razorpay_event_id = event.get("id") or (
         event.get("account_id", "") + "_" + str(event.get("created_at", ""))
     )
     payment_entity = event.get("payload", {}).get("payment", {}).get("entity", {})

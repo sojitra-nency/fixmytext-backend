@@ -127,10 +127,14 @@ async def lifespan(app: FastAPI):
     logger.info("Migrations complete")
     init_groq_client()
     logger.info("Groq client initialized")
+    from app.core.redis import close_redis, init_redis
+
+    await init_redis()
     init_razorpay()
     logger.info("Razorpay client initialized — app ready")
     yield
     logger.info("Shutting down …")
+    await close_redis()
     await close_groq_client()
     await engine.dispose()
 
@@ -180,6 +184,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = (
             "camera=(), microphone=(), geolocation=()"
+        )
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'none'; frame-ancestors 'none'"
         )
         return response
 
