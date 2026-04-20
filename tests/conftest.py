@@ -18,7 +18,6 @@ from app.db.models import User
 from app.db.session import get_db
 from main import app
 
-
 # ── Autouse: reset shared rate limiter state between tests ───────────────────
 
 
@@ -30,6 +29,7 @@ def _reset_rate_limiters():
         if hits is not None:
             hits.clear()
     yield
+
 
 # ── User factory ─────────────────────────────────────────────────────────────
 
